@@ -311,10 +311,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .chk input{margin:0;width:16px;height:16px;accent-color:var(--c-spice)}
 .lsb .ctl{display:flex;flex-wrap:wrap;gap:var(--s-2) var(--s-4);align-items:center;margin:var(--s-3) 0}
 .lsb .ctl .lbl{font:600 var(--t-xs) var(--t-display);letter-spacing:.1em;text-transform:uppercase;color:var(--c-dim);margin-right:6px}
-.lsb .src{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid currentColor;border-radius:var(--r-1);font:600 11px/16px var(--t-display);letter-spacing:.06em;text-transform:uppercase;vertical-align:middle;white-space:nowrap;cursor:help}
-.lsb .src-save{color:var(--c-ok)}
-.lsb .src-derived{color:var(--c-sky)}
-.lsb .src-open{color:var(--c-warn);border-style:dashed}
 .lsb .st{display:inline-flex;align-items:center;gap:6px;padding:1px 9px 1px 7px;border:1px solid currentColor;border-radius:var(--r-2);font:600 var(--t-sm)/1.5 var(--t-display);white-space:nowrap}
 .lsb .st-done{color:var(--c-ok)}
 .lsb .st-part{color:var(--c-spice)}
@@ -432,7 +428,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .rows{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
 .lsb .rowhead,.lsb .sum{display:grid;grid-template-columns:9.5rem 13rem minmax(0,1fr) 11.5rem 9.5rem 1.6rem;gap:var(--s-2) var(--s-3);align-items:center;padding:8px 10px}
 .lsb .rowhead{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim);border-bottom:1px solid var(--c-rule)}
-.lsb .rowhead .src{margin-left:4px}
 .lsb .hc3{display:flex;flex-wrap:wrap;gap:4px 12px}
 .lsb .sortlbl{display:none}
 .lsb .sorth{display:inline-flex;align-items:center;gap:4px;min-height:var(--hit);padding:0 2px;border:0;border-bottom:2px solid transparent;background:none;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
@@ -632,7 +627,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .hc3{display:contents}
 .lsb .rowhead>.hend{display:none}
 .lsb .sortlbl{display:inline;font-weight:600}
-.lsb .rowhead .src{display:none}
 .lsb .sum{grid-template-columns:minmax(0,1fr) 1.6rem;grid-template-areas:"h v" "l l" "m m" "s s" "a a";gap:6px 8px;padding:12px 10px}
 .lsb .c-house{grid-area:h}
 .lsb .chev{grid-area:v}
@@ -671,7 +665,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .de:empty,.lsb .du:empty{display:none}
 .lsb .dec{list-style:none;margin:0;padding:0}
 .lsb .dec li{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) 6rem;gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
-.lsb .dec .dh>span .src{margin-left:4px}
 .lsb .dec .dh{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim);border-bottom:1px solid var(--c-rule)}
 @media (max-width:640px){
 .lsb .dec .dh{display:none}
@@ -721,7 +714,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .dp .dc{grid-area:d;min-width:0}
 .lsb .dp .tg{grid-area:t}
 .lsb .dp .mkc{grid-area:m;display:flex;align-items:center;gap:8px;min-width:0}
-.lsb .dp .mkc .src{display:none}
 .lsb .dp .mk{white-space:normal;text-align:left}
 .lsb .dp .mk-on{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;color:var(--c-ok);font:600 var(--t-sm) var(--t-display)}
 .lsb .dp .fgb{grid-area:f;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2) var(--s-4);padding-top:6px;border-top:1px dashed var(--c-hair)}
@@ -732,7 +724,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .dp .dh .mkc{display:none}
 }
 .lsb .dp .dh{font:600 var(--t-xs) var(--t-display);letter-spacing:.08em;text-transform:uppercase;color:var(--c-dim);border-bottom:1px solid var(--c-rule)}
-.lsb .dp .dh .src{margin-left:4px}
 .lsb .dp .fl{font-variant-numeric:tabular-nums}
 @media (max-width:640px){
 .lsb .dp .dh{display:none}
@@ -888,7 +879,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
   }
   /* the floor for the rest of the Landsraad tab (headings and labels 12 px, small print 11 px) while the board view is on */
   .lsb:has(#lsb-lcc) .d-head, .lsb:has(#lsb-lcc) summary, .lsb:has(#lsb-lcc) .abt, .lsb:has(#lsb-lcc) .abt p { font-size: 12px; }
-  .lsb:has(#lsb-lcc) .src { font-size: 11px; line-height: 17px; }
 }
 
 /* ==== Command Center board view: the question beside the buttons, and the bar of the chosen houses on a phone (display only) ====

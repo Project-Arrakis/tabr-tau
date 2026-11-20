@@ -15,9 +15,8 @@
   const btn = (cls, text, attrs) => el('button', cls, text, Object.assign({ type: 'button' }, attrs || {}));
   const NOT_IN_SAVE = 'Not in the save';
   const NEXT = 'Next term\'s decree'; // the decree elected during a term, which takes effect in the next term (#980)
-  const SRC = 'FROM THE SAVE';
   const TIERS_EARNED = () => (root.LCCM && root.LCCM.WORDS ? root.LCCM.WORDS.tiersEarned : 'tiers earned'); // the one pair of words, earned and collected, is in WORDS (lcc-model.js, #962)
-  const FLAG_TIP = 'The save\'s own disabled column, shown as stored. It does not say whether a decree is in effect.';
+  const FLAG_TIP = 'Whether the save lists the decree as disabled, shown as stored. It does not say whether a decree is in effect.';
 
   // The picture of a decree: from the fixed list of the helpers (matched to the decree's id, never to a name), or the neutral picture. The name and the effect are always text beside it, so a picture
   // that is missing loses nothing. A decree with no picture of its own says so in its tooltip.
@@ -29,7 +28,6 @@
     return img;
   }
   function badge(text, cls, title) { return el('span', 'lcc-tm-badge' + (cls ? ' ' + cls : ''), text, title ? { title } : undefined); }
-  const src = (title) => el('span', 'lcc-tm-src', SRC, { title: title || 'Read from the save' });
 
   // ---- the facts of the term ---------------------------------------------------------------------------------------------------------------------------------------------------
   function decreeFact(label, d, key, none) {
@@ -244,7 +242,6 @@
     t.appendChild(el('h3', 'lcc-tm-h', 'Term and Decrees', { id: 'lcc-tm-h', tabindex: '-1' }));
     if (vm.none) t.appendChild(el('p', 'lcc-tm-lead', 'This save has no Landsraad term, so there is no decree to show or change.')); // the intro line of a save that has a term is gone (#985): the Help tab says what this section is
     head.appendChild(t);
-    head.appendChild(src('Read from the save'));
     surf.appendChild(head);
     if (vm.none) { w.appendChild(surf); return w; }
     const all = el('details', 'lcc-tm-all', '', { id: 'lcc-tm-all' });

@@ -56,7 +56,7 @@ test('the board is 25 tiles in board order, numbered 01 to 25, each a button wit
     const b = c.querySelector('button.lcc-hc-select');
     assert.equal(b.getAttribute('type'), 'button');
     assert.match(b.getAttribute('aria-label'), /^Square \d\d, /);
-    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|Not won|Unreadable/);
+    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|No favor|Unreadable/);
   }
   assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), '● Harkonnen', 'position 01 is Vernius, taken by Harkonnen in the fixture');
   assert.equal(ui.doc.querySelector('.lcc-bd-tiles').getAttribute('role'), 'list');
@@ -143,9 +143,9 @@ test('a card shows five numbered tier boxes and the line N/5 EARNED with the col
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
   assert.equal(boxes.length, 5);
-  assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond, a tier not reached keeps its number');
+  assert.deepEqual(boxes.map((b) => text(b)), ['○', '○', '○', '4', '5'], 'a waiting reward is an empty ring (no gold, #1071), a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
-  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ◆ 3');
+  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ○ 3');
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Square 08, Wallach, favor won by Atreides, specialization Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
 });
 
@@ -157,11 +157,11 @@ test('the five tier boxes tell collected, waiting, delivery unknown and not reac
   const ui = await open(a);
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
-  assert.deepEqual(boxes.map((b) => text(b)), ['✓', '?', '◆', '4', '5']);
+  assert.deepEqual(boxes.map((b) => text(b)), ['✓', '?', '○', '4', '5']);
   assert.deepEqual(boxes.map((b) => ['delivered', 'uncertain', 'waiting'].find((c) => b.classList.contains(c)) || 'off'), ['delivered', 'uncertain', 'waiting', 'off', 'off']);
   assert.match(boxes[1].getAttribute('aria-label'), /no delivery record$|no delivery record\./);
   assert.doesNotMatch(boxes[1].getAttribute('aria-label'), /collected/);
-  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 1 ◆ 1 ? 1', 'the unknown one is counted on its own, in neither the collected nor the waiting figure');
+  assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 1 ○ 1 ? 1', 'the unknown one is counted on its own, in neither the collected nor the waiting figure');
   assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /1 with no delivery record/);
 });
 
@@ -182,7 +182,8 @@ test('each card carries the specialization emblem of its mapped path in the uppe
   const un = await open(a);
   const c = tileOf(un, 'Wallach');
   assert.equal(c.querySelector('.lcc-hc-spec'), null, 'no emblem when the save gives no path');
-  assert.equal(text(c.querySelector('.lcc-hc-track')), 'Specialization not in the save');
+  assert.equal(text(c.querySelector('.lcc-hc-track')), '—', 'a dash; the reason is the hover text (#1056)');
+  assert.equal(c.querySelector('.lcc-hc-track').getAttribute('title'), 'Specialization not in the save');
   assert.match(c.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /specialization not in the save/);
 });
 
@@ -360,7 +361,9 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
   assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
-  assert.match(text(b.querySelector('.lcc-bd-totals')), /Your rewards on this board: 26 of 120 tiers earned/);
+  assert.equal(b.querySelector('.lcc-bd-totals'), null, 'no standing line under the board (#1062)');
+  assert.equal(b.querySelector('.lcc-bd-foot'), null);
+  assert.match(b.querySelector('#lcc-bd-h').getAttribute('title'), /Your rewards on this board: 26 of 120 tiers earned/, 'the sentence is the hover text of the heading');
   assert.equal(text(b.querySelector('.lcc-bd-victory .lcc-bd-vlines')), 'Lines of five still possible: Atreides 4 · Harkonnen 0', 'the unblocked lines of the twelve, counted by the evaluator (M4), in the Imperial Victory Analysis (#935)');
 });
 
@@ -409,7 +412,7 @@ test('the card count reads N/5 EARNED with a tooltip, and no card or board count
     const said = (c.querySelector('.lcc-hc-select').getAttribute('aria-label') || '') + ' ' + [...c.querySelectorAll('.lcc-hc-count [title]')].map((x) => x.getAttribute('title')).join(' ');
     assert.doesNotMatch(said, /tiers? (is |are )?reached|reached with no delivery/, 'card screen-reader text and count tooltips');
   }
-  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-totals')), /reached/, 'the line under the board');
+  assert.doesNotMatch(ui.doc.querySelector('#lcc-bd-h').getAttribute('title'), /reached/, 'the hover text of the heading');
 });
 
 test('earned and collected are the one pair of words on the list, the inspector, the note and the hovers; only the state word Not reached stays (#962)', async () => {
@@ -475,4 +478,20 @@ test('#1059: list cells stay short: an em dash for a House with no place, "N of 
     const np = l.querySelector('.lcc-bd-nopic');
     if (np) { assert.deepEqual(css(np), ['· no map picture']); assert.match(np.getAttribute('title'), /no picture of/); }
   }
+});
+
+test('#1057: no source labels (FROM THE SAVE, SAVE, SAVE + DERIVED) on the board, the empty or opened Inspector and the Term section, and no table, field or save-number words in their tooltips', async () => {
+  const ui = await open();
+  const check = (what) => {
+    const root = ui.doc.querySelector('#lsb');
+    assert.equal(root.querySelectorAll('.lcc-bd-src, .lcc-bd-source, .lcc-tm-src, .lcc-badge').length, 0, what + ': no label chip');
+    assert.doesNotMatch(text(root), /FROM THE SAVE|SAVE [+] DERIVED|WORKED OUT HERE/, what + ': no source words');
+    const said = [...root.querySelectorAll('[title], [aria-label], .lcc-bd-sr')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.classList.contains('lcc-bd-sr') ? e.textContent : '')).join(' | ');
+    assert.doesNotMatch(said, /landsraad_|Read from the save|save number|identifier the save|winning_faction_id|board_index|player_contributions/, what + ': no table, field or save-number words in a tooltip');
+  };
+  check('the empty Inspector');
+  click(ui, tileOf(ui, 'Wallach').querySelector('button'));
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-sec-h'));
+  check('an opened Inspector');
+  for (const h of ui.doc.querySelectorAll('.lcc-bd-insp .lcc-bd-sec-h')) assert.equal(h.children.length, 0, 'a section heading is only its words: ' + text(h));
 });

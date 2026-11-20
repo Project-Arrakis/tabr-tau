@@ -180,8 +180,17 @@ test('#936: Not reached / Not collected / Collected on the cards, in the panel a
   const ui = await open();
   look(ui, a, 'Wallach');
   const i = ui.doc.querySelector('.lcc-bd-insp');
-  const states = [...i.querySelectorAll('.lcc-bd-tier-s')].map(text);
-  assert.ok(states.some((s) => s.endsWith('NOT COLLECTED')) && states.some((s) => s.endsWith('NOT REACHED')), states.join('|'));
+  // #1071: the ledger rows carry no visible state words and no gold: a collected tier has a check in a filled circle, an earned and not collected one an empty ring, a tier not reached no mark; the words stay for assistive technology
+  const states = [...i.querySelectorAll('.lcc-bd-tier-st')].map(text);
+  assert.ok(states.includes('Earned, not collected') && states.includes('Not reached'), states.join('|'));
+  assert.doesNotMatch(text(i.querySelector('.lcc-bd-tiers')), /NOT COLLECTED|NOT REACHED|COLLECTED/);
+  const mk = (cls) => [...i.querySelectorAll('.lcc-bd-tier-s.mk.' + cls)];
+  assert.ok(mk('waiting').length >= 1 && mk('waiting').every((m) => text(m) === '' && m.getAttribute('aria-hidden') === 'true'), 'an empty ring, hidden from a screen reader');
+  assert.ok([...i.querySelectorAll('.lcc-bd-tier.not_reached')].length >= 1 && [...i.querySelectorAll('.lcc-bd-tier.not_reached')].every((r) => !r.querySelector('.lcc-bd-tier-s')), 'a tier not reached has no mark');
+  const css = fs.readFileSync(new URL('../internal/web/static/lcc/lcc-board.css', import.meta.url), 'utf8').split(/\r?\n/);
+  const waitRules = css.filter((l) => /^\.lcc-bd-tier(-s)?(\.mk)?\.(waiting|not_reached)[ ,{]/.test(l));
+  assert.ok(waitRules.length >= 2);
+  assert.doesNotMatch(waitRules.join(' '), /gold|wait-(ink|edge|bg)/, 'no gold on the waiting state of a ledger row (#1071)');
   assert.deepEqual([...i.querySelectorAll('.lcc-bd-stat span')].map(text), ['Tiers earned', 'Collected'], 'two tiles: Not collected and Not reached are gone (#1046)');
   assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980); each tier row names its own state');
   const all = text(ui.doc.querySelector('#lsb')) + ' ' + [...ui.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');

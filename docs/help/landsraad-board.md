@@ -6,8 +6,8 @@ The board shows the 25 Houses of the current term, five rows of five, numbered 0
 
 - The number, the specialization emblem and the House crest.
 - The House name and its specialization.
-- Who won the favor: Atreides, Harkonnen, or not won.
-- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
+- Who won the favor: Atreides, Harkonnen, or No favor (nobody has won it; the screen-reader text says "favor not won").
+- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected once a tier is earned. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
 
 Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. In that panel, TOP CONTRIBUTORS lists the names of the biggest contributors to the House, the biggest first and numbered, with no amounts; a contributor the save gives no name for is left out. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
 
@@ -26,9 +26,11 @@ A tier with no delivery record is counted as neither collected nor not collected
 | Mark | Meaning |
 |---|---|
 | ✓ | Collected |
-| ◆ | Not collected (waiting at the House representative) |
-| ○ | Not reached |
+| ○ | Earned and not collected (waiting at the House representative): an empty ring |
+| the tier number | Not reached |
 | ? | No delivery record in the save |
+
+In the House Intelligence panel the ledger rows show the same three states without words: a collected tier has a teal edge on the left and a teal circle with a check at the right, an earned and not collected tier has only an empty ring, and a tier not reached is dimmed with no mark. A screen reader still hears the state of each row.
 
 ## Colours and outlines
 
@@ -61,6 +63,10 @@ The victory panel says whether a faction has won, by 13 Houses or by five in a l
 - A reward item that the editor's item list has no name for is called "Unlisted item". The game's internal item name is never shown as a name. In the list, a House with no place shows a dash, and the Tiers column shows for example "2 of 5" (earned tiers of five).
 - Five Houses stand in the two social hubs, which the Saved map shows with their own pictures: Mutelli, Varota and Wallach in Arrakeen, Alexin and Spinette in Harko Village. Their place opens the hub on the Saved map, centred on the House. The Harko Village frame was fitted by eye on the picture, so a pin there is right to about a room.
 
+## Where the figures come from
+
+Everything on the Landsraad pages is read from your save. A few figures are worked out by the editor from what the save holds: which reward tiers you have earned (your contribution reaches the amount of the tier), who has won the favor of a House and the Sysselraad, and the order of the biggest contributors (the save holds the amounts, not a ranking). Where the save holds nothing, the page shows 0 or a dash and never guesses. The pages carry no label that says so, since it is true of every figure.
+
 ## Technical notes
 
-For support: the board positions are read from the `board_index` column of `landsraad_tasks` in the save.
+For support: the board positions are read from the `board_index` column of `landsraad_tasks` in the save. The Houses, their tiers and the contributions come from `landsraad_tasks`, `landsraad_task_rewards` and the contribution rows of the same term; the term and the decrees from `landsraad_decree_term` and `landsraad_decrees`.

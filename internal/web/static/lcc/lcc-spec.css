@@ -127,6 +127,7 @@
 .lcc-sp-note[hidden] { display: none; }
 .lcc-sp-resetrow { position: relative; display: flex; gap: 8px; align-items: center; margin-top: 10px; }
 .lcc-sp-resetrow .lcc-sp-wide { width: auto; flex: 1 1 auto; margin-top: 0; }
+.lcc-sp-resetrow .lcc-sp-grid2 { flex: 1 1 auto; min-width: 0; margin-top: 0; }
 .lcc-sp-info { flex: 0 0 auto; display: inline-grid; place-items: center; width: 44px; height: 44px; margin: -6px 0; padding: 0; border: 0; background: none; color: var(--lcc-dim); cursor: help; }
 .lcc-sp-info-i { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--lcc-stroke); border-radius: 50%; font: italic 700 13px/1 var(--lcc-serif); }
 .lcc-sp-info:hover { color: var(--lcc-strong); }
@@ -146,7 +147,6 @@
 .lcc-sp-btn.is-danger { border-color: var(--lcc-red); color: var(--lcc-red-t); }
 .lcc-sp-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .lcc-sp-wide { width: 100%; margin-top: 10px; }
-.lcc-sp-scope { margin: 0 0 4px; font: 500 12px/1.5 var(--lcc-sans); color: var(--lcc-text); }
 
 /* ---- the Houses of the path ---- */
 .lcc-sp-houses { margin-top: 19px; padding: 20px 23px; }

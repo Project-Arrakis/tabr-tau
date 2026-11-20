@@ -122,7 +122,8 @@ test('#919: a contributor the save names no guild for is "Unnamed contributor", 
   assert.deepEqual(names, ['Unnamed contributor', 'House Of Fortune Hunters Incorporated']);
   assert.doesNotMatch(text(std), /\b73\b/, 'the save number is not drawn');
   const tip = std.querySelector('.lcc-standard-h').getAttribute('title');
-  assert.match(tip, /Unnamed contributor: the save gives no player or guild name for it \(save number 73\)\./);
+  assert.match(tip, /Unnamed contributor: the save gives no player or guild name for it\./);
+  assert.doesNotMatch(tip, /\b73\b|save number/, 'no save number in a tooltip (#1057)');
   assert.match(tip, /Top 2: 1\. Unnamed contributor; 2\. House Of Fortune Hunters Incorporated\./);
   assert.doesNotMatch(tip, /900/, 'the amount is not in the mouse-over (#1043)');
 });
@@ -136,7 +137,7 @@ test('#919: the House panel says a guild is shown by its identifier with capital
   click(ui, '[data-fk="ht:' + id + '"]');
   const p = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-contrib');
   assert.ok(p, 'the House has contributors');
-  assert.match(p.getAttribute('title'), /A guild is shown by the identifier the save gives it, with capital letters added here/);
+  assert.match(p.getAttribute('title'), /A guild is shown by the name the save gives it, with capital letters added/);
 });
 
 // ---- #921: the Choose boxes ignore the browser's saved form state ----------------------------------------------------------------------------------------------------------

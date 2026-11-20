@@ -55,13 +55,13 @@ test('taken with no tier record in the save: the card says so, not 0/5 and not a
   assert.match(c.querySelector('.lcc-hc-count b').getAttribute('title'), /no reward tiers/);
 });
 
-test('taken with tiers in the save but none of the character: the card shows what an open House shows, 0/5 EARNED and the check and diamond counts (#1022)', async () => {
+test('taken with tiers in the save but none of the character: the card shows what an open House shows, 0/5 EARNED and nothing under it (#1022, #1062)', async () => {
   const ui = await open(synthetic());
   assert.equal(count(ui, 'Vernius'), count(ui, 'Sor'), 'the same text as the open House Sor, which has nothing either');
-  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED ✓ 0 ◆ 0$/);
+  assert.match(count(ui, 'Vernius'), /^0\/5 EARNED$/);
   assert.doesNotMatch(count(ui, 'Vernius'), /Favor won|no contribution/i);
   assert.equal(tileOf(ui, 'Vernius').querySelector('.lcc-hc-count [data-taken]'), null);
-  assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 2, 'the collected and waiting counts');
+  assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-q').length, 0, 'no collected and not collected counts under 0/5 EARNED (#1062); they show once a tier is earned');
   assert.equal(tileOf(ui, 'Vernius').querySelectorAll('.lcc-hc-tiers .lcc-hc-t').length, 5, 'the five tiers of the ladder are still drawn, not reached');
   assert.match(tileOf(ui, 'Vernius').querySelector('.lcc-hc-owner').textContent, /Harkonnen/, 'the faction line stays');
   // still announced as won by the faction, with the plain earned count
@@ -81,6 +81,10 @@ test('taken with tiers and a contribution of the character, and an open House: u
   assert.match(count(ui, 'Sor'), /^0\/5 EARNED/, 'an open House with nothing keeps its count');
   assert.doesNotMatch(count(ui, 'Sor'), /Favor won/);
   assert.match(label(ui, 'Sor'), /favor not won, .*0 of 5 tiers earned/);
+  // #1070: an unclaimed card shows NO FAVOR (drawn in capitals) in the slot of the faction line; its words for a screen reader and the hover card stay 'favor not won'
+  assert.equal(text(tileOf(ui, 'Sor').querySelector('.lcc-hc-owner')), '○ No favor');
+  assert.doesNotMatch(tileOf(ui, 'Sor').textContent, /Not won/i);
+  assert.equal(tileOf(ui, 'Sor').querySelector('.lcc-hc-owner').getAttribute('data-g'), '○');
 });
 
 test('the list and the inspector say the same of a taken House with none of the character as of an open one (#1022)', async () => {
@@ -142,7 +146,8 @@ test('a taken House with no contributor row keeps "Not in the save" and says why
   assert.match([...ui.doc.querySelectorAll('.lcc-standard-h')].map((h) => h.getAttribute('title')).join(' | '), /holds no contribution rows under Atreides/);
   click(ui, tileOf(ui, 'Mutelli').querySelector('button'));
   const n = text(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave'));
-  assert.match(n, /^Top contributors: not in the save\. The favor of this House is won but the save holds no contributor row for it/);
+  assert.equal(n, '—', 'a dash under TOP CONTRIBUTORS, as the banner shows it (#1056)');
+  assert.match(ui.doc.querySelector('.lcc-bd-insp .lcc-bd-nosave').getAttribute('title'), /^Top contributors: not in the save\. The favor of this House is won but the save holds no contributor row for it/);
   assert.match(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-s1').getAttribute('title'), /Top contributors: Not in the save \(the save has no contributor row for this House, whose favor is won\)\. Missions: Not in the save\./);
   // an open House says no more than before
   click(ui, tileOf(ui, 'Sor').querySelector('button'));
