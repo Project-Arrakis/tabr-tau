@@ -332,7 +332,7 @@ test('Add XP takes whole numbers from 1 up: the label, the box, the minus key an
   assert.equal(inp.getAttribute('max'), '44182');
   assert.match(inp.getAttribute('aria-describedby'), /lcs-xperr/);
   const err = q(d, '#lcs-xperr');
-  assert.equal(txt(err), '', 'a fine number says nothing'); assert.equal(err.hidden, true, 'and takes no room');
+  assert.equal(txt(err), '', 'a fine number says nothing'); assert.equal(err.hidden, false, 'it stays in the page (a live region), and takes no room while empty by its style (#1039)');
   assert.equal(inp.getAttribute('aria-invalid'), 'false');
   const type = (v) => { inp.value = v; inp.dispatchEvent(new d.w.Event('input', { bubbles: true })); };
   for (const v of ['-5', '0', '', '-0', '1.5', '44183']) {

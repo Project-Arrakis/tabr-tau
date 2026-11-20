@@ -54,8 +54,8 @@ const SCENARIOS = {
   'Grant all keystones, asked then Yes': async (ui) => { ui.click('[data-act="spKeyAll"]'); await yes(ui); },
   'Reset all keystones, asked then Yes': async (ui) => { ui.click('[data-act="spKeyReset"]'); await yes(ui); },
   'Reset all keystones, asked then No': async (ui) => { ui.click('[data-act="spKeyReset"]'); await no(ui); },
-  'Reset XP of all known tracks, typed sentence': async (ui) => { ui.freeze(); ui.click('[data-act="spResetAll"]'); await ui.settle(); ui.type('reset 2 tracks'); seen(ui); ui.tick(GAP); ui.click('#aok'); },
-  'Reset XP of all known tracks, wrong sentence': async (ui) => { ui.freeze(); ui.click('[data-act="spResetAll"]'); await ui.settle(); ui.type('reset 5 tracks'); seen(ui); ui.tick(GAP); ui.click('#aok'); },
+  'Reset XP of all known tracks, typed sentence': async (ui) => { ui.freeze(); ui.click('[data-act="spResetAll"]'); await ui.settle(); ui.type('reset 2 specializations'); seen(ui); ui.tick(GAP); ui.click('#aok'); },
+  'Reset XP of all known tracks, wrong sentence': async (ui) => { ui.freeze(); ui.click('[data-act="spResetAll"]'); await ui.settle(); ui.type('reset 5 specializations'); seen(ui); ui.tick(GAP); ui.click('#aok'); },
   'Assign number 1 to Combat': async (ui) => { set(ui, '#spa1', 'Combat'); ui.click('[data-act="spAssign"][data-n="1"]'); },
   'Assign by hand, Combat 9': async (ui) => { set(ui, '#spmt', 'Combat'); set(ui, '#spmn', 9); ui.click('[data-act="spAssignHand"]'); },
   'Assign by hand with no number': async (ui) => { set(ui, '#spmt', 'Combat'); ui.click('[data-act="spAssignHand"]'); },
@@ -102,7 +102,7 @@ for (const name of Object.keys(SCENARIOS)) {
 // ---- what the Command Center view adds: a number the editor would refuse is stopped before it is sent ----
 const BAD = [['blank', ''], ['zero', '0'], ['a fraction', '1.5'], ['not a number', 'abc'], ['over the limit', '44183'], ['under the limit', '-44183'], ['a minus sign', '-1000'], ['minus one', '-1'], ['the negative limit', '-44182'], ['minus zero', '-0'], ['a negative exponent form', '-1e3'], ['an exponent past the limit', '1e5'], ['a fraction as an exponent', '1e-1']];
 for (const [what, v] of BAD) {
-  test('Command Center, Apply XP with ' + what + ': nothing is sent and the reason is shown', async () => {
+  test('Command Center, Add XP with ' + what + ': nothing is sent and the reason is shown', async () => {
     const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
     ui.click('[data-sub="player:specialization"]'); await ui.settle();
     ui.click('[data-lcs-lane="combat"]');
@@ -113,7 +113,7 @@ for (const [what, v] of BAD) {
     closeAll();
   });
 }
-test('Command Center, Apply XP at the two limits is sent as typed', async () => {
+test('Command Center, Add XP at the two limits is sent as typed', async () => {
   for (const v of ['44182', '1']) {
     const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
     ui.click('[data-sub="player:specialization"]'); await ui.settle();
@@ -128,7 +128,7 @@ test('Command Center, Apply XP at the two limits is sent as typed', async () => 
 // 1e3 and 1.0 are whole numbers: the classic list sends them (as 1000 and 1) and so does this view, the same request for the same typing (#899)
 for (const [typed, sent] of [['1e3', 1000], ['1.0', 1], ['2E2', 200]]) {
   for (const view of ['classic', 'cc']) {
-    test('Apply XP typed as ' + typed + ' is sent as ' + sent + ' in the ' + view + ' view', async () => {
+    test('Add XP typed as ' + typed + ' is sent as ' + sent + ' in the ' + view + ' view', async () => {
       const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': view } });
       ui.click('[data-sub="player:specialization"]'); await ui.settle();
       if (view === 'cc') ui.click('[data-lcs-lane="combat"]');

@@ -249,12 +249,14 @@
     if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The editor cannot match this specialization in this save, so XP editing is off.', { id: 'lcs-nonum' }));
     add(g1, el('label', 'lcc-sp-lbl', 'Add XP', { for: 'spx' + r.track }));
     const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: 1, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint lcs-xperr' + (why ? ' ' + why : ''), disabled: off });
-    inp.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'Subtract') e.preventDefault(); }); // no minus sign: XP is not removed here (#1032)
+    inp.addEventListener('keydown', (e) => { if ((e.key === '-' || e.key === 'Subtract') && !e.ctrlKey && !e.metaKey) e.preventDefault(); }); // no minus sign: XP is not removed here (#1032); Ctrl+minus and Cmd+minus are the browser's zoom and pass (#1039)
     const xt = tipOf('lcs-xphint', 'About the XP amount', 'Whole number from 1 to ' + fmt(vm.maxXp) + '; zero and negative numbers are not accepted (to take XP back, use Reset). The total stays at most ' + fmt(vm.maxXp) + '. The editor shows the XP before and after.');
-    add(g1, wireTip(add(el('div', 'lcc-sp-inline lcc-tt'), inp, btn('Apply XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') }), xt.mark, xt.tip)));
-    add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', off ? '' : amountProblem(String(inp.value), vm.maxXp), { id: 'lcs-xperr', 'aria-live': 'polite' }));
-    g1.lastChild.hidden = !g1.lastChild.textContent; // an empty note takes no room
-    inp.setAttribute('aria-invalid', g1.lastChild.hidden ? 'false' : 'true');
+    // The refusal is drawn above the box and its tip, never under them: the tip opens below the row while the box has focus and would cover a note placed there (#1039). The note is always in the page
+    // (a live region that is unhidden is often not announced) and takes no room while it is empty (lcc-sp-note-live:empty).
+    const errNote = el('p', 'lcc-sp-note lcc-sp-note-warn lcc-sp-note-live', off ? '' : amountProblem(String(inp.value), vm.maxXp), { id: 'lcs-xperr', 'aria-live': 'polite' });
+    add(g1, errNote);
+    add(g1, wireTip(add(el('div', 'lcc-sp-inline lcc-tt'), inp, btn('Add XP', 'is-primary', { 'data-act': 'spAddCC', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-xphint' + (why ? ' ' + why : '') }), xt.mark, xt.tip)));
+    inp.setAttribute('aria-invalid', errNote.textContent ? 'true' : 'false');
     // what the two buttons do is a hover or focus tip, no longer a standing line under them (#1062)
     const tk = tipOf('lcs-trkhint', 'About Grant LV 100 and Reset XP', 'Grant LV 100 sets this specialization to level 100 and its XP cap. Reset XP sets its XP and level back to 0. Neither changes any keystone.');
     add(g1, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), add(el('div', 'lcc-sp-grid2'),
@@ -354,7 +356,7 @@
         state.xp[t.id.slice(3)] = t.value;
         const bad = amountProblem(String(t.value), vm.maxXp); // the same refusal as the one on Apply, said where the number is typed
         const p = rootEl.querySelector('#lcs-xperr');
-        if (p) { p.textContent = bad; p.hidden = !bad; }
+        if (p) p.textContent = bad; // the note stays in the page, empty when the number is fine (#1039)
         t.setAttribute('aria-invalid', bad ? 'true' : 'false');
       }
     });

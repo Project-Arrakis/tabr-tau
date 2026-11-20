@@ -933,7 +933,7 @@ test('a view that fails to load shows why and a Try again button, and a signed-o
     assert.ok(ui.doc.querySelector('[data-act="retry"]'), 'a failed view offers Try again');
     baseFixtures['/api/landsraad'] = saved; // the problem is fixed
     ui.click('[data-act="retry"]'); await ui.settle();
-    assert.ok(!ui.doc.querySelector('[data-act="retry"]') && ui.doc.querySelector('#main').textContent.includes('Task board'), 'Try again draws the view');
+    assert.ok(!ui.doc.querySelector('[data-act="retry"]') && ui.doc.querySelector('#main').textContent.includes('Houses'), 'Try again draws the view');
   } finally {
     baseFixtures['/api/landsraad'] = saved;
     if (ui) ui.dom.window.close();
@@ -1358,7 +1358,7 @@ test('Specialization on a save with no track numbers says why the XP controls ar
   assert.ok(note, 'a note appears while no track has a number');
   assert.ok(note.textContent.includes('Earn a little XP') && note.textContent.includes('Advanced below') && note.textContent.includes('Keystones work now'), note.textContent); // shortened by the text sweep (#426): the longer explanation is in Advanced: track numbers > About this
   const add = ui.doc.querySelector('[data-act="spAdd"][data-t="Combat"]');
-  assert.ok(add.disabled && add.title.includes('not known yet'), 'a disabled button says why');
+  assert.ok(add.disabled && add.title.includes('cannot match this specialization yet'), 'a disabled button says why');
   assert.ok(!ui.doc.querySelector('[data-act="spKeyAll"]').disabled, 'keystones need no numbers');
   const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Advanced: set a raw row'));
   assert.ok(adv && !adv.open, 'the raw row is folded');

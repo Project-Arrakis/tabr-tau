@@ -59,7 +59,7 @@ test('both views offer the same operations of the editor, except the three the C
   closeAll();
   const cc = await open({ 'spec.view': 'cc' }, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
   const have = new Set([...cc.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act));
-  have.delete('spAddCC'); have.add('spAdd'); // the Command Center's Apply XP checks the number and then runs spAdd
+  have.delete('spAddCC'); have.add('spAdd'); // the Command Center's Add XP checks the number and then runs spAdd
   for (const a of want) if (!CLASSIC_ONLY.has(a)) assert.ok(have.has(a), a + ' is reachable in the Command Center view');
   for (const a of CLASSIC_ONLY) { assert.ok(want.has(a), a + ' is still in the classic list'); assert.equal(cc.doc.querySelector('[data-act="' + a + '"]'), null, a + ' is not drawn in the Command Center view'); }
   for (const a of ['spKeyAll', 'spKeyReset', 'spResetAll', 'spMax', 'spReset']) assert.ok(cc.doc.querySelector('[data-act="' + a + '"]'), a);
