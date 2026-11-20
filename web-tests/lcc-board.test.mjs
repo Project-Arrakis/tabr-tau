@@ -56,9 +56,9 @@ test('the board is 25 tiles in board order, numbered 01 to 25, each a button wit
     const b = c.querySelector('button.lcc-hc-select');
     assert.equal(b.getAttribute('type'), 'button');
     assert.match(b.getAttribute('aria-label'), /^Square \d\d, /);
-    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Atreides|Harkonnen|No favor|Unreadable/);
+    assert.match(c.querySelector('.lcc-hc-owner').textContent, /Pledged to Atreides|Pledged to Harkonnen|Undecided|Wavering|Favor unreadable/);
   }
-  assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), '● Harkonnen', 'position 01 is Vernius, taken by Harkonnen in the fixture');
+  assert.equal(text(tiles(ui)[0].querySelector('.lcc-hc-owner')), '● Pledged to Harkonnen', 'position 01 is Vernius, pledged to Harkonnen in the fixture');
   assert.equal(ui.doc.querySelector('.lcc-bd-tiles').getAttribute('role'), 'list');
   const ev = ui.doc.querySelector('.lcc-bd-tiles').getAttribute('aria-label');
   assert.match(ev, /five rows of five/);
@@ -146,7 +146,7 @@ test('a card shows five numbered tier boxes and the line N/5 EARNED with the col
   assert.deepEqual(boxes.map((b) => text(b)), ['○', '○', '○', '4', '5'], 'a waiting reward is an empty ring (no gold, #1071), a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
   assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED ✓ 0 ○ 3');
-  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Square 08, Wallach, favor won by Atreides, specialization Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
+  assert.match(w.querySelector('button.lcc-hc-select').getAttribute('aria-label'), /^Square 08, Wallach, pledged to Atreides, specialization Exploration, 3 of 5 tiers earned, 0 collected, 3 rewards not collected$/);
 });
 
 test('the five tier boxes tell collected, waiting, delivery unknown and not reached apart, and delivery unknown is never read as collected', async () => {
@@ -259,8 +259,8 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.equal(i.querySelector('.lcc-bd-status'), null, 'no sentence under the band: the approved design has none');
   assert.equal(text(i.querySelector('.lcc-bd-gopath')), 'Exploration Specialization', 'the specialization is one line, and it is the button that opens its track (#939)');
   assert.equal(i.querySelector('.lcc-bd-bloc'), null, 'no separate caption and no repeated words');
-  assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Favor won by Atreides \(completed, with a winner the save records\)\./);
-  assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Favor won by Atreides/, 'and the words stay for a screen reader');
+  assert.match(i.querySelector('.lcc-bd-control').getAttribute('title'), /^Pledged to Atreides \(completed, with a faction the save records\)\./);
+  assert.match(text(i.querySelector('.lcc-bd-banner .lcc-bd-sr')), /^Pledged to Atreides/, 'and the words stay for a screen reader');
   const bars = [...i.querySelectorAll('.lcc-bd-fc')].map((b) => [text(b.querySelector('.lcc-bd-fc-l')), text(b.querySelector('.lcc-bd-fc-v'))]);
   assert.deepEqual(bars, [['HOUSE ATREIDES', '4,000 / 4,000'], ['HOUSE HARKONNEN', '900 / 4,000']]);
   const s1 = i.querySelector('#lcc-bd-s1');
@@ -359,8 +359,8 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.deepEqual([...head.querySelectorAll('.lcc-bd-layout button')].map((x) => text(x)), ['Grid', 'List']);
   assert.ok(![...head.querySelectorAll('button')].some((x) => /Clear highlight|Strategy/.test(text(x))), 'no Clear highlight and no Sysselraad Strategy button (#958)');
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
-  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['ATREIDES FAVOR WON', 'HARKONNEN FAVOR WON', 'FAVOR NOT WON', 'WINNING HOUSES · SYSSELRAAD WON']);
-  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Not won', 'Favor won']);
+  assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['PLEDGED TO ATREIDES', 'PLEDGED TO HARKONNEN', 'UNDECIDED', 'WINNING HOUSES · SYSSELRAAD SECURED']);
+  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Undecided', 'Pledged']);
   assert.equal(b.querySelector('.lcc-bd-totals'), null, 'no standing line under the board (#1062)');
   assert.equal(b.querySelector('.lcc-bd-foot'), null);
   assert.match(b.querySelector('#lcc-bd-h').getAttribute('title'), /Your rewards on this board: 26 of 120 tiers earned/, 'the sentence is the hover text of the heading');

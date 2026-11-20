@@ -72,17 +72,17 @@ function synthLetters() { const a = synthetic(); const out = Array(25).fill('O')
 test('the table: the headline and the tally for each state', () => {
   const W = M.WIN;
   const row = (s) => { const d = W.decide(owners(s)); return [W.headline(d), W.tally(d)]; };
-  assert.deepEqual(row(ROW3_A), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN']);
-  assert.deepEqual(row(A13), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN']);
-  assert.deepEqual(row(A_BOTH), ['SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN']);
-  assert.deepEqual(row(H13), ['SYSSELRAAD WON · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN']);
+  assert.deepEqual(row(ROW3_A), ['SYSSELRAAD SECURED · ATREIDES', 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN']);
+  assert.deepEqual(row(A13), ['SYSSELRAAD SECURED · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN']);
+  assert.deepEqual(row(A_BOTH), ['SYSSELRAAD SECURED · ATREIDES', 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN']);
+  assert.deepEqual(row(H13), ['SYSSELRAAD SECURED · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN']);
   assert.deepEqual(row(synthLetters()), ['SYSSELRAAD CONTESTED', 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN']);
   assert.deepEqual(row(TIE), ['SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN']);
   assert.deepEqual(row(NOTHING), ['SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN']);
   assert.deepEqual(row(BOTH_LINES), ['SYSSELRAAD UNDECIDABLE', 'ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE']);
   assert.deepEqual(row(A_LINE_H_13), ['SYSSELRAAD UNDECIDABLE', 'ATREIDES BY FIVE IN A LINE · HARKONNEN BY 13 HOUSES · CANNOT BE DECIDED FROM THIS SAVE']);
   assert.deepEqual(row(UNREADABLE), ['SYSSELRAAD UNDECIDABLE', 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE']);
-  assert.deepEqual(row(UNREADABLE_LINE), ['SYSSELRAAD WON · HARKONNEN', 'HARKONNEN · BY FIVE IN A LINE · 5 TO 0 · 19 HOUSES OPEN']);
+  assert.deepEqual(row(UNREADABLE_LINE), ['SYSSELRAAD SECURED · HARKONNEN', 'HARKONNEN · BY FIVE IN A LINE · 5 TO 0 · 19 HOUSES OPEN']);
   assert.deepEqual([W.headline(W.decide(null)), W.tally(W.decide(null))], ['SYSSELRAAD UNDECIDABLE', 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE']);
   assert.equal(W.TEXT.facts, 'The save does not record the vote; the game works the winner out from the Houses.');
 });
@@ -108,15 +108,15 @@ const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelecto
 // each state: the phrase every surface must show. `panelTag`/`panelHead`: the panel.
 // panelHead: the title slot of the panel; panelFoot: the how-line of a won state (a state with no winner has none: the count is said once, in the headline, #1052)
 const STATES = [
-  { name: 'won by a line of five', answer: () => board(ROW3_A), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE', icon: 'a' },
-  { name: 'won by 13 Houses', answer: () => board(A13), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY 13 HOUSES', icon: 'a' },
-  { name: 'won by a line and by 13 Houses', answer: () => board(A_BOTH), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · ATREIDES', panelFoot: 'BY FIVE IN A LINE AND 13 HOUSES', icon: 'a' },
+  { name: 'won by a line of five', answer: () => board(ROW3_A), won: true, tag: 'SYSSELRAAD SECURED', head: 'SYSSELRAAD SECURED · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE · 5 TO 0 · 20 HOUSES OPEN', panelHead: 'SYSSELRAAD SECURED · ATREIDES', panelFoot: 'BY FIVE IN A LINE', icon: 'a' },
+  { name: 'won by 13 Houses', answer: () => board(A13), won: true, tag: 'SYSSELRAAD SECURED', head: 'SYSSELRAAD SECURED · ATREIDES', tally: 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN', panelHead: 'SYSSELRAAD SECURED · ATREIDES', panelFoot: 'BY 13 HOUSES', icon: 'a' },
+  { name: 'won by a line and by 13 Houses', answer: () => board(A_BOTH), won: true, tag: 'SYSSELRAAD SECURED', head: 'SYSSELRAAD SECURED · ATREIDES', tally: 'ATREIDES · BY FIVE IN A LINE AND 13 HOUSES · 13 TO 6 · 6 HOUSES OPEN', panelHead: 'SYSSELRAAD SECURED · ATREIDES', panelFoot: 'BY FIVE IN A LINE AND 13 HOUSES', icon: 'a' },
   { name: 'contested, a lead', answer: () => synthetic(), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN', panelHead: 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN' },
   { name: 'contested, a tie', answer: () => board(TIE), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN', panelHead: 'HOUSE COUNT EVEN AT 12 · 1 HOUSE OPEN' },
   { name: 'contested, nothing taken', answer: () => board(NOTHING), tag: 'SYSSELRAAD CONTESTED', head: 'SYSSELRAAD CONTESTED', tally: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN', panelHead: 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN' },
   { name: 'undecidable, both factions qualify', answer: () => board(BOTH_LINES), tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE', panelHead: 'ATREIDES BY FIVE IN A LINE · HARKONNEN BY FIVE IN A LINE · CANNOT BE DECIDED FROM THIS SAVE' },
   { name: 'unreadable owners, nobody qualifies', answer: () => board(UNREADABLE), tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE', panelHead: 'COUNT INCOMPLETE · 1 HOUSE UNREADABLE' },
-  { name: 'unreadable owners, a line elsewhere', answer: () => board(UNREADABLE_LINE), won: true, tag: 'SYSSELRAAD WON', head: 'SYSSELRAAD WON · HARKONNEN', tally: 'HARKONNEN · BY FIVE IN A LINE · 5 TO 0 · 19 HOUSES OPEN', panelHead: 'SYSSELRAAD WON · HARKONNEN', panelFoot: 'BY FIVE IN A LINE', icon: 'h' },
+  { name: 'unreadable owners, a line elsewhere', answer: () => board(UNREADABLE_LINE), won: true, tag: 'SYSSELRAAD SECURED', head: 'SYSSELRAAD SECURED · HARKONNEN', tally: 'HARKONNEN · BY FIVE IN A LINE · 5 TO 0 · 19 HOUSES OPEN', panelHead: 'SYSSELRAAD SECURED · HARKONNEN', panelFoot: 'BY FIVE IN A LINE', icon: 'h' },
   { name: 'a board that is not a board', answer: () => { const a = board(ROW3_A); a.tasks.pop(); return a; }, tag: 'SYSSELRAAD UNDECIDABLE', head: 'SYSSELRAAD UNDECIDABLE', tally: 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE', panelHead: 'HOUSE COUNT UNAVAILABLE · BOARD NOT COMPLETE' },
 ];
 
@@ -146,9 +146,9 @@ for (const st of STATES) {
     if (st.won) {
       const lead = doc.querySelector('.lcc-bd-cell .lcc-hc[data-victory] .lcc-hc-select');
       assert.ok(lead, 'a House of the win');
-      for (const attr of ['aria-label', 'data-says']) assert.match(lead.getAttribute(attr), /Sysselraad won by (Atreides|Harkonnen), by (five in a line|13 Houses|five in a line and 13 Houses)\. The save does not record the vote; the game works the winner out from the Houses\./, attr);
+      for (const attr of ['aria-label', 'data-says']) assert.match(lead.getAttribute(attr), /Sysselraad secured by (Atreides|Harkonnen), by (five in a line|13 Houses|five in a line and 13 Houses)\. The save does not record the vote; the game works the winner out from the Houses\./, attr);
     } else {
-      for (const c of doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-hc-select')) assert.doesNotMatch((c.getAttribute('aria-label') || '') + ' ' + (c.getAttribute('data-says') || c.getAttribute('title') || ''), /Sysselraad won/);
+      for (const c of doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-hc-select')) assert.doesNotMatch((c.getAttribute('aria-label') || '') + ' ' + (c.getAttribute('data-says') || c.getAttribute('title') || ''), /Sysselraad secured/);
     }
     // the plaque and the panel never disagree with the function the model exports
     const d = M.WIN.decide(owners([...(st.answer().tasks)].sort((x, y) => x.board_index - y.board_index).map((t) => (t.completed && t.winning_faction_id === 1 ? 'A' : t.completed && t.winning_faction_id === 2 ? 'H' : t.completed ? '?' : 'O')).join('')));
@@ -169,14 +169,14 @@ test('no surface builds a phrase of its own: the words of a win live in lcc-mode
   const here = path.join(lccDir, '..');
   const files = ['lcc/lcc.js', 'lcc/lcc-board.js', 'lcc/lcc-term.js', 'lcc/lcc-spec.js', 'app.js'].map((f) => [f, read(path.join(here, f))]);
   for (const [f, src] of files) {
-    for (const bad of ["'SYSSELRAAD WON", "'SYSSELRAAD CONTESTED", "'SYSSELRAAD UNDECIDABLE", "'LINE OF FIVE'", "'MAJORITY HOUSE'", 'MAJORITY AT 13', 'BY 13 HOUSES', "'FIVE IN A LINE'", 'CANNOT BE DECIDED']) {
+    for (const bad of ["'SYSSELRAAD SECURED", "'SYSSELRAAD CONTESTED", "'SYSSELRAAD UNDECIDABLE", "'LINE OF FIVE'", "'MAJORITY HOUSE'", 'MAJORITY AT 13', 'BY 13 HOUSES', "'FIVE IN A LINE'", 'CANNOT BE DECIDED']) {
       // the TERM STATUS figure of the figures row is removed in its own change (the figures row goes); it is the one place that still has its own words
       const lines = src.split('\n').map((l) => l.replace(/\/\/.*$/, '')).filter((l) => l.includes(bad) && !l.includes("item('TERM STATUS'"));
       assert.equal(lines.length, 0, f + ' builds its own phrase: ' + bad);
     }
   }
   const model = read(path.join(lccDir, 'lcc-model.js'));
-  for (const must of ['SYSSELRAAD WON', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE', 'The save does not record the vote; the game works the winner out from the Houses.']) assert.ok(model.includes(must), must);
+  for (const must of ['SYSSELRAAD SECURED', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE', 'The save does not record the vote; the game works the winner out from the Houses.']) assert.ok(model.includes(must), must);
 });
 
 // ---- the gold 13th seat (the centre orb) of the seat track: a ring and the travelling arc only for a win by 13 Houses ------------------------------------------------------------------------

@@ -65,7 +65,7 @@ test('the decree chosen during the term is labelled Next term\'s decree, "none y
   const row = ui.doc.querySelector('#lcc-term .lcc-tm-row[data-decree="2"]');
   assert.match(text(row.querySelector('.lcc-tm-tags')), /Next term's decree/);
   const none = await open((a) => { a.term.elected_decree_id = null; });
-  assert.equal(text(fact(none, 'elected').querySelector('.lcc-tm-v')), 'none yet');
+  assert.equal(text(fact(none, 'elected').querySelector('.lcc-tm-v')), 'Atreides have swayed the Landsraad; their decree is yet to be chosen'); // #1073: the term has a reigning faction and no decree chosen
 });
 
 test('the intro line, the NOT IN THE SAVE box, the scope line and the clock line are gone; a save with no term still says so', async () => {

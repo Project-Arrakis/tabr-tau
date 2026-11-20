@@ -44,8 +44,8 @@ function words(ui) {
   }
   return out.join(' | ');
 }
-// the words that must never appear: a won vote, a confirmed Dominion or a confirmed outcome (since 2026-11-18 the game's winner, worked out from the Houses, is said as SYSSELRAAD WON; the save still holds no vote)
-const BANNED = /vote (was )?won|dominion (is )?confirmed|victory confirmed|winner confirmed|secured/i;
+// the words that must never appear: a won vote, a confirmed Dominion or a confirmed outcome (since 2026-11-18 the game's winner, worked out from the Houses, is said as SYSSELRAAD SECURED; the save still holds no vote) -- "secured" was banned until #1073: the operator chose SYSSELRAAD SECURED as the wiki wording (2026-11-19)
+const BANNED = /vote (was )?won|dominion (is )?confirmed|victory confirmed|winner confirmed/i;
 const honest = (s) => s.replace(/is not confirmed/g, '').replace(/cannot be confirmed/g, '');
 const noConfirm = (s) => assert.doesNotMatch(honest(s), /confirmed/i, 'a result is called confirmed: ' + s.slice(0, 300));
 
@@ -76,15 +76,15 @@ test('one held row: its five Houses, and only those, have the win outline and no
     const c = cards(ui)[i];
     assert.equal(c.getAttribute('data-lines'), 'row2');
     assert.equal(c.querySelector('.lcc-flag, .lcc-flag-win, .lcc-hc-badge'), null, 'no text flag on a winning card: the outline carries the win');
-    assert.match(c.querySelector('.lcc-hc-select').getAttribute('aria-label'), /part of a line of five held by Atreides: row 3, Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\./);
-    assert.match(c.querySelector('.lcc-hc-select').getAttribute('data-says'), /Atreides hold this House in a line of five: row 3\. Sysselraad won by Atreides, by five in a line\. The save does not record the vote/);
+    assert.match(c.querySelector('.lcc-hc-select').getAttribute('aria-label'), /part of a line of five held by Atreides: row 3, Sysselraad secured by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\./);
+    assert.match(c.querySelector('.lcc-hc-select').getAttribute('data-says'), /Atreides hold this House in a line of five: row 3\. Sysselraad secured by Atreides, by five in a line\. The save does not record the vote/);
   }
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0);
   assert.equal(outlined(ui, 'win').length, 5, 'five Houses are not 13: only the line is outlined');
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'line');
   assert.equal(p.getAttribute('data-faction'), 'a');
-  assert.match(text(p), /SYSSELRAAD WON.*SYSSELRAAD WON · ATREIDES.*Sysselraad won by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\. Atreides hold five Houses in one line: row 3\./);
+  assert.match(text(p), /SYSSELRAAD SECURED.*SYSSELRAAD SECURED · ATREIDES.*Sysselraad secured by Atreides, by five in a line\. The save does not record the vote; the game works the winner out from the Houses\. Atreides hold five Houses in one line: row 3\./);
   assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY FIVE IN A LINE');
   assert.equal(p.querySelector('.lcc-bd-emblem').getAttribute('data-faction'), 'a', 'the winner\'s crest');
   assert.match(linesLeft(ui), /^Lines of five still possible: Atreides \d+ · Harkonnen \d+$/);
@@ -97,7 +97,7 @@ test('a held diagonal and a held column are outlined by their own positions, for
   let ui = await open(anti);
   assert.deepEqual(outlined(ui, 'win'), [4, 8, 12, 16, 20]);
   assert.equal(panel(ui).getAttribute('data-faction'), 'h');
-  assert.match(text(panel(ui)), /SYSSELRAAD WON · HARKONNEN.*Harkonnen hold five Houses in one line: opposite diagonal/);
+  assert.match(text(panel(ui)), /SYSSELRAAD SECURED · HARKONNEN.*Harkonnen hold five Houses in one line: opposite diagonal/);
   closeAll();
   ui = await open(board(letters(25, ...[2, 7, 12, 17, 22].map((i) => [i, 'A']))));
   assert.deepEqual(outlined(ui, 'win'), [2, 7, 12, 17, 22]);
@@ -111,12 +111,12 @@ test('13 Houses held: those Houses have the same win outline and flag as a line,
   assert.deepEqual(outlined(ui, 'win'), a);
   const p = panel(ui);
   assert.equal(p.getAttribute('data-state'), 'count');
-  assert.match(text(p), /SYSSELRAAD WON.*SYSSELRAAD WON · ATREIDES.*The save does not record the vote.*Atreides hold 13 of the 25 Houses\./);
+  assert.match(text(p), /SYSSELRAAD SECURED.*SYSSELRAAD SECURED · ATREIDES.*The save does not record the vote.*Atreides hold 13 of the 25 Houses\./);
   assert.equal(text(p.querySelector('.lcc-bd-vcount')), 'BY 13 HOUSES');
   assert.doesNotMatch(text(p), /Dominion|DOMINION|not verified|not a vote result/);
-  for (const i of a) assert.match(cards(ui)[i].querySelector('.lcc-hc-select').getAttribute('data-says'), /One of the Atreides Houses, who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\./);
+  for (const i of a) assert.match(cards(ui)[i].querySelector('.lcc-hc-select').getAttribute('data-says'), /One of the Atreides Houses, who hold 13 or more Houses\. Sysselraad secured by Atreides, by 13 Houses\./);
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc .lcc-flag').length, 0, 'the Houses of a 13-House win have the outline and no flag either');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /WINNING HOUSES · SYSSELRAAD WON/);
+  assert.match(text(ui.doc.querySelector('.lcc-bd-headlines')), /WINNING HOUSES · SYSSELRAAD SECURED/);
   assert.doesNotMatch(honest(words(ui)), BANNED);
   noConfirm(words(ui));
 });

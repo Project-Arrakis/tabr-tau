@@ -26,9 +26,9 @@ test('the issue example: Atreides hold a line, Harkonnen hold four Houses of a l
   assert.equal(r.win.winner, 'a');
   assert.equal(r.win.conflictPossible, true);
   assert.equal(M.WIN.maybeNote(r.win), '1 House could not be read, so Harkonnen may also qualify, so this may not be final.');
-  assert.match(M.WIN.say(r.win), /Sysselraad won by Atreides, by five in a line\..*1 House could not be read, so Harkonnen may also qualify/);
+  assert.match(M.WIN.say(r.win), /Sysselraad secured by Atreides, by five in a line\..*1 House could not be read, so Harkonnen may also qualify/);
   assert.equal(M.WIN.tally(r.win), 'ATREIDES · BY FIVE IN A LINE · 5 TO 4 · 15 HOUSES OPEN · MAY NOT BE FINAL');
-  assert.equal(M.WIN.headline(r.win), 'SYSSELRAAD WON · ATREIDES', 'the headline wording decisions are unchanged');
+  assert.equal(M.WIN.headline(r.win), 'SYSSELRAAD SECURED · ATREIDES', 'the headline wording decisions are unchanged');
   assert.equal(Object.prototype.hasOwnProperty.call(r, 'winner'), false, 'the evaluator has no field called winner any more');
 });
 

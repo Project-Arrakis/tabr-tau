@@ -4,7 +4,7 @@ This is the Help of the editor. The same pages are inside the program (the Help 
 
 | Page | What it explains |
 |---|---|
-| [The Landsraad board](landsraad-board.md) | What the cards, colours and marks mean; favor won, earned and collected |
+| [The Landsraad board](landsraad-board.md) | What the cards, colours and marks mean; pledged, earned and collected |
 | [Fill, Complete and tiers](fill-and-tiers.md) | What each button writes, what a tier click pays, how to go back |
 | [Term and Decrees](term-and-decrees.md) | The term clock, the active decree, the next term's decree, the pool |
 | [Specializations](specializations.md) | The five paths, XP and keystones |

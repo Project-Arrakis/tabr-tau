@@ -55,7 +55,7 @@ test('the keyframes are the feature\'s own, and one-shot: nothing loops', () => 
   assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-pulse', 'lcc-win-pulse-card', 'lcc-win-sweep']); // lcc-win-pulse-card: the same pulse with a reach that stays inside the gap between the cards of the board (#895)
   // the exceptions to one-shot are the optional animated border of a winning House (lcc-win-sweep: on the House, and on the centre seat of a win by 13 Houses) and the slow glow of a winning House
   // (lcc-win-pulse; on the House and, since #988, on a Specializations lane at level 100): each loops and sits in the no-preference block under Motion Full
-  assert.equal((bare.match(/infinite/g) || []).length, 6); // the fifth is the pulse of the SYSSELRAAD WON tag of the victory panel (#978), the sixth the board card's own pulse (#895)
+  assert.equal((bare.match(/infinite/g) || []).length, 6); // the fifth is the pulse of the SYSSELRAAD SECURED tag of the victory panel (#978), the sixth the board card's own pulse (#895)
   assert.match(bare, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^]*html\[data-motion="full"\][^]*animation: lcc-win-sweep 9s linear infinite/);
   for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim()) && !/^lcc-win-pulse /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
 });
@@ -209,6 +209,7 @@ test('the cards of a row line up: the footer is two lines tall, the counts stand
   assert.match(bare, /\.lcc-hc-count \.lcc-hc-q \{ white-space: nowrap; \}/);
   assert.match(bare, /\.lcc-hc-count > b:only-child \{[^}]*text-transform: uppercase/);
   assert.match(bare, /\.lcc-hc-owner \{[^}]*white-space: nowrap/, 'the bullet and the faction name do not part');
+  for (const m of bare.matchAll(/\.lcc-hc-owner \{([^}]*)\}/g)) assert.doesNotMatch(m[1], /text-transform:\s*uppercase/, 'PLEDGED TO HARKONNEN in capitals does not fit a card (#1073)');
 });
 
 // at-rules that need container queries or :has() sit inside a guard, so a browser without them shows the plain page and no rule applies halfway

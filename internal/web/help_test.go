@@ -118,7 +118,7 @@ func TestHelpHoldsWhatTheBoardNoLongerSays(t *testing.T) {
 		all += "\n" + p.Body
 	}
 	for _, s := range []string{
-		"three separate states", "How each click is written", "Favor won", "Earned is not collected", "Not checked in the game",
+		"three separate states", "How each click is written", "Pledged, earned, collected", "Earned is not collected", "Not checked in the game",
 		"Next term's decree", "Ends in", "counts down only while the game is running", "the plaque above only shows what these hold",
 		"Active Landsraad missions are not recorded", "A ranking of contributors is not recorded", "Reopen", "Going back",
 	} {

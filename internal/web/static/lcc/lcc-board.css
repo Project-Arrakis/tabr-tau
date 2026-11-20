@@ -134,7 +134,7 @@
 .lcc-hc-name { color: var(--lcc-name); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 clamp(9px, .8cqw, 12px)/1.2 var(--lcc-serif); letter-spacing: .05em; text-transform: uppercase; }
 .lcc-hc-track { font: 700 9px/1.3 var(--lcc-sans); letter-spacing: .025em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-hc-track-unk { font-size: 8px; font-style: italic; font-weight: 600; letter-spacing: 0; text-transform: none; text-align: center; }
-.lcc-hc-owner { margin-top: auto; font: 700 8px/1.3 var(--lcc-sans); letter-spacing: .07em; color: var(--lcc-dim); white-space: nowrap; text-transform: uppercase; }
+.lcc-hc-owner { margin-top: auto; font: 700 8px/1.3 var(--lcc-sans); letter-spacing: .07em; color: var(--lcc-dim); white-space: nowrap; }
 .lcc-hc-a .lcc-hc-owner { color: var(--lcc-teal-t); }
 .lcc-hc-h .lcc-hc-owner { color: var(--lcc-red-t); }
 /* the five tier boxes and the line under them */
@@ -396,6 +396,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc-top { font-size: 11px; min-height: 30px; }
 .lcc-hc-name { font: 700 12px/1.2 var(--lcc-serif); letter-spacing: .02em; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: center; text-wrap: balance; max-width: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; }
 .lcc-hc-track, .lcc-hc-track-unk { font-size: 11px; line-height: 1.25; text-align: center; letter-spacing: .02em; }
+/* in capitals "PLEDGED TO HARKONNEN" is wider than a card (#1073): the owner line is in the case of the words */
 .lcc-hc-owner { font-size: 12px; letter-spacing: .03em; white-space: nowrap; text-align: center; }
 .lcc-hc-owner[data-g="?"] { white-space: normal; overflow-wrap: anywhere; }
 .lcc-hc-select:focus-visible { outline-offset: -2px; }

@@ -329,7 +329,7 @@
   // Imperial Dominion (the count at the start of the Voting Session) is a different thing: the save cannot show it, so it is never confirmed, and the Command Center no longer says the word.
   const FACTION_NAME = Object.freeze({ a: 'Atreides', h: 'Harkonnen' });
   const WIN_TEXT = Object.freeze({
-    won: 'SYSSELRAAD WON', contested: 'SYSSELRAAD CONTESTED', undecidable: 'SYSSELRAAD UNDECIDABLE',
+    won: 'SYSSELRAAD SECURED', contested: 'SYSSELRAAD CONTESTED', undecidable: 'SYSSELRAAD UNDECIDABLE',
     byLine: 'five in a line', byHouses: '13 Houses', and: ' and ',
     facts: 'The save does not record the vote; the game works the winner out from the Houses.',
     rule: 'A faction wins with a line of five or with 13 or more Houses.',
@@ -381,7 +381,7 @@
     return k ? { state: 'won', winner: k, routes: ['houses'], reason: WIN_TEXT.byHouses, counts, lines: [], why: '', qualifiers: [{ faction: k, routes: ['houses'], reason: WIN_TEXT.byHouses }], conflictPossible: false } : { state: 'contested', winner: null, routes: [], reason: '', counts, lines: [], why: '', qualifiers: [], conflictPossible: false };
   }
   const up = (s) => String(s).toUpperCase();
-  // headline: 'SYSSELRAAD WON · HARKONNEN', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE'
+  // headline: 'SYSSELRAAD SECURED · HARKONNEN', 'SYSSELRAAD CONTESTED', 'SYSSELRAAD UNDECIDABLE'
   function headline(d) { return d.state === 'won' ? WIN_TEXT.won + ' · ' + up(FACTION_NAME[d.winner]) : d.state === 'contested' ? WIN_TEXT.contested : WIN_TEXT.undecidable; }
   // how: 'BY 13 HOUSES', 'BY FIVE IN A LINE' (a won state only; empty otherwise). who: the faction and how, 'HARKONNEN · BY 13 HOUSES'
   function how(d) { return d.state === 'won' ? 'BY ' + up(d.reason) : ''; }
@@ -411,7 +411,7 @@
   }
   // say: one sentence for a screen reader and a tooltip
   function say(d) {
-    if (d.state === 'won') return 'Sysselraad won by ' + FACTION_NAME[d.winner] + ', by ' + d.reason + '. ' + WIN_TEXT.facts + (d.conflictPossible ? ' ' + maybeNote(d) : '');
+    if (d.state === 'won') return 'Sysselraad secured by ' + FACTION_NAME[d.winner] + ', by ' + d.reason + '. ' + WIN_TEXT.facts + (d.conflictPossible ? ' ' + maybeNote(d) : '');
     if (d.state === 'contested') return 'Sysselraad contested: no faction holds a line of five or 13 Houses.';
     if (d.why === 'both') return 'Sysselraad undecidable: ' + WIN_TEXT.bothWhy.toLowerCase() + '.';
     if (d.why === 'unreadable') return 'Sysselraad undecidable: ' + d.counts.unknown + (d.counts.unknown === 1 ? ' House' : ' Houses') + ' could not be read.';
@@ -419,15 +419,15 @@
   }
   const WIN = Object.freeze({ TEXT: WIN_TEXT, decide, decideCounts, headline, how, who, tally, standing, say, maybeNote, factionName: FACTION_NAME });
 
-  // ---- the words for who won a House's favor, a House's square and its specialization (the operator's decisions of 2026-11-18, #952) ----------------------------------------------------
-  // A faction does not own or claim a House: it wins the House's favor. The board says "favor won", never "owner", "claimed" or "taken", and calls the House's place on the 5 by 5 its square and
+  // ---- the words for which faction a House is pledged to, a House's square and its specialization (the operator's decisions of 2026-11-18, #952, and of 2026-11-19, #1073) -------------------
+  // A faction does not own, claim or win a House: the House is pledged to a faction. The board says "Pledged to Atreides", "Undecided" or "Wavering", never "won", "owner", "claimed" or "taken", and calls the House's place on the 5 by 5 its square and
   // its track its specialization (never "No." or "path"). These words are written here once; the list, the cards, the inspector, the filters and the screen-reader text take them from WORDS.
   // Data attributes and request fields keep their old names (data-owner, data-taken, "taken"): only the text a person reads changes.
   const WORDS = Object.freeze({
-    wonBy: 'Favor won by', // the list column header
-    favorWon: 'Favor won', favorNotWon: 'Favor not won', favorUnreadable: 'Favor unreadable',
-    notWon: 'Not won', unreadable: 'Unreadable', // the cell of the list
-    noFavor: 'No favor', // the line of an unclaimed House card: the same slot as the faction line of a won card (#1070); the list, the filter and the Inspector keep Not won / Favor not won
+    pledgeBy: 'Pledged to', // the list column header (#1073)
+    pledged: 'Pledged', pledgedTo: 'Pledged to', // a House a faction has claimed: "Pledged to Atreides"
+    undecided: 'Undecided', wavering: 'Wavering', // a House no faction has claimed: Wavering when both factions have progress on it, else Undecided; the row keeps its slot and size on every card
+    favorUnreadable: 'Favor unreadable', unreadable: 'Unreadable', // a House the save cannot settle
     square: 'Square', specialization: 'Specialization', bySpecialization: 'By specialization', noSpecialization: 'No specialization',
     // The reward tiers of the character: a tier is earned (the contribution reaches its threshold) and then collected (the reward is taken at the house representative); #962. "Not reached" is the state word
     // of a tier that is not earned yet and stays as it is (it changes Classic too: an open question). Classic keeps its own words.
@@ -437,7 +437,18 @@
 
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
-  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', WORDS.notWon], ['taken', WORDS.favorWon]]);
+  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', WORDS.undecided], ['taken', WORDS.pledged]]);
+  // pledgeOf(h): the state of a House in words, for every surface (the card, the list, the Inspector, the key, the hovers and the screen-reader text): { kind, word, line }.
+  //   claimed by a faction (completed, with a winner the Landsraad has)   kind 'a' or 'h'   word 'Atreides'       line 'Pledged to Atreides'
+  //   not claimed, and both factions have progress on it                  kind 'wavering'   word 'Wavering'       line 'Wavering'
+  //   not claimed, any other case (the save holds the progress of each faction, so it can tell the two)   kind 'undecided'   word 'Undecided'   line 'Undecided'
+  //   a House the save cannot settle                                       kind 'unknown'    word 'Unreadable'     line 'Favor unreadable'
+  function pledgeOf(h) {
+    const o = h && h.owner;
+    if (o === 'a' || o === 'h') return { kind: o, word: FACTION_NAME[o], line: WORDS.pledgedTo + ' ' + FACTION_NAME[o] };
+    if (o === 'open') return (h.prog && h.prog.a > 0 && h.prog.h > 0) ? { kind: 'wavering', word: WORDS.wavering, line: WORDS.wavering } : { kind: 'undecided', word: WORDS.undecided, line: WORDS.undecided };
+    return { kind: 'unknown', word: WORDS.unreadable, line: WORDS.favorUnreadable };
+  }
   const showMatch = (h, k) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k);
   const houseMatch = (h, k) => (k === 'any' ? true : (k === 'taken') === h.taken);
   const trackMatch = (h, k) => (k === 'all' || k === '' ? true : h.track === k);
@@ -474,7 +485,7 @@
     });
   }
 
-  const api = { WORDS, SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
+  const api = { WORDS, pledgeOf, SIZE, COLS, MAJORITY, LINES, TRACKS, KNOWN_STATES, TIER_WORD, SHOWS, HOUSE_FILTERS, SORTS, position, positions, checkTasks, readFactions, readBoard, lineStatus, evaluateOwners, evaluate, WIN, matches, sortKey, sortHouses, groupOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCM = api;
 })(typeof window !== 'undefined' ? window : globalThis);

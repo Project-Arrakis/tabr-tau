@@ -251,7 +251,7 @@ test('#978: the WON tag takes the one win outline of lcc.css (solid, with the gl
 });
 
 test('#978: the tag keeps its words, and only the won states carry the outline', async () => {
-  for (const [state, tagText] of [['line', 'SYSSELRAAD WON'], ['count', 'SYSSELRAAD WON'], ['contested', 'SYSSELRAAD CONTESTED']]) {
+  for (const [state, tagText] of [['line', 'SYSSELRAAD SECURED'], ['count', 'SYSSELRAAD SECURED'], ['contested', 'SYSSELRAAD CONTESTED']]) {
     const a = answer();
     // a board in each state: a held row of five Atreides Houses (line), 13 Atreides Houses spread out (count), and the synthetic one (contested)
     const tasks = [...a.tasks].sort((x, y) => x.board_index - y.board_index);

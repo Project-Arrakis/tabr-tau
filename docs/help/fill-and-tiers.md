@@ -6,11 +6,11 @@
 - **Set tier and Apply tier** do the same as clicking the box of that tier.
 - **Fill** raises your own contribution to the top tier (it is never lowered) and writes what the missions that reach it pay.
 - **Fill faction goal** does Fill and also takes your faction to its goal in one click.
-- **Complete House** records the favor of the House as won by the chosen faction and sets that faction's progress to the House goal.
-- **Reopen** clears the completion and the faction that holds the House's favor. Progress and contribution stay as they are, so it does not fully undo a Complete: the progress that Complete raised stays, and a House another faction won is left open, not given back.
+- **Complete House** pledges the House to the chosen faction and sets that faction's progress to the House goal.
+- **Reopen** clears the completion and the faction that holds the House's favor. Progress and contribution stay as they are, so it does not fully undo a Complete: the progress that Complete raised stays, and a House that another faction had claimed is left undecided, not given back.
 - **Choose** boxes pick Houses for **Fill chosen**, **Complete chosen**, **Complete and fill chosen**, **Reopen chosen** and **Unfill chosen**. Several Houses are one edit: either every House changes or none.
 - **Complete and fill chosen** completes the chosen Houses for the chosen faction and fills your own contribution to the top tier, in one write with one backup and one result line. It pays the missions like Fill does, so the question names them. It is off, with the reason shown, while a faction other than your own is chosen: your contribution counts for your own faction, and **Complete chosen** is the button for another faction.
-- **Unfill chosen** sets your own contribution to 0 on each chosen House, so its tiers go back to 0 of 5. It never changes whether a House is taken: a House that is won stays won. It takes back the waiting rewards of the removed tiers by the rule below, and the question names how many it takes back and how many collected rewards stay. It always asks first. It is off, with the reason shown, while another faction is chosen. **Reopen** and **Unfill** are the way back from Complete and fill.
+- **Unfill chosen** sets your own contribution to 0 on each chosen House, so its tiers go back to 0 of 5. It never changes whether a House is taken: a pledged House stays pledged. It takes back the waiting rewards of the removed tiers by the rule below, and the question names how many it takes back and how many collected rewards stay. It always asks first. It is off, with the reason shown, while another faction is chosen. **Reopen** and **Unfill** are the way back from Complete and fill.
 - **Faction for Fill and Complete** starts on your own faction (the box says so: "(your faction)"). Choosing a faction writes nothing. While another faction is chosen, Fill, Complete and fill, Unfill and the tier boxes do nothing, because your contribution counts for your own faction.
 
 ## How each click is written
@@ -27,7 +27,7 @@
 In one edit:
 
 - Your contribution, raised to the tier.
-- The same ground added to your faction's progress while the House is open. The House is won when the progress reaches the goal.
+- The same ground added to your faction's progress while the House is open. The House is pledged to the faction when the progress reaches the goal.
 - One reward for each tier crossed, waiting at the House representative.
 - For each mission, what a mission with a Recollection turned in pays: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization of the House. Whether a mission without a Recollection pays the House Scrip and the XP is not known.
 
@@ -39,7 +39,7 @@ A mission is 1,000 contribution times the setting `LandsraadContributionMultipli
 
 - Your character's own XP and your faction standing.
 - No progress event. The editor leaves the game's progress cursor where it is. Whether the game keeps a contribution raised here at its next step is not checked in the game.
-- Removing a tier does not take back the Solari, House Scrip and XP that its missions paid, and it never touches the progress of your faction or the House's win. Raising the tier again does not pay them a second time either.
+- Removing a tier does not take back the Solari, House Scrip and XP that its missions paid, and it never touches the progress of your faction or which faction the House is pledged to. Raising the tier again does not pay them a second time either.
 
 ## What removing a tier takes back
 
@@ -47,7 +47,7 @@ Removing a tier lowers your contribution and takes back the reward of each remov
 
 - A reward you **already collected** stays. The result says how many.
 - A waiting reward is taken back only when the editor's own record says the editor paid that tier and the editor can tie the reward to the removed tier with certainty. It stays, and the result says so, when the same item is also the reward of a tier that stays, when less waits than the tier paid, when the waiting reward was written in an earlier term, or when the editor has no record of paying that tier (for example a reward the game wrote, or one an older version of the editor wrote). The editor remembers where it started paying on a House: a tier at or below that ground may hold a reward the game wrote there, so it stays, and a record kept by an older version of the editor does not say where it started, so every waiting reward stays until the next term. An older version of the editor does not know the ceiling and the starting ground the newer one adds to its record, and drops them when it next writes it: after using an older version, raising a removed tier can pay its missions once more. A waiting reward that your own missions in the game cover stays too, and the result counts it apart. A tier with nothing waiting is not counted at all. The result counts rewards, not tiers: two tiers that give the same item are one reward.
-- The House swatch (the reward of the top tier) is taken back only when the editor's own record says the editor wrote it. Taking it back also removes your one-time swatch row of this term, so the swatch can be won again.
+- The House swatch (the reward of the top tier) is taken back only when the editor's own record says the editor wrote it. Taking it back also removes your one-time swatch row of this term, so the swatch can be obtained again.
 - Only your own rows for that House are looked at. Other Houses, other players and the rest of the save are not touched, and a backup is made first.
 - A reward that is not collected and is not tied to a removed tier (for example one left by an earlier removal) is not touched.
 

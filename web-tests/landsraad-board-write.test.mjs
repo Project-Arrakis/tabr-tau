@@ -317,7 +317,7 @@ test('after a write the row is drawn from the saved data, and the focus stays on
   assert.equal(text(quick(ui, 'Thorvald', 'qa-cr')), 'Complete');
   click(ui, quick(ui, 'Thorvald', 'qa-cr')); await ui.settle();
   assert.equal(text(quick(ui, 'Thorvald', 'qa-cr')), 'Reopen', 'the row shows what the save holds now');
-  assert.ok(text(by(ui, 'Thorvald').querySelector('.c-hs')).includes('Taken · Atreides (your faction)'));
+  assert.ok(text(by(ui, 'Thorvald').querySelector('.c-hs')).includes('Pledged to Atreides (your faction)'));
   assert.equal(ui.doc.activeElement.dataset.fk, 'qc:901', 'the focus is on the same place, now the Reopen button');
 });
 

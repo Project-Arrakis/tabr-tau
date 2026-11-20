@@ -571,11 +571,11 @@
   }
 
   // ---- House card ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  const OWNER = { a: 'Atreides', h: 'Harkonnen', get open() { return WORDS().notWon; }, get unknown() { return WORDS().unreadable; } }; // the words of favor come from lcc-model.js (#952)
+  const OWNER = { a: 'Atreides', h: 'Harkonnen', get open() { return WORDS().undecided; }, get unknown() { return WORDS().unreadable; } }; // the words of the House state come from lcc-model.js (#952, #1073)
   const OWNER_GLYPH = Object.freeze({ a: 'A', h: 'H', open: '○', unknown: '?' });
   const TRACK_LABEL = Object.freeze({ combat: 'Combat', crafting: 'Crafting', exploration: 'Exploration', gathering: 'Gathering', sabotage: 'Sabotage' });
   const houseTitle = (name) => String(name == null ? '' : name).replace(/^DA_House/i, '').replace(/^./, (c) => c.toUpperCase());
-  // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', track, selected, oneAway, inLine (a House of a held line: the data-line mark), win (the House makes up a win), waiting }. A button: the whole card is the target.
+  // renderHouseCard(vm): vm = { name, owner: 'a'|'h'|'open'|'unknown', wavering (an open House that both factions have progress on), track, selected, oneAway, inLine (a House of a held line: the data-line mark), win (the House makes up a win), waiting }. A button: the whole card is the target.
   // The live board (M3) adds four optional fields, all off when absent: number (the tile number 01 to 25, a board position), meter ({ reached, total }: the tiers of the character's own
   // contribution), dim (the filters leave this House out: it stays on the board and says so) and compact (the five-by-five tile: the crest over the name, drawn small).
   const pipText = (m) => (m && Number.isInteger(m.total) && m.total > 0 && Number.isInteger(m.reached) && m.reached >= 0 && m.reached <= m.total ? m : null);
@@ -596,7 +596,7 @@
     b.appendChild(crest);
     const body = el('span', 'lcc-house-body');
     body.appendChild(el('span', 'lcc-house-name', title));
-    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, owner === 'a' || owner === 'h' ? OWNER[owner] : OWNER_GLYPH[owner] + ' ' + OWNER[owner], { 'data-g': OWNER_GLYPH[owner] })); // one mark (#950): a faction is its name in its colour, never a letter and the name; data-g: the glyph alone, for the narrow tile
+    body.appendChild(el('span', 'lcc-owner lcc-owner-' + owner, owner === 'a' || owner === 'h' ? OWNER[owner] : OWNER_GLYPH[owner] + ' ' + (owner === 'open' && vm.wavering ? WORDS().wavering : OWNER[owner]), { 'data-g': OWNER_GLYPH[owner], title: owner === 'a' || owner === 'h' ? WORDS().pledgedTo + ' ' + OWNER[owner] : null })); // one mark (#950): a faction is its name in its colour, never a letter and the name; data-g: the glyph alone, for the narrow tile
     const tr = trackAsset('banners', vm.track);
     if (tr) {
       const ph = el('span', 'lcc-house-path');
@@ -608,7 +608,7 @@
     const flags = el('span', 'lcc-house-flags');
     const notes = [];
     if (vm.oneAway) { flags.appendChild(el('span', 'lcc-flag lcc-flag-one', 'ONE AWAY')); notes.push('one House away from a line'); }
-    if (vm.win) { flags.appendChild(el('span', 'lcc-flag lcc-flag-win', VICTORY.win)); notes.push('one of the Houses that won the Sysselraad'); }
+    if (vm.win) { flags.appendChild(el('span', 'lcc-flag lcc-flag-win', VICTORY.win)); notes.push('one of the Houses that secured the Sysselraad'); }
     if (vm.waiting > 0) { flags.appendChild(el('span', 'lcc-flag lcc-flag-wait', vm.waiting + ' WAITING')); notes.push(vm.waiting + ' reward' + (vm.waiting === 1 ? '' : 's') + ' waiting'); }
     const mt = pipText(vm.meter);
     if (mt) {
@@ -618,7 +618,7 @@
       notes.push(mt.reached + ' of ' + mt.total + ' ' + WORDS().tiersEarned);
     }
     if (flags.childNodes.length) b.appendChild(flags);
-    b.setAttribute('aria-label', [(no ? WORDS().square + ' ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? WORDS().favorWon.toLowerCase() + ' by ' + OWNER[owner] : owner === 'open' ? WORDS().favorNotWon.toLowerCase() : WORDS().favorUnreadable.toLowerCase())].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? [WORDS().specialization.toLowerCase() + ' ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));
+    b.setAttribute('aria-label', [(no ? WORDS().square + ' ' + no + ', ' : '') + title + ', ' + (owner === 'a' || owner === 'h' ? WORDS().pledgedTo.toLowerCase() + ' ' + OWNER[owner] : owner === 'open' ? (vm.wavering ? WORDS().wavering : WORDS().undecided).toLowerCase() : WORDS().favorUnreadable.toLowerCase())].concat(vm.track && TRACK_LABEL[norm(vm.track)] ? [WORDS().specialization.toLowerCase() + ' ' + TRACK_LABEL[norm(vm.track)]] : [], notes, vm.dim ? ['not in the current filter'] : [], vm.selected ? ['selected'] : []).join(', '));
     return b;
   }
 
