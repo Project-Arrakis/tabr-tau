@@ -55,7 +55,6 @@
 .lcc-tm-lbl { display: block; margin: 0 0 5px; font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .06em; color: var(--lcc-gold-text); }
 .lcc-tm-select { display: block; width: 100%; min-height: 40px; min-width: 0; padding: 8px 10px; background: var(--lcc-sunken); color: var(--lcc-strong); border: 1px solid var(--lcc-stroke); font-size: 14px; }
 .lcc-tm-select:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 1px; }
-.lcc-tm-select:disabled { opacity: .55; cursor: not-allowed; }
 .lcc-tm-fld small { display: block; margin-top: 4px; }
 .lcc-tm-apply { align-self: end; }
 .lcc-tm .lcc-tm-result { min-height: 18px; margin: 11px 0 0; font: 500 13px/1.45 var(--lcc-sans); color: var(--lcc-text); overflow-wrap: anywhere; }
@@ -66,7 +65,7 @@
 .lcc-tm-btn { min-height: 40px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--lcc-gold-lo); background: linear-gradient(135deg, var(--lcc-s2), var(--lcc-s1)); font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .02em; color: var(--lcc-strong); white-space: normal; overflow-wrap: anywhere; text-align: center; }
 .lcc-tm-btn:hover:not(:disabled) { border-color: var(--lcc-gold); filter: brightness(1.12); }
 .lcc-tm-btn:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
-.lcc-tm-btn[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+/* a disabled drop-down or button takes the one disabled look of app.css (#1049), not a fade */
 .lcc-tm-btn.is-primary { background: var(--lcc-gold); border-color: var(--lcc-gold-hi); color: var(--lcc-on-gold); min-width: 96px; }
 .lcc-tm-btn.busy { cursor: progress; }
 

@@ -6,16 +6,16 @@ The board shows the 25 Houses of the current term, five rows of five, numbered 0
 
 - The number, the specialization emblem and the House crest.
 - The House name and its specialization.
-- Who won the favor: Atreides, Harkonnen, or No favor (nobody has won it; the screen-reader text says "favor not won").
-- Five tier boxes and a line such as 3/5 EARNED, with the number collected and the number not collected once a tier is earned. A House whose favor a faction has won shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
+- Which faction the House is pledged to: "Pledged to Atreides", "Pledged to Harkonnen", "Undecided" (no faction has the favor of the House yet) or "Wavering" (no faction has it yet, and both factions have progress on it). The screen-reader text says the same words. A House the save cannot settle says "Favor unreadable".
+- Five tier boxes and a line such as 3/5 EARNED. Hover it to see how many of the earned tiers you have collected and how many are still waiting. A House that is pledged to a faction shows the same line as any other House: if you have no contribution to it, it reads 0/5 EARNED.
 
-Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. In that panel, TOP CONTRIBUTORS lists the names of the biggest contributors to the House, the biggest first and numbered, with no amounts; a contributor the save gives no name for is left out. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
+Click a card to open the House in the panel beside the board (House Intelligence). Click it again to close it. The panel does not list contributors: the biggest ones of each faction are on the plaque above the board. The reward ledger there has two figures: Tiers earned (for example 3 / 5) and Collected (for example 1 / 3, the tiers collected out of the tiers you have earned); hover them to see how many are waiting at the House representative.
 
-## Favor won, earned, collected
+## Pledged, earned, collected
 
 These are three separate states:
 
-- **Favor won**: a faction has won the favor of the House. It belongs to a faction, not to you.
+- **Pledged**: the House is pledged to a faction, which has gained its favor. It belongs to a faction, not to you. A House no faction has the favor of yet is Undecided, or Wavering when both factions have progress on it.
 - **Earned**: you reached a reward tier by your own contribution. Earned is not collected.
 - **Collected**: you took the reward. A reward that is earned and not yet taken is waiting at the House representative.
 
@@ -34,7 +34,7 @@ In the House Intelligence panel the ledger rows show the same three states witho
 
 ## Colours and outlines
 
-- Atreides and Harkonnen colours mark a House whose favor that faction won. A House whose favor is not won has no faction colour.
+- Atreides and Harkonnen colours mark a House that is pledged to that faction. A House that is Undecided or Wavering has no faction colour.
 - A gold outline marks the Houses that make up a win: the five Houses of a line of five held by one faction, or the 13 or more Houses of a faction.
 - Every colour has a word beside it, so nothing depends on colour alone.
 
@@ -42,7 +42,7 @@ In the House Intelligence panel the ledger rows show the same three states witho
 
 - Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed, and while a filter is on a line says how many Houses are shown (it is not there when nothing is filtered).
 - Jump to House opens one House and clears the filters that would hide it.
-- A button that does nothing right now (there is nothing to change, or another faction is chosen) has a dashed edge and quiet text instead of a faded look; pressing it says why.
+- A button that does nothing right now (there is nothing to change, or another faction is chosen) looks the same as every other control that is off, on every page of the editor: quiet text, a quiet edge, no fill and a not-allowed pointer (never a dashed edge and never faded); pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
 - In the Classic list, click a row to open it.
 - A House's place opens the Saved map at that House. A yellow ring on the map marks its place, and the line above the map names it, and **Back to House** returns to it on the Landsraad tab, in the view you are in (the board, or the Classic list with only that House shown).
@@ -52,7 +52,7 @@ In the House Intelligence panel the ledger rows show the same three states witho
 
 The plaque above the board shows the active decree of the term and the biggest contributors under each faction, by name only, with the rank numbers 1. to 5. before the names (the biggest first; the number is the place in the order, up to five names): the banner shows no amounts. The contributors are worked out by the editor from the amounts in the save: the save holds the amounts, not a ranking. A contributor is shown by the name of its guild, written from the identifier the save gives (the save holds no display name, so the editor adds the capital letters). A contributor the save gives no name or guild for is shown as "Unnamed contributor"; its number in the save is in the mouse-over text.
 
-The victory panel says whether a faction has won, by 13 Houses or by five in a line. Its headline carries the House count once (the plaque above shows the same figures), and a line under it says how many lines of five each faction can still make. The game works the winner out from the Houses, and so does the editor.
+The victory panel says whether a faction has secured the Sysselraad, by 13 Houses or by five in a line. Its headline carries the House count once (the plaque above shows the same figures), and a line under it says how many lines of five each faction can still make. The game works the winner out from the Houses, and so does the editor.
 
 ## What the save does not hold
 
@@ -65,7 +65,7 @@ The victory panel says whether a faction has won, by 13 Houses or by five in a l
 
 ## Where the figures come from
 
-Everything on the Landsraad pages is read from your save. A few figures are worked out by the editor from what the save holds: which reward tiers you have earned (your contribution reaches the amount of the tier), who has won the favor of a House and the Sysselraad, and the order of the biggest contributors (the save holds the amounts, not a ranking). Where the save holds nothing, the page shows 0 or a dash and never guesses. The pages carry no label that says so, since it is true of every figure.
+Everything on the Landsraad pages is read from your save. A few figures are worked out by the editor from what the save holds: which reward tiers you have earned (your contribution reaches the amount of the tier), which faction a House is pledged to and who has secured the Sysselraad, and the order of the biggest contributors (the save holds the amounts, not a ranking). Where the save holds nothing, the page shows 0 or a dash and never guesses. The pages carry no label that says so, since it is true of every figure.
 
 ## Technical notes
 

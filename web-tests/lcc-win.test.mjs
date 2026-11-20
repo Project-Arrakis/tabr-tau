@@ -103,7 +103,7 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   // 13 Houses is a win by the game's rule (the operator's decision of 2026-11-18): the words say it, the card carries the outline and no text flag (#961), and the save is said not to hold the vote
   for (const c of won) {
     const pick = c.querySelector('button.lcc-hc-select');
-    assert.match(pick.getAttribute('title') || pick.getAttribute('data-says'), /who hold 13 or more Houses\. Sysselraad won by Atreides, by 13 Houses\. The save does not record the vote/);
+    assert.match(pick.getAttribute('title') || pick.getAttribute('data-says'), /who hold 13 or more Houses\. Sysselraad secured by Atreides, by 13 Houses\. The save does not record the vote/);
     assert.equal(c.querySelector('.lcc-flag'), null, 'no text flag on a winning House, a 13-House win included (the way it was won is in the plaque and the panel)');
   }
   // Calm: the still outline stays, the animation class does not

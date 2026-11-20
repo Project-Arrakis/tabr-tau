@@ -55,7 +55,7 @@ test('the keyframes are the feature\'s own, and one-shot: nothing loops', () => 
   assert.deepEqual([...kf].sort(), ['lcc-reveal', 'lcc-win-pulse', 'lcc-win-pulse-card', 'lcc-win-sweep']); // lcc-win-pulse-card: the same pulse with a reach that stays inside the gap between the cards of the board (#895)
   // the exceptions to one-shot are the optional animated border of a winning House (lcc-win-sweep: on the House, and on the centre seat of a win by 13 Houses) and the slow glow of a winning House
   // (lcc-win-pulse; on the House and, since #988, on a Specializations lane at level 100): each loops and sits in the no-preference block under Motion Full
-  assert.equal((bare.match(/infinite/g) || []).length, 6); // the fifth is the pulse of the SYSSELRAAD WON tag of the victory panel (#978), the sixth the board card's own pulse (#895)
+  assert.equal((bare.match(/infinite/g) || []).length, 6); // the fifth is the pulse of the SYSSELRAAD SECURED tag of the victory panel (#978), the sixth the board card's own pulse (#895)
   assert.match(bare, /@media \(prefers-reduced-motion: no-preference\)\s*\{[^]*html\[data-motion="full"\][^]*animation: lcc-win-sweep 9s linear infinite/);
   for (const m of bare.matchAll(/animation:\s*([^;}]+)/g)) if (!/^none/.test(m[1].trim()) && !/^lcc-win-sweep /.test(m[1].trim()) && !/^lcc-win-pulse /.test(m[1].trim())) assert.match(m[1], /\b1\b/, 'an animation that is not one-shot: ' + m[1]);
 });
@@ -204,11 +204,12 @@ test('tier boxes: 24 by 24 px with 2 px between them where touch or a narrow win
 });
 
 test('the cards of a row line up: the footer is two lines tall, the counts stand together on one, and the empty case is styled like the other owner lines', () => {
-  assert.match(bare, /\.lcc-hc-count \{ font-size: 12px; gap: 2px 6px; min-height: 33px;/);
+  assert.match(bare, /\.lcc-hc-count \{ font-size: 12px; gap: 2px 6px; min-height: 18px;/);
+  assert.doesNotMatch(bare, /lcc-hc-q/, 'the count line under N/5 EARNED is gone (#1078)');
   assert.match(bare, /\.lcc-hc-count b \{ flex: 0 0 100%; text-align: center;/);
-  assert.match(bare, /\.lcc-hc-count \.lcc-hc-q \{ white-space: nowrap; \}/);
   assert.match(bare, /\.lcc-hc-count > b:only-child \{[^}]*text-transform: uppercase/);
   assert.match(bare, /\.lcc-hc-owner \{[^}]*white-space: nowrap/, 'the bullet and the faction name do not part');
+  for (const m of bare.matchAll(/\.lcc-hc-owner \{([^}]*)\}/g)) assert.doesNotMatch(m[1], /text-transform:\s*uppercase/, 'PLEDGED TO HARKONNEN in capitals does not fit a card (#1073)');
 });
 
 // at-rules that need container queries or :has() sit inside a guard, so a browser without them shows the plain page and no rule applies halfway
@@ -367,7 +368,6 @@ test('contrast: 12 px text on the cards and in the Actions panel passes 4.5:1 ag
 test('contrast: the rules that paint that text use the text tokens, and the strokes keep the accents', () => {
   const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && r.body.includes('color: var(--lcc-' + tok + ')')), sel + ' takes color from --lcc-' + tok);
   use('.lcc-hc-a .lcc-hc-owner', 'teal-t'); use('.lcc-hc-h .lcc-hc-owner', 'red-t');
-  use('.lcc-hc-q-ok', 'teal-t'); use('.lcc-hc-q-wait', 'dim'); use('.lcc-hc-q-unk', 'red-t');
   use('.lcc-bd-editor .lcc-bd-sec-h', 'gold-t'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
   use('.lcc-bd-tier-s.mk.delivered', 'tier-bg'); use('.lcc-bd-act.lcc-bd-act-danger', 'red-t');
   assert.match(bare, /\.lcc-bd-act\.lcc-bd-act-danger \{ border-color: var\(--lcc-red\);/, 'the danger button keeps the accent for its stroke');

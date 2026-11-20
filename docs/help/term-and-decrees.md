@@ -10,12 +10,12 @@ On a phone (a window 640 px wide or less) the section comes after the board, so 
 - **Ends in**: the hours and minutes the term has left, for example 18 h 37 m. It counts down only while the game is running and is the value as of the last save. Under an hour it shows minutes, under a minute it says less than a minute, and once the end has passed it says ended (the game starts the next term when it runs). If the save does not give the clock it shows a dash.
 - **Reigning faction**: the faction whose decree is in force.
 - **Active decree**: the decree in force this term.
-- **Next term's decree**: the decree chosen during this term, which takes effect in the next term. It says none yet until the vote has happened.
+- **Next term's decree**: the decree chosen during this term, which takes effect in the next term. Until a decree is chosen the line says which state the Landsraad is in: "The Landsraad is still divided" while no faction reigns, "Atreides have swayed the Landsraad; their decree is yet to be chosen" (or Harkonnen) once a faction reigns and has not chosen, and a dash, with "Not recorded in the save." as its hover text, when the save does not say.
 
 ## Set the active decree and the reigning faction
 
 - Apply sets both together, for the current term only. None for the decree clears the decree.
-- A decree is only in force because a faction won the term, so the faction cannot be left empty. Atreides and Harkonnen can both be chosen, and any faction the box offers can be. The box starts on your own faction and asks you to choose when you are in neither and the term has no winner.
+- A decree is only in force for the faction that reigns, so the faction cannot be left empty. Atreides and Harkonnen can both be chosen, and any faction the box offers can be. The box starts on your own faction and asks you to choose when you are in neither and the term has no reigning faction.
 - Apply needs no choice in two cases: the save holds a faction the list does not offer and you leave the box alone (the decree changes and that faction stays), and none for the decree on a term with no faction (the decree is cleared and no faction is written).
 - Nothing changes until you press Apply, Make active or Set flag. A choice you have not applied is marked as not applied yet.
 

@@ -127,7 +127,7 @@ test('the Landsraad board and its House panel hold none of the standing explanat
 test('what stays: the short labels, the key to the board, the question before a write and the refusals', async () => {
   const ui = await board();
   assert.equal(ui.doc.querySelector('.lcc-bd-etip'), null, 'the standing line under Set tier is a hover text (#1062)');
-  assert.match(ui.doc.querySelector('label[for="lcc-bd-tierset"]').getAttribute('title'), /favor won ≠ earned ≠ collected/i);
+  assert.match(ui.doc.querySelector('label[for="lcc-bd-tierset"]').getAttribute('title'), /pledged ≠ earned ≠ collected/i);
   assert.ok(ui.doc.querySelector('.lcc-bd-headlines[aria-label="Key to the board"]'));
   assert.ok(ui.doc.querySelector('.lcc-bd-act[data-do="fill"]'));
   const t = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-tier[data-lb="tier"]');

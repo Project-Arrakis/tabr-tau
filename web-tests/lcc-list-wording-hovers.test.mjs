@@ -32,23 +32,23 @@ function said(node) {
 }
 
 // ---- #952, #950 --------------------------------------------------------------------------------------------------------------------------------------------------------
-test('#952: the list header says Square, House, Favor won by, Specialization', async () => {
+test('#952, #1073: the list header says Square, House, Pledged to, Specialization', async () => {
   const ui = await open();
   const heads = [...ui.doc.querySelectorAll('.lcc-bd-list thead th')].map((h) => text(h)).filter((h) => h !== 'Choose');
-  assert.deepEqual(heads.slice(0, 4), ['Square', 'House', 'Favor won by', 'Specialization']);
+  assert.deepEqual(heads.slice(0, 4), ['Square', 'House', 'Pledged to', 'Specialization']);
 });
 
-test('#950: the favor cell shows ONE mark: the faction name alone, or the open circle and Not won, never a letter and the name', async () => {
+test('#950, #1073: the pledge cell shows ONE mark: the faction name alone, or the open circle and Undecided or Wavering, never a letter and the name', async () => {
   const a = synthetic();
   const ui = await open();
   const pills = [...ui.doc.querySelectorAll('.lcc-bd-row .lcc-bd-c-owner .lcc-owner')];
   assert.equal(pills.length, 25);
   const seen = new Set(pills.map((p) => text(p)));
-  assert.deepEqual([...seen].sort(), ['Atreides', 'Harkonnen', '○ Not won'].sort());
+  assert.deepEqual([...seen].sort(), ['Atreides', 'Harkonnen', '○ Wavering'].sort());
   for (const p of pills) assert.doesNotMatch(text(p), /^[AH] /, 'no letter before the name: it read as a second H over HARKONNEN');
-  assert.equal(text(rowOf(ui, 'Vernius').querySelector('.lcc-owner')), 'Harkonnen', 'Vernius: favor won by Harkonnen');
+  assert.equal(text(rowOf(ui, 'Vernius').querySelector('.lcc-owner')), 'Harkonnen', 'Vernius: pledged to Harkonnen');
   assert.equal(text(rowOf(ui, 'Richese').querySelector('.lcc-owner')), 'Atreides');
-  assert.equal(text(rowOf(ui, 'Kenola').querySelector('.lcc-owner')), '○ Not won');
+  assert.equal(text(rowOf(ui, 'Kenola').querySelector('.lcc-owner')), '○ Wavering', 'Kenola: both factions have progress on it and neither has pledged it');
   assert.match(src('lcc', 'lcc-board.css'), /\.lcc-bd-c-owner \.lcc-owner \{ white-space: nowrap; \}/, 'one line, so a narrow cell cannot stack a letter over the name');
   void a;
 });
@@ -57,32 +57,34 @@ test('#952: the board and the inspector never say owner, claimed or taken, and n
   const a = synthetic();
   for (const layout of ['grid', 'list']) {
     const ui = await open(layout);
-    look(ui, a, 'Vernius'); // favor won by Harkonnen, with a ladder and none of the character's
+    look(ui, a, 'Vernius'); // pledged to Harkonnen, with a ladder and none of the character's
     const all = said(ui.doc.querySelector('.lcc-bd'));
     assert.doesNotMatch(all, /\b(owner|owners|owned|claim|claims|claimed|unclaimed)\b/i, layout + ': ' + (all.match(/.{30}\b(owner|owned|claim|claimed)\b.{30}/i) || [''])[0]);
     const around = (word) => { const at = all.toLowerCase().indexOf(word); return at < 0 ? '' : all.slice(Math.max(0, at - 40), at + word.length + 40); };
     // "taken" is still in the page's own sentences that the Classic list shares (a result line such as "house taken by Atreides", the tooltip of Complete, the earlier terms): the recorded
-    // results are golden files and stay as they are. Everything the board draws itself says favor won.
+    // results are golden files and stay as they are. Everything the board draws itself says pledged.
     const own = [...ui.doc.querySelectorAll('.lcc-hc, .lcc-bd-list, .lcc-bd-headlines, .lcc-bd-banner, .lcc-bd-ledger, .lcc-bd-victory')].map(said).join(' | ');
     assert.doesNotMatch(own, /\btaken\b/i, layout + ': ' + (own.match(/.{0,40}\btaken\b.{0,40}/i) || [''])[0]);
     assert.doesNotMatch(all, /\bpath\b/i, layout + ': ' + around('path'));
     assert.doesNotMatch(all, /\bNo\. ?\d/, layout);
-    assert.match(all, /favor won/i, layout);
+    assert.match(all, /pledged/i, layout);
+    assert.doesNotMatch(all, /won/i, layout + ': ' + (all.match(/.{0,40}won.{0,40}/i) || [''])[0]); // #1073: no faction text says won
     ui.doc.querySelector('.lcc-bd-insp');
-    look(ui, a, 'Kenola'); // favor not won
-    assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /FAVOR NOT WON/);
+    look(ui, a, 'Kenola'); // both factions have progress, none has pledged it
+    assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /WAVERING/);
     look(ui, a, 'Vernius');
-    assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /FAVOR WON · HARKONNEN/);
-    assert.match(ui.doc.querySelector('.lcc-bd-control').getAttribute('title'), /^Favor won by Harkonnen/);
+    assert.match(text(ui.doc.querySelector('.lcc-bd-banner')), /PLEDGED TO HARKONNEN/);
+    assert.match(ui.doc.querySelector('.lcc-bd-control').getAttribute('title'), /^Pledged to Harkonnen/);
   }
 });
 
 test('#952: the words are written once, in the wording table of lcc-model.js, and the Command Center files carry no copy of them', async () => {
   const ui = await open();
   const W = ui.w.LCCM.WORDS;
-  assert.deepEqual([W.wonBy, W.square, W.specialization, W.notWon, W.favorWon, W.favorNotWon], ['Favor won by', 'Square', 'Specialization', 'Not won', 'Favor won', 'Favor not won']);
+  assert.deepEqual([W.pledgeBy, W.square, W.specialization, W.undecided, W.pledged, W.wavering, W.pledgedTo], ['Pledged to', 'Square', 'Specialization', 'Undecided', 'Pledged', 'Wavering', 'Pledged to']);
+  for (const gone of ['wonBy', 'notWon', 'favorWon', 'favorNotWon', 'noFavor']) assert.equal(W[gone], undefined, gone + ' is gone (#1073)');
   assert.ok(Object.isFrozen(W));
-  assert.equal(JSON.stringify(ui.w.LCCM.HOUSE_FILTERS.map((f) => f[1])), JSON.stringify(['Any', 'Not won', 'Favor won']));
+  assert.equal(JSON.stringify(ui.w.LCCM.HOUSE_FILTERS.map((f) => f[1])), JSON.stringify(['Any', 'Undecided', 'Pledged']));
   for (const f of ['lcc-board.js', 'lcc.js']) {
     const s = src('lcc', f);
     for (const old of ["'Owner'", "'Path'", "'No.'", "'Claimed'", "'CLAIMED", "NOT CLAIMED", "'By path'", "'No path'", "Taken - no"]) assert.ok(!s.includes(old), f + ' still has ' + old);

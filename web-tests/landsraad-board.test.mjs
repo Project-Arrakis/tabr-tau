@@ -62,8 +62,8 @@ test('the board lists every house alphabetically with its state, tiers and next 
   assert.equal(nx[1], '100 more');
   assert.ok(text(by('Wayku').querySelector('.js-next')).includes('above the top tier'));
   assert.equal(text(by('Alexin').querySelector('.amt')), '0', 'no contribution is a plain 0 (#1056)');
-  assert.ok(text(by('Hurata').querySelector('.c-hs')).includes('Taken · Harkonnen'));
-  assert.ok(text(by('Thorvald').querySelector('.c-hs')).includes('Open · Atreides ahead'));
+  assert.ok(text(by('Hurata').querySelector('.c-hs')).includes('Pledged to Harkonnen'));
+  assert.ok(text(by('Thorvald').querySelector('.c-hs')).includes('Wavering · Atreides ahead'));
   assert.deepEqual(ui.posted, [], 'the board only reads the save');
   assert.equal(ui.doc.querySelector('#lsb-shown').textContent, '4 of 4 houses shown');
 });
@@ -186,7 +186,7 @@ test('the house name card names the next reward, what waits, the faction standin
   const ui = await open();
   const hw = ui.doc.querySelector('#lsrow-903 .hw');
   const card = text(hw.querySelector('.hcard'));
-  assert.ok(card.includes('Not collected') && card.includes('Faction standing') && card.includes('Atreides 4,000 of 4,000') && card.includes('Finished by Atreides'), card);
+  assert.ok(card.includes('Not collected') && card.includes('Faction standing') && card.includes('Atreides 4,000 of 4,000') && card.includes('Pledged to Atreides'), card);
   assert.ok(text(hw.querySelector('.hcard')).includes('top tier reached'));
   click(ui, '#lsrow-903 .hn');
   assert.ok(hw.classList.contains('open'));
@@ -229,9 +229,9 @@ test('earlier terms: the terms with a contribution of the character, each with i
   const ui = await open(data);
   const term = ui.doc.querySelector('.hist details.term');
   assert.ok(text(term.querySelector('summary')).startsWith('Term 6') && text(term.querySelector('summary')).includes('2 houses with your contribution'), text(term.querySelector('summary')));
-  assert.ok(text(term.querySelector('summary')).includes('1 top tier') && text(term.querySelector('summary')).includes('1 taken by your faction'));
+  assert.ok(text(term.querySelector('summary')).includes('1 top tier') && text(term.querySelector('summary')).includes('1 pledged to your faction'));
   assert.deepEqual([...term.querySelectorAll('tbody tr')].map((r) => text(r.cells[0])), ['Maros', 'Kenola']);
-  assert.ok(text(term).includes('Open at term end') && !text(term).includes('Play clock') && !text(term).includes('36,000 s'), 'no play-clock line under an earlier term (#981)');
+  assert.ok(text(term).includes('Undecided at term end') && !text(term).includes('Play clock') && !text(term).includes('36,000 s'), 'no play-clock line under an earlier term (#981)');
   const one = await open(board());
   assert.ok(text(one.doc.querySelector('.hist')).includes('only the current term'));
 });
@@ -433,14 +433,14 @@ test('Group by region draws one heading per region with the number of houses in 
   assert.equal(ui.doc.querySelectorAll('#lsb-rows li.grp').length, 0, 'the headings go when grouping is off');
 });
 
-test('the glance line says what its numbers count: houses taken by each faction, your faction named, then the houses still open (#665)', async () => {
+test('the glance line says what its numbers count: houses pledged to each faction, your faction named, then the houses still undecided (#665, #1073)', async () => {
   const ui = await open();
   const facts = [...ui.doc.querySelectorAll('.lsb .facts > span')].map((e) => text(e));
-  assert.ok(facts[0].startsWith('Houses taken by each faction: Atreides 1 (your faction) · Harkonnen 1 · 2 still open'), facts[0]);
+  assert.ok(facts[0].startsWith('Houses pledged to each faction: Atreides 1 (your faction) · Harkonnen 1 · 2 undecided'), facts[0]);
   assert.ok(!facts[0].includes('By faction, not by'), 'no contrast against something not yet seen');
   assert.ok(!facts[0].includes('(you)'), 'no bare (you)');
   const items = [...ui.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e));
-  assert.deepEqual(items, ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 still open'], 'each count stays whole when the line wraps');
+  assert.deepEqual(items, ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 undecided'], 'each count stays whole when the line wraps');
   assert.ok(text(ui.doc.querySelector('#lsb-actbar, .actbar #lsb-fac')).includes('Atreides (your faction)'), 'the faction drop-down says it the same way');
 });
 
@@ -451,19 +451,19 @@ test('the current-term glance cards come before the Term and decrees panel, then
 });
 
 // #842: a save that already holds a house won by a faction the Landsraad does not have (Smuggler, 4, from an earlier editor write)
-test('a house won by a faction the list does not offer reads "Other faction", and the glance line counts it apart instead of in neither count nor "still open" (#842)', async () => {
+test('a house won by a faction the list does not offer reads "Other faction", and the glance line counts it apart instead of in neither count nor "undecided" (#842)', async () => {
   const b = board();
   b.tasks.push(house(904, 'Zeta', 0, { completed: 1, winning_faction_id: 4, contributions: [{ faction_id: 4, amount: 4000 }] }));
   const ui = await open(b);
   const by = (n) => rows(ui).find((r) => r.querySelector('.hn b').textContent === n);
   const tag = text(by('Zeta').querySelector('.c-hs'));
-  assert.ok(tag.includes('Taken · Other faction'), tag);
+  assert.ok(tag.includes('Pledged to Other faction'), tag);
   assert.ok(!/Faction 4/.test(text(ui.doc.querySelector('.lsb'))), 'the number of the faction is not shown as its name');
   const items = [...ui.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e));
-  assert.deepEqual(items, ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', 'Other faction 1 ·', '2 still open'], 'a third count, and every house is in exactly one of them');
+  assert.deepEqual(items, ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', 'Other faction 1 ·', '2 undecided'], 'a third count, and every house is in exactly one of them');
   // with no such house the line is as before
   const plain = await open();
-  assert.deepEqual([...plain.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e)), ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 still open']);
+  assert.deepEqual([...plain.doc.querySelectorAll('.lsb .facts > span:first-child .fi')].map((e) => text(e)), ['Atreides 1 (your faction) ·', 'Harkonnen 1 ·', '2 undecided']);
 });
 
 test('"Other faction" is said only when the list of the Landsraad factions is loaded and does not offer the id; with no list the number is shown and nothing is counted as other (#842)', async () => {
@@ -472,6 +472,6 @@ test('"Other faction" is said only when the list of the Landsraad factions is lo
   const ui = await open(b);
   const by = (n) => rows(ui).find((r) => r.querySelector('.hn b').textContent === n);
   const tag = text(by('Zeta').querySelector('.c-hs'));
-  assert.ok(tag.includes('Taken · Faction 4') && !tag.includes('Other faction'), tag);
+  assert.ok(tag.includes('Pledged to Faction 4') && !tag.includes('Other faction'), tag);
   assert.ok(!/Other faction/.test(text(ui.doc.querySelector('.lsb'))), 'no "Other faction" without a list');
 });

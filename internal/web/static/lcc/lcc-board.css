@@ -36,7 +36,6 @@
 
 /* a drop-down of the board */
 .lcc-bd-select { box-sizing: border-box; min-height: 37px; max-width: 100%; padding: 8px 12px; font: 14px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
-.lcc-bd-select:disabled { color: var(--lcc-dim); border-style: dashed; cursor: not-allowed; }
 
 /* the two columns: the board panel and the two panels at its side */
 .lcc-bd-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
@@ -52,7 +51,6 @@
 .lcc-bd-layout { display: flex; border: 1px solid var(--lcc-stroke); }
 .lcc-bd-layout button { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; padding: 8px 10px; min-height: 36px; font: 11px/1 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); cursor: pointer; }
 .lcc-bd-layout button[aria-pressed="true"] { background: color-mix(in srgb, var(--lcc-gold) 9%, transparent); color: var(--lcc-gold-text); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
-.lcc-bd-layout button[aria-disabled="true"] { color: var(--lcc-dim); box-shadow: none; cursor: not-allowed; }
 .lcc-bd-btn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-dim); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); cursor: pointer; }
 .lcc-bd-btn:hover { border-color: var(--lcc-gold-text); }
 
@@ -62,7 +60,6 @@
 .lcc-bd-lbl { margin-right: 6px; font: 800 10px/1.2 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
 .lcc-bd-chip { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 9px; font: 10px/1.2 var(--lcc-sans); color: var(--lcc-dim); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); cursor: pointer; }
 .lcc-bd-chip[aria-pressed="true"] { border-color: var(--lcc-gold-text); background: color-mix(in srgb, var(--lcc-gold) 9%, transparent); color: var(--lcc-text); box-shadow: inset 0 -2px 0 var(--lcc-gold-text); }
-.lcc-bd-chip[aria-disabled="true"] { border-style: dashed; box-shadow: none; cursor: not-allowed; }
 .lcc-bd-shown { margin-left: auto; font: 600 11px/1.2 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-shown:empty { display: none; }
 /* The control bar also holds the buttons that choose Houses, in the line of Jump to House (the two are one group: they stay together and wrap together), and the actions on the chosen Houses on the
@@ -121,7 +118,7 @@
 .lcc-hc-unknown { border-style: dotted; border-color: var(--lcc-line); background-image: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--lcc-line) 14%, transparent) 8px 9px); }
 .lcc-hc:hover { filter: brightness(1.05); }
 .lcc-hc[data-selected="true"] { outline: 2px solid var(--lcc-violet); outline-offset: -4px; }
-.lcc-hc[data-dim="true"] { border-style: dashed; background: var(--lcc-s1); color: var(--lcc-dim); opacity: .38; filter: saturate(.6); }
+.lcc-hc[data-dim="true"] { border-style: solid; border-color: var(--dis-edge); background: var(--lcc-s1); color: var(--dis-fg); } /* a House the filters leave out takes the quiet colours of the one disabled look (app.css, #1049): no dashed edge and no fade over the label */
 .lcc-hc[data-victory] { clip-path: none; }
 .lcc-hc-select { all: unset; box-sizing: border-box; position: relative; z-index: 1; display: flex; flex: 1; flex-direction: column; align-items: center; gap: 3px; width: 100%; min-width: 0; cursor: pointer; text-align: center; color: inherit; }
 .lcc-hc-select:focus-visible { outline: 2px solid var(--lcc-gold-text); outline-offset: 2px; }
@@ -137,7 +134,7 @@
 .lcc-hc-name { color: var(--lcc-name); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 clamp(9px, .8cqw, 12px)/1.2 var(--lcc-serif); letter-spacing: .05em; text-transform: uppercase; }
 .lcc-hc-track { font: 700 9px/1.3 var(--lcc-sans); letter-spacing: .025em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-hc-track-unk { font-size: 8px; font-style: italic; font-weight: 600; letter-spacing: 0; text-transform: none; text-align: center; }
-.lcc-hc-owner { margin-top: auto; font: 700 8px/1.3 var(--lcc-sans); letter-spacing: .07em; color: var(--lcc-dim); white-space: nowrap; text-transform: uppercase; }
+.lcc-hc-owner { margin-top: auto; font: 700 8px/1.3 var(--lcc-sans); letter-spacing: .07em; color: var(--lcc-dim); white-space: nowrap; }
 .lcc-hc-a .lcc-hc-owner { color: var(--lcc-teal-t); }
 .lcc-hc-h .lcc-hc-owner { color: var(--lcc-red-t); }
 /* the five tier boxes and the line under them */
@@ -151,9 +148,6 @@
 .lcc-hc-t[aria-disabled="true"] { cursor: not-allowed; }
 .lcc-hc-count { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 5px; width: 100%; margin-top: 1px; font: 700 8px/1.25 var(--lcc-sans); letter-spacing: .03em; color: var(--lcc-dim); }
 .lcc-hc-count b { color: var(--lcc-strong); font-weight: 800; letter-spacing: .04em; }
-.lcc-hc-q-ok { color: var(--lcc-teal-t); }
-.lcc-hc-q-wait { color: var(--lcc-dim); }
-.lcc-hc-q-unk { color: var(--lcc-red-t); }
 /* the choice for the actions on several Houses: ours alone, a small box at the top between the number and the badge */
 .lcc-bd-pickl { position: absolute; z-index: 5; left: calc(50% - 9px); top: 8px; display: grid; place-items: center; width: 18px; height: 18px; cursor: pointer; opacity: .62; }
 .lcc-bd-pickl:hover, .lcc-bd-pickl:focus-within, .lcc-bd-pickl:has(:checked) { opacity: 1; }
@@ -292,8 +286,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-tier.mk { grid-template-columns: 68px minmax(0, 1fr); padding-right: 38px; }
 .lcc-bd-tier.not_reached { background: transparent; }
 .lcc-bd-tier.not_reached, .lcc-bd-tier.not_reached .lcc-bd-tier-n, .lcc-bd-tier.not_reached .lcc-bd-tier-rw { color: var(--lcc-dim); }
-.lcc-bd-tier[aria-disabled="true"] { border-style: dashed; cursor: not-allowed; }
-.lcc-bd-tier.delivered[aria-disabled="true"] { border-left-style: solid; }
+/* a tier row that does nothing now takes the quiet edge and the pointer from the one disabled look at the top of app.css (#1049) */
 .lcc-bd-tier-m { display: flex; flex-direction: column; align-items: baseline; gap: 4px; }
 .lcc-bd-tier-n { font-size: 10px; color: var(--lcc-text); }
 .lcc-bd-tier-th { font-size: 10px; color: var(--lcc-dim); font-variant-numeric: tabular-nums; }
@@ -327,8 +320,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-act { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; cursor: pointer; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-act:hover { border-color: var(--lcc-gold-text); }
 .lcc-bd-line + .lcc-bd-act { margin-top: 8px; }
-/* off is told by the dashed edge and the quiet text, not by fading: a faded label fell to 2.8:1 in the light look and 3.6:1 in the dark (#889, #659 G-061) */
-.lcc-bd-act[aria-disabled="true"] { color: var(--lcc-dim); background: transparent; border-style: dashed; border-color: var(--lcc-dim); cursor: not-allowed; }
+/* off is the one disabled look of app.css (#1049): the quiet text and edge, never a fade (a faded label fell to 2.8:1 in the light look and 3.6:1 in the dark, #889, #659 G-061) */
 .lcc-bd .busy, .lcc-bd-act.busy { opacity: .6; }
 
 /* forced colours and contrast */
@@ -401,6 +393,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc-top { font-size: 11px; min-height: 30px; }
 .lcc-hc-name { font: 700 12px/1.2 var(--lcc-serif); letter-spacing: .02em; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: center; text-wrap: balance; max-width: 100%; min-height: 2.4em; display: flex; align-items: center; justify-content: center; }
 .lcc-hc-track, .lcc-hc-track-unk { font-size: 11px; line-height: 1.25; text-align: center; letter-spacing: .02em; }
+/* in capitals "PLEDGED TO HARKONNEN" is wider than a card (#1073): the owner line is in the case of the words */
 .lcc-hc-owner { font-size: 12px; letter-spacing: .03em; white-space: nowrap; text-align: center; }
 .lcc-hc-owner[data-g="?"] { white-space: normal; overflow-wrap: anywhere; }
 .lcc-hc-select:focus-visible { outline-offset: -2px; }
@@ -409,10 +402,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc-t { position: relative; flex: 0 0 24px; width: 24px; max-width: 24px; height: 24px; padding: 0; font: 800 12px/22px var(--lcc-sans); }
 .lcc-hc-t::after { content: ''; position: absolute; left: -1px; right: -1px; top: -6px; bottom: -6px; }
 .lcc-hc-t:focus-visible { outline: 2px solid var(--lcc-focus); outline-offset: 1px; }
-/* the footer of every card is two lines tall, so the tier boxes of the five cards of a row stand on one line: "N/5 REACHED", then the three counts together */
-.lcc-hc-count { font-size: 12px; gap: 2px 6px; min-height: 33px; align-content: flex-start; margin-top: 3px; }
+/* the footer of every card is one line: "N/5 EARNED" (the collected counts are its hover, #1078) */
+.lcc-hc-count { font-size: 12px; gap: 2px 6px; min-height: 18px; align-content: flex-start; margin-top: 3px; }
 .lcc-hc-count b { flex: 0 0 100%; text-align: center; overflow-wrap: anywhere; }
-.lcc-hc-count .lcc-hc-q { white-space: nowrap; }
 .lcc-hc-count > b:only-child { font-weight: 700; letter-spacing: .04em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-bd-pickl { width: 24px; height: 24px; left: calc(50% - 12px); top: 5px; }
 .lcc-bd-pick { width: 16px; height: 16px; }
@@ -531,12 +523,6 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-loc.off { cursor: default; color: var(--lcc-dim); }
 .lcc-bd-loc.off .lcc-bd-loc-a { text-decoration: none; font-weight: 500; }
 .lcc-bd-locline { margin-top: 3px; }
-.lcc-bd-nosave { margin: 8px 0 0; font-size: 12px; }
-/* Top contributors in the Inspector: the names, the biggest first, numbered, no amounts (#1058) */
-.lcc-bd-contrib { margin: 10px 0 0; }
-.lcc-bd-contrib-h { margin: 0 0 3px; font: 800 12px/1.2 var(--lcc-sans); letter-spacing: .12em; color: var(--lcc-dim); }
-.lcc-bd-contrib-l { margin: 0; padding: 0 0 0 1.6em; list-style: decimal; font: 500 13px/1.4 var(--lcc-sans); color: var(--lcc-text); }
-.lcc-bd-contrib-l li { overflow-wrap: anywhere; }
 @media (max-width: 640px), (pointer: coarse) {
   .lcc-bd-select { min-height: 44px; }
   .lcc-bd-filters .lcc-bd-chip { min-height: 44px; }

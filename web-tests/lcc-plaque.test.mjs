@@ -111,7 +111,7 @@ test('the plaque headline and tally come from the winner function (#929): contes
   for (const [a, h, headline, standing] of [
     [1, 0, 'SYSSELRAAD CONTESTED', 'ATREIDES LEAD 1 TO 0 · 24 HOUSES OPEN'], [4, 9, 'SYSSELRAAD CONTESTED', 'HARKONNEN LEAD 9 TO 4 · 12 HOUSES OPEN'], [5, 5, 'SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 5 · 15 HOUSES OPEN'],
     [0, 0, 'SYSSELRAAD CONTESTED', 'HOUSE COUNT EVEN AT 0 · 25 HOUSES OPEN'], [12, 4, 'SYSSELRAAD CONTESTED', 'ATREIDES LEAD 12 TO 4 · 9 HOUSES OPEN'],
-    [13, 12, 'SYSSELRAAD WON · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN'], [0, 13, 'SYSSELRAAD WON · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 0 · 12 HOUSES OPEN'],
+    [13, 12, 'SYSSELRAAD SECURED · ATREIDES', 'ATREIDES · BY 13 HOUSES · 13 TO 12 · 0 HOUSES OPEN'], [0, 13, 'SYSSELRAAD SECURED · HARKONNEN', 'HARKONNEN · BY 13 HOUSES · 13 TO 0 · 12 HOUSES OPEN'],
   ]) {
     const p = plaque({ a, h });
     assert.equal(head(p), headline, a + '/' + h);
@@ -127,7 +127,7 @@ test('the plaque headline and tally come from the winner function (#929): contes
 test('a reading of the board (vm.win) sets the headline and the tally of the plaque, and a line of five wins with fewer than 13 Houses', () => {
   const win = { state: 'won', winner: 'h', routes: ['line'], reason: 'five in a line', counts: { a: 1, h: 5, open: 19, unknown: 0 }, lines: ['diag-main'], why: '', qualifiers: [] };
   const p = plaque({ a: 1, h: 5, win });
-  assert.equal(p.querySelector('.lcc-pl-session').textContent, 'SYSSELRAAD WON · HARKONNEN');
+  assert.equal(p.querySelector('.lcc-pl-session').textContent, 'SYSSELRAAD SECURED · HARKONNEN');
   assert.equal(p.querySelector('.lcc-pl-standing').textContent, 'HARKONNEN · BY FIVE IN A LINE · 5 TO 1 · 19 HOUSES OPEN');
 });
 

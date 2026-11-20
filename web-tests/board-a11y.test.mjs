@@ -88,13 +88,17 @@ test('the queue chip and the Theme button are named by their visible words first
   w.close();
 });
 
-test('a control that is off is not faded: the quiet text and a dashed edge tell it, so its label keeps its contrast (#889, #659 G-061)', () => {
+test('a control that is off is not faded: the quiet text and edge of the one disabled look tell it, so its label keeps its contrast (#889, #659 G-061, #1049)', () => {
   const ruleOf = (css, sel) => { const i = css.indexOf(sel + ' {'); const j = i < 0 ? css.indexOf(sel + '{') : i; assert.ok(j >= 0, 'no rule for ' + sel); return css.slice(j, css.indexOf('}', j)); };
-  for (const sel of ['.lcc-bd-act[aria-disabled="true"]', '.lcc-bd-chip[aria-disabled="true"]', '.lcc-bd-layout button[aria-disabled="true"]', '.lcc-bd-tier[aria-disabled="true"]', '.lcc-bd-select:disabled']) assert.ok(!/opacity/.test(ruleOf(boardCss, sel)), sel + ' must not fade');
-  for (const sel of ['.lsb .qa[aria-disabled="true"]', '.lsb .tc[aria-disabled="true"]', '.lsb .sorth:disabled', '.lsb .btnl input:disabled+span']) assert.ok(!/opacity/.test(ruleOf(appCss, sel)), sel + ' must not fade');
-  assert.match(ruleOf(boardCss, '.lcc-bd-act[aria-disabled="true"]'), /border-style: dashed/);
-  assert.match(ruleOf(boardCss, '.lcc-bd-act[aria-disabled="true"]'), /color: var\(--lcc-dim\)/);
+  // the board's and the classic list's own rules for an off control are gone: the one look is in app.css (disabled-look.test.mjs)
+  for (const sel of ['.lcc-bd-act[aria-disabled="true"]', '.lcc-bd-chip[aria-disabled="true"]', '.lcc-bd-layout button[aria-disabled="true"]', '.lcc-bd-select:disabled']) assert.ok(!boardCss.includes(sel + ' {'), sel + ' has no look of its own');
+  for (const sel of ['.lsb .qa[aria-disabled="true"]', '.lsb .tc[aria-disabled="true"]', '.lsb .sorth:disabled']) assert.ok(!appCss.includes(sel + '{'), sel + ' has no look of its own');
+  assert.ok(!/opacity/.test(ruleOf(appCss, '.lsb .btnl input:disabled+span')), 'a disabled box label must not fade');
+  const one = ruleOf(appCss, ':root :is(button,select,input,textarea,[role="tab"],[role="switch"],.d-btn,.d-toggle):is(:disabled,[aria-disabled="true"]):not(.tc,.lcc-bd-tier,.lcc-hc-t)');
+  assert.ok(one.includes('{color:var(--dis-fg)'), 'the quiet text colour');
+  assert.doesNotMatch(one, /dashed/);
 });
+
 
 test('the not-reached tier box edge in the dark look is at least 3:1 against the card (#889)', () => {
   const edge = /--lcc-tier-edge: (#[0-9a-f]{6});/.exec(lccCss.split('@media (prefers-color-scheme: light)')[0])[1];

@@ -73,12 +73,13 @@ test('a House card says its owner in words and in a mark, not only in colour', (
   const t = (o) => house(o).querySelector('.lcc-owner').textContent;
   assert.equal(t({ owner: 'a' }), 'Atreides', 'one mark: the name, never a letter and the name (#950)');
   assert.equal(t({ owner: 'h' }), 'Harkonnen');
-  assert.equal(t({ owner: 'open' }), '○ Not won');
+  assert.equal(t({ owner: 'open' }), '○ Undecided');
+  assert.equal(t({ owner: 'open', wavering: true }), '○ Wavering', 'both factions have progress on it (#1073)');
   assert.equal(t({ owner: 'unknown' }), '? Unreadable');
   assert.equal(t({ owner: 'nonsense' }), '? Unreadable', 'an owner that is not one of the four is unreadable, never open');
   assert.equal(house({ owner: 'nonsense' }).getAttribute('data-owner'), 'unknown');
-  assert.match(house({ owner: 'a' }).getAttribute('aria-label'), /^Ecaz, favor won by Atreides, specialization Combat$/);
-  assert.match(house({ owner: 'open' }).getAttribute('aria-label'), /^Ecaz, favor not won,/);
+  assert.match(house({ owner: 'a' }).getAttribute('aria-label'), /^Ecaz, pledged to Atreides, specialization Combat$/);
+  assert.match(house({ owner: 'open' }).getAttribute('aria-label'), /^Ecaz, undecided,/);
   assert.match(house({ owner: 'unknown' }).getAttribute('aria-label'), /favor unreadable/);
 });
 
@@ -91,10 +92,10 @@ test('one away, selected, rewards waiting and the two victory outlines each have
   assert.match(house({ waiting: 1 }).getAttribute('aria-label'), /1 reward waiting/);
   const line = house({ owner: 'a', inLine: true, win: true });
   assert.equal(line.getAttribute('data-victory'), 'win');
-  assert.deepEqual([...line.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD WON']);
+  assert.deepEqual([...line.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD SECURED']);
   const dom = house({ owner: 'h', win: true });
   assert.equal(dom.getAttribute('data-victory'), 'win');
-  assert.deepEqual([...dom.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD WON'], 'a House of a 13-House win has the same outline and the same flag');
+  assert.deepEqual([...dom.querySelectorAll('.lcc-flag')].map((f) => f.textContent), ['SYSSELRAAD SECURED'], 'a House of a 13-House win has the same outline and the same flag');
   const both = house({ owner: 'a', inLine: true, win: true });
   assert.equal(both.getAttribute('data-victory'), 'win', 'a House is shown with one outline');
   assert.equal(house({ owner: 'a' }).getAttribute('data-victory'), null);

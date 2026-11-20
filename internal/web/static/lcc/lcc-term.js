@@ -33,7 +33,8 @@
   function decreeFact(label, d, key, none) {
     const li = el('li', 'lcc-tm-fact lcc-tm-fact-decree', '', { 'data-fact': key });
     li.appendChild(el('span', 'lcc-tm-k', label));
-    if (!d) { li.appendChild(el('strong', 'lcc-tm-v', none || 'None')); return li; }
+    // none: the words of an empty place, a string, or { kind, text, tip } (the state of the Landsraad, #1073: divided, swayed, or a dash with its hover text)
+    if (!d) { const n = none && typeof none === 'object' ? none : { text: none || 'None' }; li.appendChild(el('strong', 'lcc-tm-v', n.text, { title: n.tip || null, 'data-next': n.kind || null })); return li; }
     const row = el('div', 'lcc-tm-dref');
     row.appendChild(art(d, 44));
     const t = el('div', 'lcc-tm-dtext');
@@ -62,7 +63,7 @@
     rf.appendChild(r);
     ul.appendChild(rf);
     ul.appendChild(decreeFact('ACTIVE DECREE', vm.active, 'active'));
-    ul.appendChild(decreeFact(NEXT, vm.elected, 'elected', 'none yet'));
+    ul.appendChild(decreeFact(NEXT, vm.elected, 'elected', vm.next || 'None')); // by the state of the Landsraad (#1073): app.js lbNextWord works the words out for both views
     return ul;
   }
 
