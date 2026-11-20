@@ -287,6 +287,112 @@ Same checks as E2 (run on both): no overflow, no target under the floor, 0 contr
 
 Pictures (E3): `e3-1280-dark.png`, `e3-1280-light.png`, `e3-390-dark.png`, `e3-390-light.png` (nothing chosen, 21 chosen, the Fill question), `e3-filters-state.png`, `e3-action-state.png`, `e3-confirm-open.png`, `compare-c-e2-e3.png`.
 
+## Option E4 (E2 without the Filters key: the second row is always visible)
+
+`option-e4.html`, the same kit and fixture, behaviour in `mock-e2.js` (variant e4). Operator feedback on E2: 'click Filters to open a pane that has two filters does not feel like a professional web app'.
+
+**The rule.** On a desktop width (701 px and up) nothing is behind a key: row 1 is the lens (Show tabs and the House chips, Any / Undecided / Pledged), row 2 is always visible and holds Specialization (select), Jump to House (select), Group (select, list layout only, as in E2's drawer) and the count '25 / 25' aligned right. The docked plate (Choose shown (N), the faction crests, Fill, Complete, Reopen, Clear) is exactly E2's: a slim 44 px strip when nothing is chosen, static below 700 px window height, the one-line question 'Fill 21 Houses for Harkonnen?' with Yes and Cancel.
+**At phone width (700 px and under)** row 2 collapses behind ONE disclosure, **Filters (n)**, n being the filters that are on (House chip not Any, Specialization not All, Group not No groups; Show is on the lens row and Jump to House is not a filter, so neither is counted). This is the only place a pane remains, because there is no room. Open, it holds four headed sections, in the same words as the E5 menu: **House** (the House chips move in, so the lens row keeps only Show), **Specialization**, **Jump to House**, **Group** (list layout only). The section headings replace the captions of the selects.
+
+Measured (first card, down from the top of the board panel, same method as E2: 193 / 259 idle, 257 / 319 drawer open, today 371 / 404 and 770 / 820):
+
+| | 1280 idle | 1280 chosen | 390 idle | 390 chosen | 390 Filters open |
+|---|---|---|---|---|---|
+| E4 | **201 px** | **201 px** | **213 px** | **213 px** | 437 px |
+
+So E4 is 8 px taller than E2 closed at 1280 (the row is always there) and 56 px shorter than E2 with the drawer open; at 390 it is 46 px shorter than E2 (the House chips are inside the disclosure). Plate heights are E2's (slim 44 / 52, full 81 / 142, with the question 143 / 243).
+
+**What E4 drops against E2.** The Filters key, its drawer and its badge on the desktop; the drawer's open and close state; the 'second row appears after a click' step (Specialization and Jump to House are one click closer, 5 clicks to Fill one specialization instead of 6). On a phone the House chips are no longer on the lens row (they are two taps away, inside Filters (n)). Nothing else from E2 is dropped: the plate, the rule, the tooltips and the matrix are unchanged.
+
+## Findings: what Tau and the Trainer already do for filters (read-only, matched by E5 and E6)
+
+| Where | What it does | Reused by E5 / E6 |
+|---|---|---|
+| `internal/web/static/theme-menu.js` (the Theme menu, #570, #587, #683) | A `role="menu"` popover under its button, grouped lists under group headings; a search box at the top of a long group that stays while the list scrolls; a line 'N of M palettes' (and what to do when none match); Arrow Up / Down / Home / End, Enter or Space picks and the menu stays open, **Escape clears the box first and closes the menu on the next press and gives the focus back to the button**, Tab leaves, a click outside closes, items 44 px on touch | The popover under the button, the search box with 'N of 25 Houses match' and 'No House matches the search.', the Escape order, focus back to the button, outside click, 44 px on touch, items that stay open so a combination can be tried |
+| `internal/web/static/lcc/lcc-board.js` `filters()` and `lcc-board.css` `.lcc-bd-chip` (the board's real filters) | Show and House as chip groups with a small caps label, Jump to House as a select 'Choose a House…', Group 'No groups / By region / By specialization'; chips are 36 px (44 px on a phone), gold when on | The words (Show, House, Pledged, Undecided, Jump behaviour, By region, By specialization), the chip height and the gold on-state |
+| `internal/web/static/app.js` `countText` and the filter boxes of Inventory, Journey and Recipes | 'N of M ... match' while a filter narrows the list, 'No node matches the filter.' | The count line and the empty line of the House search |
+| Trainer `internal/mapui/static/map.html` (`<details id="filters">`) and `app.js` (`buildTree`, `tsw`) | A card headed **Filters** with a count (`fcount`), groups with a name and a count, one switch look for every box (#1027), 'Hide all', and a search note 'Map shows matches only · Clear' | The head 'Filters' with its number (E4 phone: Filters (n)); the grouped-list-with-counts idea (a number beside each category in the menu) |
+
+**Wording decision.** The existing word for emptying a search or a filter is a bare **Clear** (the Trainer's search note) and 'Hide all' (the Trainer's map kinds). E5 and E6 use **Clear filters** as the operator asked, because a bare Clear is already the plate's key for the *choice* (the Houses ticked); the two must not share a word. No existing pattern has removable chips with a cross: the chip look is the board's `.lcc-bd-chip` (gold border, 12 px text) with the cross added (new). Multi-select boxes in a list are new too (the Theme menu has radio items and the Trainer has switches; the kit's switch would work, but a square box says 'several' better on a list of 25).
+
+## Option E5 (E2 with one Filter menu on the lens row)
+
+`option-e5.html`, behaviour in `mock-e2.js` (variant e5). No second row, no side drawer.
+
+- **The lens row** is one row at 1280: the Show tabs, one **Filter** key (a chevron, no number), and '25 / 25' at the right. The House chips are not on the lens row any more: they are in the menu. The docked plate is E2's, unchanged.
+- **Active filters are chips beside the key**: 'House: Pledged', 'House: Alexin' (one chip per House picked), 'Specialization: Combat', 'Group: By region'; each has a cross and removes itself (the focus goes back to Filter). **Clear filters** appears when any chip exists and empties all of them (Show is not part of it: it stays visible on the row). With two or more chips the row wraps to a second line (first card 193 px at 1280, as E2 idle).
+- **The menu is a popover with the categories on the left and their items on the right** (a two-pane list), built from categories: **House** (the pledge state Any / Undecided / Pledged, then a search box 'Search Houses', then the 25 Houses by name, three columns, the list scrolls and the search stays), **Specialization** (All, then the five, several can be picked, a chip each) and **Group** (None / By region / By specialization, the category appears only in the list layout, as E2's drawer had Group). Each category shows a number when something in it is on. The separate Jump to House control is gone: choosing a House adds it, scrolls the board to it and outlines it for 1.8 s, and with several Houses picked only those are shown (a chip per House).
+- **Two-pane or sections? Two-pane.** The Theme menu uses stacked sections because each of its groups is short. Here House alone is 25 names plus a search and a pledge row: as a section it pushes Specialization and Group below a scroll, and the menu grows to about 600 px. The two-pane list keeps the popover at about 380 px, shows one category at a time, and is the same structure as the phone sheet (categories first, then the items), so there is one model to learn. The sections version was not built.
+- **Desktop:** the popover sits under the Filter key, 640 px wide (clamped to the panel), over the board, not pushing it. **Phone (700 px and under):** a bottom sheet with a dimmed page behind it: first the category list (House, Specialization, Group, with their numbers), then the items of the one tapped, with a Back key; Done closes it. The same opens by keyboard.
+- **Keyboard** (checked in headless Edge): Enter or Space on Filter opens it and the focus lands on the selected category; Arrow Down / Up move between categories (and show their items), Arrow Right enters the items, Arrow Down / Up walk a list (Arrow Up from the first House goes to the search box, Arrow Down from the box to the first House), Arrow Left goes back to the categories, Space or Enter picks, the pledge and Group keys are radios (arrows move and choose). **Escape** closes the menu and puts the focus back on Filter (in the search box it clears the box first, as the Theme menu does); a click outside closes it; Tab out of it closes it. Order with nothing chosen: Grid, All, Filter, Choose shown (4 stops).
+
+## Option E6 (E3 with the E5 Filter menu)
+
+`option-e6.html`, behaviour in `mock-e2.js` (variant e6). The E3 rule, unchanged: one strip, two modes, same place. Nothing chosen: the lens row (Show tabs, the Filter key and its chips, Clear filters, '25 / 25', Choose shown (N) as a text link at the right end). Houses chosen: the strip swaps into the action bar (the count with 'chosen', crests, Fill, Complete, Reopen, Clear); **the Filter key and the chips go with the lens row**, the menu is closed if it was open, and the Clear tooltip says 'Clears the choice and brings the filters back. The Filter menu is not available while Houses are chosen.' Clear or Escape swaps back and puts the focus on Choose shown (checked). The question is one line inside the bar, as in E3. Order with nothing chosen: Grid, All, Filter, Choose shown (4); chosen: Grid, Atreides, Fill, Complete, Reopen, Clear (6).
+
+The strip is 81 px at 1280 (E3: 86), first card 188 px at 1280 and 253 px at 390; 193 px at 1280 with a chip row.
+
+## C, E2, E3, E4, E5 and E6 side by side (picture `compare-e2-e3-e4-e5-e6.png`, same fixture, same crop and size as `compare-c-e2-e3.png`, two rows)
+
+| | C | E2 | E3 | E4 | E5 | E6 |
+|---|---|---|---|---|---|---|
+| First card at 1280, idle | 293 px | 193 px (257 drawer open) | 193 px (257 drawer open) | **201 px** | **149 px** (193 with a chip row; the menu floats, 0 added) | **188 px** (193 with a chip row; the menu floats) |
+| First card at 390, idle | 459 px | 259 px (319 drawer open) | 259 px (319 drawer open) | **213 px** (437 with Filters open) | **213 px** | **253 px** |
+| Control places | 3 | 4 (head switch, lens row, drawer, docked plate) | 3 (head switch, strip in two modes, drawer) | 4 (head switch, lens row, filter row, docked plate); phone: Filters (n) pane | 3 (head switch, lens row with the menu, docked plate) | 2 plus the menu (head switch, strip in two modes, popover) |
+| Hidden behind a click | nothing | Specialization, Jump, Group (drawer) | same | nothing on desktop; phone: all four sections | pledge state, Houses, Specialization, Group (menu) | same as E5 |
+| Clicks to Fill all (own faction) | 3 | 3 | 3 | 3 | 3 | 3 |
+| Clicks to Fill one specialization | 5 | 6 | 6 | 5 (select, Combat, Choose shown, Fill, Yes) | 6 (Filter, Specialization, Combat, Choose shown, Fill, Yes) | 6 |
+| Clicks to show only Pledged Houses | 1 | 1 | 1 | 1 | 2 (Filter, Pledged) | 2 |
+| Change a filter while Houses are chosen | 1 or 2 | 1 or 2 (the choice stays) | Clear first (the choice is lost) | 1 or 2 (the choice stays) | 2 or 3 (the choice stays) | Clear first |
+| Cut-off risk | none | docked plate covers 81 px (142 on a phone) while scrolling | none docked; the bar scrolls away | as E2 | as E2, plus the menu covers the board while open | none docked; the bar scrolls away; the menu covers the board while open |
+| Words / tooltips | | | | the same words, fewer places for them | one new word (Filter), one new link (Clear filters), chips | as E5 |
+
+### Review of E4, E5 and E6 (headless Edge over CDP, short and honest)
+
+- **No horizontal overflow** at 1280, 1024, 768, 640, 390 and 320 px, in the idle and chosen states, with E4's Filters open and with the E5 and E6 menu open (Houses, Specialization).
+- **Targets:** no button, radio, checkbox, tab, select or search box under 36 px (44 px at 640 px and below, and the whole sheet at 700 px and below), same states and widths.
+- **Contrast:** 1526 texts checked against the rendered pixels behind them in 64 renders (E4, E5, E6; dark and light; 1280 and 390; idle, chosen, the question, the menu or Filters open, list layout): **0 failures**. Not counted: disabled controls, text behind the phone sheet's dimmed page (dimmed on purpose, inert), text scrolled out of a list.
+- **Escape, focus, outside click** (all driven by keys in the headless run): Escape closes the menu and the focus returns to Filter; in the search box the first Escape clears it; the Fill question's Escape still returns to Fill (E2 rule, unchanged); a click outside closes the menu; removing a chip returns the focus to Filter; on the phone the sheet goes categories, items, Back, Escape. E6: choosing a House closes the menu and swaps to the bar; Clear swaps back with the focus on Choose shown.
+- **Keyboard order** E4: nothing chosen Grid, All, Any, Specialization, Jump to House, Choose shown (6); chosen adds Clear, Atreides, Fill, Complete, Reopen (11). E5: nothing chosen 4 stops, chosen 9 (Grid, All, Filter, Choose shown, Clear, Atreides, Fill, Complete, Reopen). E6 as above.
+
+### Weakest points
+
+**E4**
+1. The row is permanent: 8 px more than E2 closed, whatever the user does, and it carries Jump to House, which is the least used of the three controls.
+2. The count '25 / 25' now sits on the second row, away from the Show tabs it summarises.
+3. On a phone Filters (n) is still a pane, and it is tall when open (first card 437 px); the House chips live in two places (lens row on desktop, inside the disclosure on a phone).
+4. Jump to House changes nothing visible in this mock (it only counts as not a filter).
+
+**E5**
+1. Every filter costs a click and a pick: Pledged is 2 clicks (E2 and E4: 1), a specialization is 3 (E4: 2). The pledge state, the thing people change most on the lens, is now inside a menu.
+2. Chips grow without limit: one chip per House picked. Two chips already wrap the lens to a second row (193 px at 1280); eight Houses make three rows. A '+N more' collapse is not drawn.
+3. The popover is 640 px wide and about 380 px tall: it covers the first three rows of the board while open (it never pushes it).
+4. Picking a House does two jobs (jump and highlight, and with several, show only those); with one House picked the board shows only that House, so the jump has nothing to scroll past. The operator should decide: 'show only' or 'jump', or a separate Jump again.
+5. Four new kinds of control (category list, a search box, check lists, chips) against E4's two selects; roles mix a dialog, a tab list, radios and checkboxes and are not verified with a screen reader.
+6. The names beyond the first eight Houses are fixture inventions; the order (A to Z) maps to the board squares only in the mock.
+
+**E6** (E5's, and E3's)
+1. While Houses are chosen the Filter key and its chips are gone, so the user cannot see which filters still limit what 'chosen and shown' counts.
+2. Changing a filter while Houses are chosen means Clear first and the choice is lost.
+3. The action bar is at the top and scrolls away on a long board.
+4. Escape does two jobs (cancels the question, then clears the choice), as in E3.
+
+### What E4, E5 and E6 changed in the shared files
+
+`mock.css` gained rules for `.k-e4`, `.k-m5`, the chips, the menu, the sheet (all new class names); `mock-e2.js` gained the variants e4, e5 and e6 (the E2 and E3 branches are untouched; E3 and E6 share the bar behaviour). `option-e2.html`, `option-e3.html` and their pictures were not changed.
+
+### Pictures (E4, E5, E6)
+
+`e4-1280-dark.png`, `e4-1280-light.png`, `e4-390-dark.png`, `e4-390-light.png`, `e4-annotated-1280-dark.png` (callouts: Lens row, Filter row, Docked plate), `e4-phone-filters-open.png` (closed, open, open in list layout); `e5-1280-dark.png`, `e5-1280-light.png`, `e5-390-dark.png`, `e5-390-light.png` (nothing chosen, 25 chosen, the Fill question), `e5-menu-open.png` (House and Specialization on a desktop width, the phone sheet as categories and as the House items), `e5-annotated-1280-dark.png` (Lens row, Filter menu, Docked plate); `e6-1280-dark.png`, `e6-1280-light.png`, `e6-390-dark.png`, `e6-390-light.png`, `e6-menu-open.png`, `e6-annotated-1280-dark.png`; `compare-e2-e3-e4-e5-e6.png` (E2 with the drawer open, E3 with its drawer open, E4, E5 with the menu open, E6 with the menu open, E6 with Houses chosen; boxes are the parts, the pink line is the first card).
+
+## Not verified (E4, E5 and E6)
+
+- Nothing was tried on a real phone or touch screen: the phone width is a 390 px window; the sheet's behaviour with the on-screen keyboard (the search box on a phone) is not known.
+- No screen reader; roles and names are set (dialog, tab list, radio and checkbox buttons) and the keys are measured, nothing more.
+- The Filter key's tooltip, Tab leaving the menu (it closes it, in code) and the Home / End keys in the lists were not checked; the Group category and chip were rendered (list layout) but not driven by keys.
+- The scroll to a picked House is code only; in the stub board a picked House is also the only one shown.
+- Reduced motion and forced colours were not rendered; the chevron turn and the sheet have no animation beyond the kit's.
+
 ## Not verified (E2 and E3)
 
 - Not seen on a real phone or a touch screen; the long press is code only. The on-screen keyboard case is the `max-height: 699px` rule; a keyboard that does not resize the page (some iOS versions) would leave the plate docked.
@@ -303,3 +409,7 @@ Pictures (E3): `e3-1280-dark.png`, `e3-1280-light.png`, `e3-390-dark.png`, `e3-3
 - Where do **Complete and fill chosen** and **Unfill chosen** go? A More key on the plate is the obvious candidate.
 - E3: make the action bar sticky at the top of the window so it is never scrolled away.
 - Show a faint count 'N chosen' in the lens row (E3) while a question is open.
+- E4 to E6: a '+N more' collapse for the chips when more than three are on.
+- E5: the sections version of the menu (one scrolling column with headings, as the Theme menu has) next to the two-pane one, if the operator prefers it.
+- E6: a small note 'filters on' in the action bar so the user can see that a filter still limits the count.
+- E4: Jump to House as a small link in the count line instead of a permanent select.

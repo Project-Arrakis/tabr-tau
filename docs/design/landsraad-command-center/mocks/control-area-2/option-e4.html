@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'">
+<meta name="robots" content="noindex">
+<title>Control area, option E4: lens row and a filter row, always visible (fixture data)</title>
+<!-- Design mock for tau #974, round 2, option E4 (E2 without the Filters button: the second row of filters is always visible on a desktop width and sits behind one Filters (n) disclosure on a phone).
+     Two ways to open it. In the repository: serve the repository folder with any static file server on a loopback address and open this file
+     (?state=idle|chosen|confirm, ?theme=dark|light, ?bare=1, ?filters=open, ?layout=list, ?plate=full, ?annotate=1|phone, ?show=, ?house=).
+     As a flat page: put this file, mock.css and mock.js in one folder with a css/ folder next to them that holds tokens-fremen.css, components-fremen.css, components.css, lcc.css and lcc-board.css. Each stylesheet is linked twice (repository path, then css/);
+     the one that does not exist is simply not found. -->
+<link rel="stylesheet" href="../../../../../design/assets/tokens-fremen.css"><link rel="stylesheet" href="css/tokens-fremen.css">
+<link rel="stylesheet" href="../../../../../design/assets/components-fremen.css"><link rel="stylesheet" href="css/components-fremen.css">
+<link rel="stylesheet" href="../../../../../design/assets/components.css"><link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="../../../../../internal/web/static/lcc/lcc.css"><link rel="stylesheet" href="css/lcc.css">
+<link rel="stylesheet" href="../../../../../internal/web/static/lcc/lcc-board.css"><link rel="stylesheet" href="css/lcc-board.css">
+<link rel="stylesheet" href="mock.css">
+<script src="mock-e2.js" defer></script>
+</head>
+<body>
+<svg class="k-sprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute"><defs>
+<symbol id="k-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></symbol>
+<symbol id="k-list" viewBox="0 0 24 24"><path d="M9.5 6h11M9.5 12h11M9.5 18h11"/><circle cx="4.6" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.2" fill="currentColor" stroke="none"/></symbol>
+<symbol id="k-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="k-banner" viewBox="0 0 24 24"><path d="M6 21V3.5"/><path d="M6 5h12.5l-3.2 4.6 3.2 4.6H6"/></symbol>
+<symbol id="k-shield" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.7-3.2 8-7.5 9.5-4.3-1.5-7.5-4.8-7.5-9.5V6z"/></symbol>
+<symbol id="k-diamond" viewBox="0 0 24 24"><path d="M12 3l8.5 9-8.5 9-8.5-9z"/><path d="M12 8l4 4-4 4-4-4z"/></symbol>
+<symbol id="k-pin" viewBox="0 0 24 24"><path d="M12 21.5S5.5 15.8 5.5 10.2a6.5 6.5 0 0 1 13 0c0 5.6-6.5 11.3-6.5 11.3z"/><circle cx="12" cy="10.2" r="2.4"/></symbol>
+<symbol id="k-sliders" viewBox="0 0 24 24"><path d="M3.5 7h8M16.5 7h4M3.5 17h3M11.5 17h9"/><circle cx="14" cy="7" r="2.3"/><circle cx="9" cy="17" r="2.3"/></symbol>
+<symbol id="k-all" viewBox="0 0 24 24"><path d="M3 12.5l3.6 3.8 6-7"/><path d="M10.6 16.6l.7.7 9.4-10.6"/></symbol>
+<symbol id="k-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="k-fill" viewBox="0 0 24 24"><path d="M5 4h14l-1.4 14.2a2 2 0 0 1-2 1.8H8.4a2 2 0 0 1-2-1.8z"/><path d="M5.9 11.2c2-1.6 4 1.6 6.1 0s4.1 1.6 6.1 0"/></symbol>
+<symbol id="k-done" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M7.8 12.4l3 3 5.4-6.6"/></symbol>
+<symbol id="k-reopen" viewBox="0 0 24 24"><path d="M4.4 12a7.6 7.6 0 1 0 2.3-5.4"/><path d="M4.2 3.8v4.6h4.6"/></symbol>
+<symbol id="k-chev" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+<symbol id="k-layers" viewBox="0 0 24 24"><path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.2l8.5 4.5 8.5-4.5"/><path d="M3.5 16.4l8.5 4.5 8.5-4.5"/></symbol>
+<symbol id="k-hourglass" viewBox="0 0 24 24"><path d="M6.5 3.5h11M6.5 20.5h11M8 3.5v3.8l4 4.7-4 4.7v3.8M16 3.5v3.8l-4 4.7 4 4.7v3.8"/></symbol>
+<symbol id="k-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></symbol>
+<symbol id="k-ring-half" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
+<symbol id="k-crown" viewBox="0 0 24 24"><path d="M4 18.5h16M3.8 7.5l4.4 4.2L12 5l3.8 6.7 4.4-4.2-1.5 11H5.3z"/></symbol>
+<symbol id="k-shield-ok" viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.7-3.2 8-7.5 9.5-4.3-1.5-7.5-4.8-7.5-9.5V6z"/><path d="M8.6 12l2.5 2.5 4.3-4.6"/></symbol>
+<symbol id="k-spec-all" viewBox="0 0 24 24"><path d="M12 3l8.5 9-8.5 9-8.5-9z"/><path d="M12 8l4 4-4 4-4-4z"/></symbol>
+</defs></svg>
+<p class="k-note" role="note"><strong>Design mock, option E4.</strong> Fixture data, nothing is read or written.</p>
+<nav class="k-dev" aria-label="Mock controls"><span><b>State</b> <a href="?state=idle" data-q="state=idle">Idle</a><a href="?state=chosen" data-q="state=chosen">25 Houses chosen</a><a href="?state=confirm" data-q="state=confirm">Fill question</a></span><span><b>Part</b> <a href="?layout=list" data-q="layout=list">List layout</a><a href="?filters=open" data-q="filters=open">Filters open (phone)</a><a href="?plate=full" data-q="plate=full">Full plate when idle</a><a href="?annotate=1" data-q="annotate=1">Annotated</a></span><span><b>Look</b> <a href="?theme=dark" data-q="theme=dark">Dark</a><a href="?theme=light" data-q="theme=light">Light</a></span><span><b>Option</b> <a href="option-c.html">C</a><a href="option-d.html">D</a><a href="option-e.html">E</a><a href="option-e2.html">E2</a><a href="option-e3.html">E3</a><a href="option-e4.html">E4</a><a href="option-e5.html">E5</a><a href="option-e6.html">E6</a></span></nav>
+<div class="lcc lcc-bd k-wrap k-page k-e2 k-e4" data-option="e" data-variant="e4" data-state="idle">
+<section class="lcc-bd-surface lcc-bd-panel k-frame" aria-labelledby="lcc-bd-h">
+<div class="k-area">
+  <div class="k-head">
+    <div class="lcc-bd-panel-title">
+      <p class="lcc-bd-eyebrow">THE GREAT HOUSES</p>
+      <h3 class="lcc-bd-h" id="lcc-bd-h">The Landsraad</h3>
+      <p class="lcc-bd-subline k-tipped k-tip-below k-tip-start k-subline-tip">Term 7 · 5 × 5<span class="k-tip k-tip-wide" aria-hidden="true">A fixed 5 × 5 board. The game positions are read from board_index.</span></p>
+    </div>
+    <div class="k-view k-tray k-fr" role="radiogroup" aria-label="Board layout">
+      <button type="button" role="radio" class="k-tab k-fr k-tipped k-tip-below k-tip-end" aria-checked="true" tabindex="0" data-k="tab"><svg class="k-ic" aria-hidden="true"><use href="#k-grid"/></svg><span>Grid</span><span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">Shows the Houses as a 5 × 5 board.</span></button>
+      <button type="button" role="radio" class="k-tab k-fr k-tipped k-tip-below k-tip-end" aria-checked="false" tabindex="-1" data-k="tab"><svg class="k-ic" aria-hidden="true"><use href="#k-list"/></svg><span>List</span><span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">Shows the Houses as a sortable list. Group is then in the filter row.</span></button>
+    </div>
+  </div>
+  <div class="k-lens" data-part="lens">
+    <div class="k-tray k-fr k-lens-tray" role="group" aria-label="Show and House">
+      <div class="k-grp"><span class="k-gl k-tipped k-tip-below k-tip-start">Show<span class="k-tip k-tip-wide" aria-hidden="true">Show changes only which Houses are shown. It never changes which Houses are chosen.</span></span><div class="k-tabs" role="radiogroup" aria-label="Show"><button type="button" role="radio" class="k-tab k-fr" aria-checked="true" tabindex="0" data-k="tab">All<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr" aria-checked="false" tabindex="-1" data-k="tab">What is left<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr" aria-checked="false" tabindex="-1" data-k="tab">Not started<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr" aria-checked="false" tabindex="-1" data-k="tab">In progress<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr" aria-checked="false" tabindex="-1" data-k="tab">Top tier<span class="k-lamp" aria-hidden="true"></span></button></div></div><i class="k-sep" aria-hidden="true"></i>
+      <div class="k-grp"><span class="k-gl k-tipped k-tip-below k-tip-start">House<span class="k-tip k-tip-wide" aria-hidden="true">House changes only which Houses are shown: all, the Undecided ones or the ones that are Pledged.</span></span><div class="k-tabs" role="radiogroup" aria-label="House"><button type="button" role="radio" class="k-tab k-fr" aria-checked="true" tabindex="0" data-k="tab">Any<span class="k-lamp" aria-hidden="true"></span></button><button type="button" role="radio" class="k-tab k-fr k-tipped k-tip-below" aria-checked="false" tabindex="-1" data-k="tab">Undecided<span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">No faction has the favor of the House yet. Wavering: both factions have progress on it.</span></button><button type="button" role="radio" class="k-tab k-fr k-tipped k-tip-below k-tip-end" aria-checked="false" tabindex="-1" data-k="tab">Pledged<span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">The House is pledged to a faction: Pledged to Atreides or Pledged to Harkonnen.</span></button></div></div>
+    </div>
+    
+    
+  </div>
+  <div class="k-row2" data-part="row2">
+    <button type="button" class="k-btn k-fr k-filters k-f4btn k-tipped k-tip-below" aria-expanded="false" aria-controls="k-f4panel" data-k="f4btn"><svg class="k-ic" aria-hidden="true"><use href="#k-sliders"/></svg><span class="k-bl">Filters</span><span class="k-fn" data-k="fcount">(0)</span><svg class="k-ic k-chev" aria-hidden="true"><use href="#k-chev"/></svg><span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">Opens the filters: House, Specialization, Jump to House and Group (list layout). The number says how many are on.</span></button>
+    <div class="k-f4panel" id="k-f4panel" data-k="f4panel" role="group" aria-label="Filters">
+      <section class="k-sec" data-sec="house"><h4 class="k-sech">House</h4><div class="k-slot" data-k="houseslot"></div></section><section class="k-sec"><h4 class="k-sech">Specialization</h4><label class="k-well k-fr" data-k="spec"><svg class="k-ic" aria-hidden="true"><use href="#k-diamond"/></svg><span class="k-well-t"><span class="k-cap">Specialization</span><select aria-label="Specialization" data-k="sel"><option selected>All specializations</option><option>Crafting</option><option>Gathering</option><option>Exploration</option><option>Combat</option><option>Sabotage</option></select></span><svg class="k-ic k-chev" aria-hidden="true"><use href="#k-chev"/></svg></label></section><section class="k-sec"><h4 class="k-sech">Jump to House</h4><label class="k-well k-fr" data-k="jump"><svg class="k-ic" aria-hidden="true"><use href="#k-pin"/></svg><span class="k-well-t"><span class="k-cap">Jump to House</span><select aria-label="Jump to House" data-k="sel"><option selected>Choose a House…</option><option>Alexin</option><option>Argosaz</option><option>Dyvetz</option><option>Ecaz</option><option>Hagal</option><option>Hurata</option><option>Imota</option><option>Kenola</option></select></span><svg class="k-ic k-chev" aria-hidden="true"><use href="#k-chev"/></svg></label></section><section class="k-sec" data-group="1" hidden><h4 class="k-sech">Group</h4><label class="k-well k-fr"><svg class="k-ic" aria-hidden="true"><use href="#k-layers"/></svg><span class="k-well-t"><span class="k-cap">Group</span><select aria-label="Group" data-k="sel"><option selected>No groups</option><option>By region</option><option>By specialization</option></select></span><svg class="k-ic k-chev" aria-hidden="true"><use href="#k-chev"/></svg></label></section>
+    </div>
+    <span class="k-count k-tipped k-tip-below k-tip-end" role="status"><svg class="k-ic" aria-hidden="true"><use href="#k-eye"/></svg><span aria-hidden="true"><b data-k="shown">25</b> / <b>25</b></span><span class="k-sr">25 of 25 Houses shown</span><span class="k-tip" aria-hidden="true">25 of 25 Houses shown</span></span>
+  </div>
+  <section class="k-cmd k-fr k-dock" data-k="plate" data-part="dock" role="group" aria-label="Actions on the chosen Houses"><i class="k-hair" aria-hidden="true"></i>
+      <div class="k-zone k-zone-sel"><div class="k-med k-fr k-tipped k-tip-below k-tip-start" role="status"><b data-k="n" aria-hidden="true">0</b><span class="k-sr" data-k="nsr">No Houses chosen</span><span class="k-tip k-tip-wide" aria-hidden="true">Houses chosen and shown. A House that a filter hides is never counted and never acted on.</span></div><span class="k-cue" aria-hidden="true">Choose Houses</span><button type="button" class="k-ghost k-tipped" data-k="choose"><svg class="k-ic" aria-hidden="true"><use href="#k-all"/></svg><span>Choose shown (25)</span><span class="k-tip k-tip-wide" aria-hidden="true">Chooses the Houses that are shown now. Show, House and the filters change only what is shown.</span></button><button type="button" class="k-ghost k-tipped k-tip-right" data-k="clear" aria-disabled="true"><svg class="k-ic" aria-hidden="true"><use href="#k-x"/></svg><span>Clear</span><span class="k-tip k-tip-wide" aria-hidden="true">Clears the choice. Nothing is written.</span></button></div>
+      <i class="k-orn" aria-hidden="true"></i>
+      <div class="k-zone k-zone-do"><div class="k-seats" role="radiogroup" aria-label="Faction for Fill and Complete" aria-describedby="k-fhint">
+        <button type="button" role="radio" class="k-seat k-fr k-tipped k-tip-start" data-f="a" data-name="Atreides" aria-checked="true" tabindex="0" aria-label="Atreides, your faction" data-k="seat"><span class="k-crest" aria-hidden="true"></span><span class="k-sl" aria-hidden="true">Atreides</span><span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">Atreides, your faction. Fill and Complete act for this faction. Choosing it writes nothing.</span></button>
+        <button type="button" role="radio" class="k-seat k-fr k-tipped" data-f="h" data-name="Harkonnen" aria-checked="false" tabindex="-1" aria-label="Harkonnen" data-k="seat"><span class="k-crest" aria-hidden="true"></span><span class="k-sl" aria-hidden="true">Harkonnen</span><span class="k-lamp" aria-hidden="true"></span><span class="k-tip k-tip-wide" aria-hidden="true">Harkonnen. Fill and Complete act for this faction. Choosing it writes nothing.</span></button>
+      </div><span id="k-fhint" class="k-sr">Fill and Complete act for this faction. It starts on your own faction. Choosing it writes nothing.</span><button type="button" class="k-btn k-fr k-pri k-tipped" data-k="act" data-do="fill" aria-disabled="true" aria-describedby="k-reason" aria-label="Fill chosen Houses"><svg class="k-ic" aria-hidden="true"><use href="#k-fill"/></svg><span class="k-bl">Fill</span><span class="k-n" data-k="chg" hidden></span><span class="k-tip k-tip-wide" data-k="atip" aria-hidden="true"></span></button><button type="button" class="k-btn k-fr k-pri k-tipped" data-k="act" data-do="complete" aria-disabled="true" aria-describedby="k-reason" aria-label="Complete chosen Houses"><svg class="k-ic" aria-hidden="true"><use href="#k-done"/></svg><span class="k-bl">Complete</span><span class="k-n" data-k="chg" hidden></span><span class="k-tip k-tip-wide" data-k="atip" aria-hidden="true"></span></button></div>
+      <i class="k-orn" aria-hidden="true"></i>
+      <div class="k-zone k-zone-undo"><button type="button" class="k-btn k-fr k-tipped k-tip-end" data-k="act" data-do="reopen" aria-disabled="true" aria-describedby="k-reason" aria-label="Reopen chosen Houses"><svg class="k-ic" aria-hidden="true"><use href="#k-reopen"/></svg><span class="k-bl">Reopen</span><span class="k-n" data-k="chg" hidden></span><span class="k-tip k-tip-wide" data-k="atip" aria-hidden="true"></span></button></div>
+      <div class="k-ask" data-k="confirm" role="group" tabindex="-1" aria-label="Confirm" hidden>
+        <p class="k-qh" data-k="qh"></p>
+        <div class="k-qbtn"><button type="button" class="k-btn k-fr k-pri k-tipped k-tip-end" data-k="yes" aria-label="Yes">Yes<span class="k-tip k-tip-wide" data-k="ytip" aria-hidden="true"></span></button><button type="button" class="k-btn k-fr" data-k="cancel">Cancel</button></div>
+      </div>
+    </section>
+  <div class="k-board"><ul class="k-stub" aria-hidden="true"><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li><li></li></ul></div>
+</div>
+</section>
+</div>
+<p class="k-toast k-fr" data-k="toast" role="status" aria-live="polite" hidden></p>
+<span id="k-reason" class="k-sr">Choose at least one House first</span>
+</body>
+</html>

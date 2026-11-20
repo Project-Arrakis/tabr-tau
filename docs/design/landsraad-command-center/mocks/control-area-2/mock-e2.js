@@ -1,13 +1,16 @@
-// Control area mock, options E2 and E3 (tau #974, round 2). Behaviour for option-e2.html and option-e3.html only (E3: the lens row turns into the action bar when Houses are chosen); mock.js (options C, D, E) is not used on this page because E2 models two separate things:
+// Control area mock, options E2 to E6 (tau #974, round 2). Behaviour for option-e2.html to option-e6.html only (E3 and E6: the lens row turns into the action bar when Houses are chosen; E4: the filters are a second row, behind one Filters (n) key on a phone;
+// E5 and E6: one Filter menu with the categories House, Specialization and Group, and chips for what is on, a bottom sheet on a phone); mock.js (options C, D, E) is not used on this page because E2 models two separate things:
 // what is VISIBLE (the Show tabs, the House chips and the drawer) and what is CHOSEN (the ticks, Choose shown, Clear). The counts on the plate are chosen AND visible, so a House that a filter
 // hides is never counted and never acted on. Fixture data only, nothing is read or written.
 // Query: ?state=idle|chosen|confirm, ?theme=dark|light, ?bare=1, ?drawer=open, ?layout=list, ?plate=full (keep the full plate when nothing is chosen), ?annotate=1|phone (callouts for the
 // three parts, for the annotated pictures only), ?show=left|notstarted|progress|top, ?house=undecided|pledged (open with a filter on).
+// E4: ?filters=open (the phone disclosure open). E5 and E6: ?menu=open, ?cat=house|spec|group, ?spec=4,5 (specializations 1 to 5), ?pick=Alexin,Hagal (Houses), ?q=text (the search box).
 (function () {
   'use strict';
   var doc = document, root = doc.documentElement, page = doc.querySelector('.k-page');
-  var V = page && page.getAttribute('data-variant'); if (V !== 'e2' && V !== 'e3') return;
-  var E3 = V === 'e3';
+  var V = page && page.getAttribute('data-variant'); if (['e2', 'e3', 'e4', 'e5', 'e6'].indexOf(V) < 0) return;
+  var E3 = V === 'e3' || V === 'e6'; // the bar variants: the lens row turns into the action bar
+  var E4 = V === 'e4', MENU = V === 'e5' || V === 'e6'; // E4: a filter row; E5 and E6: the categorized Filter menu
   var q = function (s, r) { return (r || doc).querySelector(s); };
   var qa = function (s, r) { return Array.prototype.slice.call((r || doc).querySelectorAll(s)); };
   var params = new URLSearchParams(location.search);
@@ -24,13 +27,15 @@
   var CHG = { fill: set(IDS.filter(function (x) { return [6, 10, 14, 18].indexOf(x) < 0; })), complete: set([1, 2, 4, 5, 7, 9, 11, 13, 15, 16, 19, 22, 23, 24]), reopen: set([2, 3, 5, 6, 8, 9, 10, 12, 13, 14, 17, 18, 20, 21, 22, 25]) };
   var WORD = { fill: 'Fill', complete: 'Complete', reopen: 'Reopen' };
   var chosen = {}, pending = 'fill', confirmOpen = false, toastTimer = 0;
+  var specPick = {}, housePick = {}, searchQ = '', menuOpen = false, flashTimer = 0, SPECN = ['', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage'], PLN = ['Any', 'Undecided', 'Pledged'], GBN = ['None', 'By region', 'By specialization'];
+  var pop = q('[data-k="pop"]'), fbtn = q('[data-k="fbtn"]'), scrim = q('[data-k="scrim"]'), phoneMq = window.matchMedia('(max-width: 700px)');
   var plate = q('[data-k="plate"]'), stubs = qa('.k-stub li');
   stubs.forEach(function (li, k) { li.setAttribute('data-id', String(k + 1)); });
 
   function radioIndex(label) { var g = q('[role="radiogroup"][aria-label="' + label + '"]'); var all = qa('[role="radio"]', g); for (var k = 0; k < all.length; k++) if (all[k].getAttribute('aria-checked') === 'true') return k; return 0; }
   function visible() {
-    var s = radioIndex('Show'), h = radioIndex('House'), sp = q('select[aria-label="Specialization"]').selectedIndex;
-    var out = {}; IDS.forEach(function (id) { if ((!SHOW[s] || SHOW[s][id]) && (!HOUSE[h] || HOUSE[h][id]) && (sp === 0 || id % 5 === sp - 1)) out[id] = true; });
+    var s = radioIndex('Show'), h = radioIndex('House'), sp = MENU ? 0 : q('select[aria-label="Specialization"]').selectedIndex, nsp = Object.keys(specPick).length, nhp = Object.keys(housePick).length, out = {};
+    IDS.forEach(function (id) { var specOk = MENU ? (!nsp || specPick[(id % 5) + 1]) : (sp === 0 || id % 5 === sp - 1); if ((!SHOW[s] || SHOW[s][id]) && (!HOUSE[h] || HOUSE[h][id]) && specOk && (!nhp || housePick[id])) out[id] = true; });
     return out;
   }
   function faction() { var s = q('[data-k="seat"][aria-checked="true"]'); return s ? s.getAttribute('data-name') : 'Atreides'; }
@@ -49,7 +54,7 @@
     var on = cv.length > 0;
     page.setAttribute('data-state', confirmOpen ? 'confirm' : (on ? 'chosen' : 'idle'));
     plate.classList.toggle('k-lit', on);
-    if (E3) page.setAttribute('data-mode', on ? 'action' : 'filters'); else plate.classList.toggle('k-slim', !on && params.get('plate') !== 'full');
+    if (E3) { page.setAttribute('data-mode', on ? 'action' : 'filters'); if (on) closeMenu(false); } else plate.classList.toggle('k-slim', !on && params.get('plate') !== 'full');
     q('[data-k="n"]').textContent = String(cv.length);
     q('[data-k="nsr"]').textContent = on ? plural(cv.length, 'House') + ' chosen' : 'No Houses chosen';
     q('[data-k="shown"]').textContent = String(vc.length);
@@ -74,12 +79,80 @@
       q('[data-k="yes"]', c).setAttribute('aria-label', 'Yes, ' + WORD[pending].toLowerCase() + ' ' + plural(n2, 'House') + (pending === 'reopen' ? '' : ' for ' + faction()));
       q('[data-k="ytip"]', c).textContent = totals(n2);
     }
-    var badge = q('[data-k="fcount"]'), cnt = 0;
-    qa('select', q('[data-k="drawer"]')).forEach(function (s) { if (s.selectedIndex > 0 && !s.closest('[hidden]')) cnt++; });
-    badge.textContent = String(cnt); badge.hidden = cnt === 0;
+    if (MENU) renderMenu();
+    else if (E4) { var n4 = radioIndex('House') > 0 ? 1 : 0; ['Specialization', 'Group'].forEach(function (l) { var s4 = q('select[aria-label="' + l + '"]'); if (s4 && s4.selectedIndex > 0 && !s4.closest('[hidden]')) n4++; }); q('[data-k="fcount"]').textContent = '(' + n4 + ')'; } // Jump to House is not a filter: it is not counted
+    else { var badge = q('[data-k="fcount"]'), cnt = 0; qa('select', q('[data-k="drawer"]')).forEach(function (s) { if (s.selectedIndex > 0 && !s.closest('[hidden]')) cnt++; }); badge.textContent = String(cnt); badge.hidden = cnt === 0; }
     layoutNotes();
   }
   function layoutNotes() { if (root.classList.contains('k-annot')) annotate(); }
+
+  // ---- E5 and E6: the Filter menu (a popover; a bottom sheet at 700 px and under) ----
+  function isPhone() { return phoneMq.matches; }
+  function listLayout() { var c = q('[data-k="cat"][data-cat="group"]'); return !!c && !c.hidden; }
+  function renderMenu() {
+    var chips = [], pl = radioIndex('House'), gb = listLayout() ? radioIndex('Group by') : 0;
+    if (pl > 0) chips.push(['pledge', 'House: ' + PLN[pl]]);
+    IDS.forEach(function (id) { if (housePick[id]) chips.push(['house:' + id, 'House: ' + q('[data-k="hpick"][data-id="' + id + '"]').getAttribute('data-name')]); });
+    for (var k = 1; k <= 5; k++) if (specPick[k]) chips.push(['spec:' + k, 'Specialization: ' + SPECN[k]]);
+    if (gb > 0) chips.push(['group', 'Group: ' + GBN[gb]]);
+    var box = q('[data-k="chips"]'); box.textContent = '';
+    chips.forEach(function (c) { var b = doc.createElement('button'); b.type = 'button'; b.className = 'k-chip'; b.setAttribute('data-k', 'chip'); b.setAttribute('data-chip', c[0]); b.setAttribute('aria-label', 'Remove ' + c[1]);
+      var s = doc.createElement('span'); s.textContent = c[1]; b.appendChild(s); var ns = 'http://www.w3.org/2000/svg', sv = doc.createElementNS(ns, 'svg'), u = doc.createElementNS(ns, 'use'); sv.setAttribute('class', 'k-ic'); sv.setAttribute('aria-hidden', 'true'); u.setAttribute('href', '#k-x'); sv.appendChild(u); b.appendChild(sv); box.appendChild(b); });
+    q('[data-k="clearf"]').hidden = !chips.length;
+    var nsp = Object.keys(specPick).length, nh = Object.keys(housePick).length;
+    qa('[data-k="spick"]').forEach(function (b) { var i = +b.getAttribute('data-i'); b.setAttribute('aria-checked', i === 0 ? String(!nsp) : String(!!specPick[i])); });
+    var shownN = 0, needle = searchQ.trim().toLowerCase();
+    qa('[data-k="hpick"]').forEach(function (b) { var id = +b.getAttribute('data-id'), hit = !needle || b.getAttribute('data-name').toLowerCase().indexOf(needle) >= 0; b.hidden = !hit; if (hit) shownN++; b.setAttribute('aria-checked', String(!!housePick[id])); });
+    q('[data-k="hn"]').textContent = !needle ? '25 Houses' + (nh ? ', ' + nh + ' chosen' : '') : shownN ? shownN + ' of 25 Houses match' : 'No House matches the search.';
+    qa('[data-k="cat"]').forEach(function (b) { var c = b.getAttribute('data-cat'), n = c === 'house' ? (pl > 0 ? 1 : 0) + nh : c === 'spec' ? nsp : gb > 0 ? 1 : 0; q('[data-k="cc"]', b).textContent = n ? String(n) : ''; });
+    rove(q('[data-list="h"]')); rove(q('[data-list="s"]'));
+    if (menuOpen) place();
+  }
+  function rove(list) { var o = qa('.k-opt:not([hidden])', list); if (!o.length) return; var cur = o.filter(function (b) { return b.tabIndex === 0; })[0] || o.filter(function (b) { return b.getAttribute('aria-checked') === 'true'; })[0] || o[0]; qa('.k-opt', list).forEach(function (b) { b.tabIndex = b === cur ? 0 : -1; }); }
+  function showCat(name, focusIt) {
+    qa('[data-k="cat"]').forEach(function (b) { var on = b.getAttribute('data-cat') === name; b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; if (on) q('[data-k="ptitle"]').textContent = q('span', b).textContent; });
+    qa('.k-p5-panel', pop).forEach(function (p) { p.hidden = p.getAttribute('data-cat') !== name; });
+    pop.setAttribute('data-view', 'items'); 
+    if (menuOpen) place();
+  }
+  function place() {
+    if (!isPhone()) { var pr = page.getBoundingClientRect(), br = fbtn.getBoundingClientRect(); pop.style.left = Math.max(0, Math.min(br.left - pr.left, pr.width - pop.offsetWidth)) + 'px'; pop.style.top = Math.round(br.bottom - pr.top + 6) + 'px'; }
+    else { pop.style.left = ''; pop.style.top = ''; }
+  }
+  function openMenu(focusIt) {
+    if (menuOpen) return; menuOpen = true; pop.hidden = false; scrim.hidden = !isPhone(); fbtn.setAttribute('aria-expanded', 'true');
+    if (isPhone()) pop.setAttribute('data-view', 'cats'); else { var sel = q('[data-k="cat"][aria-selected="true"]'); showCat(sel ? sel.getAttribute('data-cat') : 'house'); }
+    place(); layoutNotes(); if (focusIt !== false) { var t = isPhone() ? q('[data-k="cat"]:not([hidden])', pop) : q('[data-k="cat"][aria-selected="true"]', pop); if (t) t.focus(); }
+  }
+  function closeMenu(refocus) {
+    if (!MENU || !menuOpen) return; menuOpen = false; pop.hidden = true; scrim.hidden = true; fbtn.setAttribute('aria-expanded', 'false'); layoutNotes(); if (refocus) fbtn.focus();
+  }
+  function flash(id) { var li = stubs[id - 1]; if (!li) return; li.classList.add('k-flash'); if (li.scrollIntoView) li.scrollIntoView({ block: 'nearest' }); clearTimeout(flashTimer); flashTimer = setTimeout(function () { qa('.k-flash').forEach(function (e) { e.classList.remove('k-flash'); }); }, 1800); }
+  function resetRadio(label) { var all = qa('[role="radio"]', q('[role="radiogroup"][aria-label="' + label + '"]')); choose(all[0], false); }
+  function clearFilters() { resetRadio('House'); if (q('[role="radiogroup"][aria-label="Group by"]')) resetRadio('Group by'); specPick = {}; housePick = {}; searchQ = ''; var s = q('[data-k="search"]'); if (s) s.value = ''; update(false); fbtn.focus(); }
+  function menuClick(t, role) {
+    if (role === 'fbtn') { if (menuOpen) closeMenu(true); else openMenu(true); return true; }
+    if (role === 'cat') { showCat(t.getAttribute('data-cat'), true); return true; }
+    if (role === 'back') { pop.setAttribute('data-view', 'cats'); var c = q('[data-k="cat"][aria-selected="true"]', pop); if (c) c.focus(); return true; }
+    if (role === 'popclose') { closeMenu(true); return true; }
+    if (role === 'spick') { var k = +t.getAttribute('data-i'); if (k === 0) specPick = {}; else if (specPick[k]) delete specPick[k]; else specPick[k] = true; update(false); return true; }
+    if (role === 'hpick') { var id = +t.getAttribute('data-id'), added = !housePick[id]; if (added) housePick[id] = true; else delete housePick[id]; update(false); if (added) flash(id); return true; }
+    if (role === 'chip') { var key = t.getAttribute('data-chip'), p = key.split(':'); if (key === 'pledge') resetRadio('House'); else if (key === 'group') resetRadio('Group by'); else if (p[0] === 'house') delete housePick[+p[1]]; else if (p[0] === 'spec') delete specPick[+p[1]]; update(false); fbtn.focus(); return true; }
+    if (role === 'clearf') { clearFilters(); return true; }
+    return false;
+  }
+  function popKey(e) {
+    var t = e.target, key = e.key;
+    if (key === 'Escape') { e.stopPropagation(); e.preventDefault(); if (t.getAttribute && t.getAttribute('data-k') === 'search' && t.value) { t.value = ''; searchQ = ''; update(false); } else closeMenu(true); return; }
+    var cat = t.closest ? t.closest('[data-k="cat"]') : null, opt = t.closest ? t.closest('.k-opt') : null, vis = function (r) { return qa(r, pop).filter(function (b) { return !b.hidden; }); };
+    if (cat && (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End')) { var cs = vis('[data-k="cat"]'), k = cs.indexOf(cat), nk = key === 'Home' ? 0 : key === 'End' ? cs.length - 1 : (k + (key === 'ArrowDown' ? 1 : -1) + cs.length) % cs.length; showCat(cs[nk].getAttribute('data-cat')); if (isPhone()) pop.setAttribute('data-view', 'cats'); cs[nk].focus(); e.preventDefault(); return; }
+    if (cat && key === 'ArrowRight') { var f = q('.k-p5-panel:not([hidden]) [role="radio"][aria-checked="true"], .k-p5-panel:not([hidden]) .k-opt[tabindex="0"]', pop); if (f) { f.focus(); e.preventDefault(); } return; }
+    if (opt && (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End')) { var list = opt.closest('[data-list]'), os = qa('.k-opt:not([hidden])', list), i = os.indexOf(opt);
+      if (key === 'ArrowUp' && i === 0 && list.getAttribute('data-list') === 'h') { q('[data-k="search"]').focus(); e.preventDefault(); return; }
+      var ni = key === 'Home' ? 0 : key === 'End' ? os.length - 1 : Math.max(0, Math.min(os.length - 1, i + (key === 'ArrowDown' ? 1 : -1))); os.forEach(function (b) { b.tabIndex = b === os[ni] ? 0 : -1; }); os[ni].focus(); e.preventDefault(); return; }
+    if (t.getAttribute && t.getAttribute('data-k') === 'search' && (key === 'ArrowDown')) { var o1 = qa('.k-opt:not([hidden])', q('[data-list="h"]'))[0]; if (o1) { o1.focus(); e.preventDefault(); } return; }
+    if ((opt || (t.getAttribute && t.getAttribute('data-k') === 'search')) && key === 'ArrowLeft' && !(t.getAttribute && t.getAttribute('data-k') === 'search')) { var sc = q('[data-k="cat"][aria-selected="true"]', pop); if (sc) { sc.focus(); e.preventDefault(); } }
+  }
 
   // radio groups: one tab stop, arrows move and choose
   function choose(btn, focus) {
@@ -95,6 +168,8 @@
     var t = e.target.closest ? e.target.closest('button') : null; if (!t) return;
     var role = t.getAttribute('data-k');
     if (role === 'tab' || role === 'seat') { choose(t, false); update(role === 'seat'); return; }
+    if (role === 'f4btn') { var o4 = !page.classList.contains('k-f4open'); page.classList.toggle('k-f4open', o4); t.setAttribute('aria-expanded', o4 ? 'true' : 'false'); layoutNotes(); return; }
+    if (MENU && menuClick(t, role)) return;
     if (role === 'drawerbtn') { var d = q('[data-k="drawer"]'), open = d.hidden; d.hidden = !open; t.setAttribute('aria-expanded', open ? 'true' : 'false'); layoutNotes(); return; }
     if (t.getAttribute('aria-disabled') === 'true') { toast(role === 'act' ? (q('[data-k="n"]').textContent === '0' ? 'Choose at least one House first' : 'Nothing to change among the chosen Houses that are shown') : role === 'choose' ? 'Every House that is shown is chosen' : 'Nothing is chosen'); return; }
     if (role === 'choose') { var v = visible(); IDS.forEach(function (id) { if (v[id]) chosen[id] = true; }); update(false); }
@@ -103,6 +178,14 @@
     else if (role === 'cancel') closeAsk(true);
     else if (role === 'yes') { closeAsk(true); toast('Mock only: nothing was written.'); }
   });
+  if (MENU) {
+    doc.addEventListener('click', function (e) { if (menuOpen && e.target.closest && !e.target.closest('[data-k="pop"]') && !e.target.closest('[data-k="fwrap"]')) closeMenu(false); });
+    pop.addEventListener('keydown', popKey);
+    pop.addEventListener('focusin', function (e) { var o = e.target.closest && e.target.closest('.k-opt'); if (o) { var l = o.closest('[data-list]'); qa('.k-opt', l).forEach(function (b) { b.tabIndex = b === o ? 0 : -1; }); } });
+    doc.addEventListener('focusout', function (e) { if (menuOpen && e.relatedTarget && !pop.contains(e.relatedTarget) && !q('[data-k="fwrap"]').contains(e.relatedTarget)) closeMenu(false); });
+    doc.addEventListener('input', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-k') === 'search') { searchQ = e.target.value; update(false); } });
+    window.addEventListener('resize', function () { if (menuOpen) { scrim.hidden = !isPhone(); place(); } });
+  }
   doc.addEventListener('change', function (e) { if (e.target && e.target.matches && e.target.matches('select')) update(false); });
   doc.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && confirmOpen) { closeAsk(true); return; }
@@ -122,14 +205,27 @@
     var W = Math.max(doc.documentElement.scrollWidth, window.innerWidth), H = Math.max(doc.documentElement.scrollHeight, window.innerHeight);
     annNode = doc.createElement('div'); annNode.className = 'k-an'; annNode.setAttribute('aria-hidden', 'true'); annNode.style.width = W + 'px'; annNode.style.height = H + 'px';
     var svg = doc.createElementNS(NS, 'svg'); svg.setAttribute('width', W); svg.setAttribute('height', H); annNode.appendChild(svg); doc.body.appendChild(annNode);
-    var parts = E3 ? [
+    var LENS_E2 = { sel: '[data-part="lens"]', n: '1', t: 'Lens row' }, DOCK = { sel: '[data-part="dock"]', n: '3', t: 'Docked plate', l: ['Count medallion (chosen and shown)', 'Choose shown (N), Clear', 'Faction crests', 'Fill, Complete, Reopen (counts)'] };
+    var parts = V === 'e3' ? [
       { sel: '[data-part="lens"]', n: '1', t: 'Lens row (nothing chosen)', l: ['Show tabs', 'House chips', 'Filters button (badge)', 'Count of Houses shown', 'Choose shown (N) link'], on: 'filters' },
       { sel: '[data-part="drawer"]', n: '2', t: 'Drawer', l: ['Specialization', 'Jump to House', 'Group (list layout only)'], on: 'filters' },
       { sel: '[data-part="action"]', n: '3', t: 'Action bar (Houses chosen)', l: ['Count medallion, chosen', 'Faction crests', 'Fill, Complete, Reopen (counts)', 'Clear'], on: 'action' }
+    ] : V === 'e4' ? [
+      { sel: '[data-part="lens"]', n: '1', t: 'Lens row', l: ['Show tabs', 'House chips'] },
+      { sel: '[data-part="row2"]', n: '2', t: 'Filter row (always visible)', l: ['Specialization', 'Jump to House', 'Group (list layout only)', 'Count of Houses shown', 'Phone: one Filters (n) key'] },
+      DOCK
+    ] : V === 'e5' ? [
+      { sel: '[data-part="lens"]', n: '1', t: 'Lens row', l: ['Show tabs', 'Filter key', 'Chips for what is on, Clear filters', 'Count of Houses shown'] },
+      { sel: '[data-part="menu"]', n: '2', t: 'Filter menu', l: ['Categories: House, Specialization, Group', 'House: pledge, search, the 25 Houses', 'Specialization (several)', 'Group (list layout only)'] },
+      DOCK
+    ] : V === 'e6' ? [
+      { sel: '[data-part="lens"]', n: '1', t: 'Lens row (nothing chosen)', l: ['Show tabs', 'Filter key', 'Chips, Clear filters', 'Count of Houses shown', 'Choose shown (N) link'], on: 'filters' },
+      { sel: '[data-part="menu"]', n: '2', t: 'Filter menu', l: ['Categories: House, Specialization, Group', 'House: pledge, search, the 25 Houses', 'Specialization (several)'], on: 'filters' },
+      { sel: '[data-part="action"]', n: '3', t: 'Action bar (Houses chosen)', l: ['Count medallion, chosen', 'Faction crests', 'Fill, Complete, Reopen (counts)', 'Clear (the menu is away)'], on: 'action' }
     ] : [
       { sel: '[data-part="lens"]', n: '1', t: 'Lens row', l: ['Show tabs', 'House chips', 'Filters button (badge: drawer filters that are on)', 'Count of Houses shown'] },
       { sel: '[data-part="drawer"]', n: '2', t: 'Drawer', l: ['Specialization', 'Jump to House', 'Group (list layout only)'] },
-      { sel: '[data-part="dock"]', n: '3', t: 'Docked plate', l: ['Count medallion (chosen and shown)', 'Choose shown (N), Clear', 'Faction crests', 'Fill, Complete, Reopen (counts)'] }
+      DOCK
     ];
     var x0 = Math.round(wrap.right + sx + 22), cw = Math.min(300, W - x0 - 12), lastBottom = 8;
     parts.forEach(function (p) {
@@ -172,7 +268,15 @@
   if (params.get('layout') === 'list') { var lb = q('.k-view [aria-label="List"]'); if (lb) choose(lb, false); }
   if (params.get('drawer') === 'open') { var db = q('[data-k="drawerbtn"]'); q('[data-k="drawer"]').hidden = false; db.setAttribute('aria-expanded', 'true'); }
   if (want === 'confirm') confirmOpen = true;
+  if (E4) { var hg = qa('.k-lens-tray .k-grp')[1], slot = q('[data-k="houseslot"]'), tray4 = q('.k-lens-tray'); var place4 = function () { if (phoneMq.matches) slot.appendChild(hg); else tray4.appendChild(hg); layoutNotes(); }; phoneMq.addEventListener('change', place4); place4(); // on a phone the House chips sit under the House heading of the disclosure
+    if (params.get('filters') === 'open') { page.classList.add('k-f4open'); q('[data-k="f4btn"]').setAttribute('aria-expanded', 'true'); } }
+  if (MENU) {
+    (params.get('spec') || '').split(',').forEach(function (n) { if (+n >= 1 && +n <= 5) specPick[+n] = true; });
+    (params.get('pick') || '').split(',').forEach(function (nm) { var b = qa('[data-k="hpick"]').filter(function (x) { return x.getAttribute('data-name') === nm; })[0]; if (b) housePick[+b.getAttribute('data-id')] = true; });
+    if (params.get('q')) { searchQ = params.get('q'); q('[data-k="search"]').value = searchQ; }
+  }
   update(true);
+  if (MENU && params.get('menu') === 'open') { openMenu(false); var cw = params.get('cat'); if (cw === 'house' || cw === 'spec' || (cw === 'group' && listLayout())) showCat(cw); }
   if (params.get('annotate')) {
     root.classList.add('k-annot'); if (params.get('annotate') === 'phone') root.classList.add('k-annot-phone');
     var go = function () { annotate(); }; if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(go); go(); window.addEventListener('resize', go);
