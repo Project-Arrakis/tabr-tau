@@ -828,7 +828,7 @@ function specMount() {
   const m = $('#lcs-mount');
   if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST);
 }
-const NO_TRACK_NUMBER = 'Number not known yet: set it under Advanced below.';
+const NO_TRACK_NUMBER = 'The editor cannot match this specialization yet: see Advanced below.';
 // The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
 const MEASURED_TRACK_NUMBERS = { Crafting: 1, Gathering: 2, Exploration: 3, Combat: 4, Sabotage: 5 };
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.

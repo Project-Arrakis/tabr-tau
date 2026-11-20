@@ -2,8 +2,8 @@
 // Inspector's link or in the Help. "Track" stays only in the Advanced cards of the Classic list (the track-number editor and the raw row), which name the save's own XP track numbers
 // (marked data-advanced). The Classic list and the Command Center say the same words where both have the thing. Real app.js and lcc scripts over the synthetic answers; no game save.
 //
-// The words of the confirmation questions and of the result lines are not tested here: they are recorded in web-tests/lcc-spec-requests.golden.json (asked / said), which must not change
-// with a wording pass, and they say "track" in a few places for that reason (listed in the changelog entry of #1061).
+// The words of the confirmation questions and of the result lines are recorded in web-tests/lcc-spec-requests.golden.json (asked / said). The reset-all question, its typed sentence and its result line
+// say "specialization" (the golden file was re-recorded for them, #1061); the results of the two Advanced track-number editors still say "track number" (that card names the save's own numbers).
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
@@ -68,7 +68,7 @@ test('Classic: the Advanced cards are marked, and are the only places that still
   assert.equal(adv.length, 2, 'the track-number card and the raw row card');
   assert.deepEqual(adv.map((a) => text(a.querySelector('h3, summary'))), ['Advanced: track numbers', 'Advanced: set a raw row']);
   const all = text(ui.doc.querySelector('#main'));
-  assert.match(all, /set it under Advanced below/, 'the pointer to the numbers does not say "track"');
+  assert.match(all, /cannot match this specialization yet: see Advanced below/, 'the pointer to the numbers does not say "track"');
 });
 
 test('Classic and Command Center say the same words for the same things', async () => {
