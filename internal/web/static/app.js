@@ -2085,9 +2085,40 @@ function lbTierTitle(h, t, i, tip, off) {
 }
 // the row's meter is a picture of the state: the tier clicks are the boxes of the opened row, where each box shows its reward and what it grants before the click
 const lbMeter = (h) => html`<span class="meter mb${h.tiers.length && h.reached === h.tiers.length ? ' full' : ''}" role="img" aria-label="${h.reached} of ${h.tiers.length} tiers reached">${h.tiers.map((t, i) => html`<i class="${t.reached ? 'on' : ''}${i === h.tiers.length - 1 ? ' top' : ''}"></i>`)}</span>`;
-// the pin is drawn only on a map the editor has a picture for (map_key); a hub has a name but no picture to pin on
-const lbPin = (h) => (h.loc.known && h.loc.map_key ? html`<span class="pin" data-px="${(Number(h.loc.x) * 100).toFixed(1)}" data-py="${(Number(h.loc.y) * 100).toFixed(1)}"></span>` : '');
-const lbMiniMap = (h) => (h.loc.known && h.loc.map_key ? html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map} (not to scale)" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/><text class="m-txt" x="117" y="88" text-anchor="end" font-size="3.4">schematic, not to scale</text></svg>${lbPin(h)}</span>` : '');
+// The quick peek draws the real picture of the House's map (#1069): a window of that picture around the pin and, in a corner, the whole map with the same pin and the window marked. The pictures are the ones the Saved map draws, one fixed
+// list by the map key of the read (a key is never turned into a path), with the map space of internal/ops/livemap.go (Width x Height): the read gives the pin as a fraction of the picture (x * Width, y * Height on the Saved map),
+// so the pin is the same fraction here, and a test keeps this list in step with livemap.go. The files are the program's own and lazy (a picture inside a hidden peek is not asked for until it is shown).
+const LB_PIC = {
+  HaggaBasin: { src: '/maps/hagga-basin.png', w: 4096, h: 4096 },
+  DeepDesert: { src: '/maps/deep-desert.png', w: 4096, h: 4096 },
+  Arrakeen: { src: '/maps/arrakeen.png', w: 4096, h: 2342 },
+  HarkoVillage: { src: '/maps/harko-village.png', w: 4096, h: 4096 },
+};
+const LB_PIC_LABELS = ['Hagga Basin', 'Deep Desert', 'Arrakeen', 'Harko Village']; // the map names of a read whose place has a picture (internal/ops houseMapKey)
+const LB_PEEK_ZOOM = 0.25, LB_PEEK_RATIO = 16 / 9; // the window shows a quarter of the map's width, in a box 16 to 9
+// the window: its place in the picture (left, top, width and height as fractions) and the pin inside it (fractions of the window). It stays inside the picture: a place near an edge is not centred.
+function lbPeekWindow(pic, x, y) {
+  const fw = LB_PEEK_ZOOM, fh = Math.min(1, fw * (pic.w / pic.h) / LB_PEEK_RATIO);
+  const left = Math.min(1 - fw, Math.max(0, x - fw / 2)), top = Math.min(1 - fh, Math.max(0, y - fh / 2));
+  return { fw, fh, left, top, px: (x - left) / fw, py: (y - top) / fh };
+}
+const lbPct = (n) => (n * 100).toFixed(2);
+// why the peek is the schematic and not the picture: a map with no picture, or a place outside the frame of its picture (the read gives no map_key and no pin then)
+function lbSchemWhy(h) {
+  if (!h.loc.map_key) return 'Schematic only, not to scale: ' + (LB_PIC_LABELS.includes(h.loc.map) ? 'this place is outside the frame of the picture, so there is no pin.' : 'the editor has no picture of ' + h.loc.map + ' yet.');
+  return 'Schematic only, not to scale: the editor has no picture of ' + h.loc.map + ' that this place can be pinned on.';
+}
+// what the note under a place with no pin says: the editor has the picture of the map and the place is outside its frame, or the editor has no picture of that map (#1069)
+const lbHubNote = (h) => (LB_PIC_LABELS.includes(h.loc.map) ? 'This place is outside the frame of the picture of ' + h.loc.map + '.' : lbNoPic(h));
+const lbSchematic = (h) => html`<span class="minimap"><svg viewBox="0 0 120 90" role="img" aria-label="Schematic of ${h.loc.map}, not to scale" focusable="false"><path class="m-fill" d="M8 34 L28 12 L66 6 L102 20 L114 50 L98 80 L56 86 L22 78 L6 56 Z"/></svg><span class="mwhy">${lbSchemWhy(h)}</span></span>`;
+function lbMiniMap(h) {
+  if (!h.loc.known) return '';
+  const pic = LB_PIC[h.loc.map_key], x = Number(h.loc.x), y = Number(h.loc.y);
+  if (!h.loc.map_key || !pic || !(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return lbSchematic(h);
+  const g = lbPeekWindow(pic, x, y), corner = (g.px > 0.62 ? 'l' : 'r') + (g.py > 0.62 ? 't' : 'b'); // the small whole map sits in the corner away from the pin
+  const ar = pic.w + '/' + pic.h;
+  return html`<span class="minimap mpic" role="img" aria-label="Map of ${h.loc.map}, zoomed on the place of House ${h.name}, with the whole map in the corner"><span class="mwin"><img class="mimg" src="${pic.src}" alt="" loading="lazy" decoding="async" data-box="${lbPct(-g.left / g.fw)},${lbPct(-g.top / g.fh)},${lbPct(1 / g.fw)},,${ar}"><span class="pin" data-px="${lbPct(g.px)}" data-py="${lbPct(g.py)}"></span></span><span class="mfull c-${corner}"><img src="${pic.src}" alt="" loading="lazy" decoding="async" data-box=",,,,${ar}"><span class="mview" data-box="${lbPct(g.left)},${lbPct(g.top)},${lbPct(g.fw)},${lbPct(g.fh)}"></span><span class="mdot" data-px="${lbPct(x)}" data-py="${lbPct(y)}"></span></span></span>`;
+}
 // the quick peek on the place (mouse hover only, see the .pop rules): the same lines as the opened row, drawn once per row; the opened row is the way in for a touch screen and the keyboard
 const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. ${lbLocHint(h)}</span></span>` : '');
 // The House hover card, one builder for the Classic list and the Command Center list (#940, #951). The Place line is a real button that opens the same Saved map view as the place link of the row (same data-lb="map"),
@@ -2098,8 +2129,14 @@ function lbPlaceLine(h) {
   const on = lbOnMap(h);
   return html`<span class="loc"><button type="button" class="hcard-place${on ? '' : ' off'}" data-lb="map" data-id="${h.id}" data-fk="hp:${h.id}" ${on ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbLocHint(h)}">${text}</button>${on ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`;
 }
+// The head of the House hover card (#1069): the large House symbol (the game's picture at 128 px, from the Command Center's art, shown at 64) beside the House name and its region. The path comes from the board's own lookup
+// (LCCB.houseSymbol: a fixed list of Houses), the picture is lazy so the hidden card asks for nothing, and a House with no picture there (or no Command Center scripts) has the name and the region alone.
+function lbCardHead(h) {
+  const f = window.LCCB && window.LCCB.houseSymbol ? window.LCCB.houseSymbol(h.name) : '', region = h.loc.known ? lbAreaFull(h) : 'not mapped yet';
+  return html`<span class="hhead">${f ? html`<img class="hsym" src="${f}" alt="" width="64" height="64" loading="lazy" decoding="async">` : ''}<span class="hht"><h4>House ${h.name}</h4><span class="hreg">${region}</span></span></span>`;
+}
 function lbHouseCard(h, l, noLocs) {
-  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button><h4>House ${h.name}</h4><dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction standing</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span>`;
+  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button>${lbCardHead(h)}<dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction standing</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? 'Finished by ' + (h.win != null ? lbFacName(l, h.win) : 'a faction') : 'Not finished by either faction'}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span>`;
 }
 // A built piece of the page as a DOM node, for the Command Center scripts (they draw with the DOM, the page with html``): the pins of a place peek are put where the save says, as the page does after a draw.
 function lbNode(safe) {
@@ -2156,7 +2193,7 @@ function lbLocModel(h) {
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
-  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbNoPic(h)} There is no pin or map link for this house.</p>` : ''}`;
+  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
 }
 const LB_ICON = {
   fill: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -3078,6 +3115,7 @@ function lbStyles(root) {
   root.querySelectorAll('[data-w]').forEach((e) => { e.style.width = e.dataset.w + '%'; });
   root.querySelectorAll('[data-hue]').forEach((e) => { e.style.setProperty('--h', e.dataset.hue); });
   root.querySelectorAll('[data-px]').forEach((e) => { e.style.left = e.dataset.px + '%'; e.style.top = e.dataset.py + '%'; });
+  root.querySelectorAll('[data-box]').forEach((e) => { const [l, t, w, h, ar] = e.dataset.box.split(','); if (l) e.style.left = l + '%'; if (t) e.style.top = t + '%'; if (w) e.style.width = w + '%'; if (h) e.style.height = h + '%'; if (ar) e.style.aspectRatio = ar; }); // a picture window (#1069): where the picture, the marked window and the pin sit
 }
 function lbWire() {
   const root = $('#lsb');
@@ -3091,10 +3129,11 @@ function lbWire() {
     if (e.key !== 'Escape') return;
     if (LP.confirm && !LP.busy) { const a = LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk(a); return; }
     const a = document.activeElement, w = a && a.closest ? a.closest('.hw') : null;
+    const pw = a && a.closest ? a.closest('.loc') : null; if (pw && pw.querySelector(':scope > .pop')) pw.setAttribute('data-esc', ''); // Escape puts a place peek away while the focus stays on its link (#1069)
     lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn, [data-lcb="sel"]'); // the name button: the Classic row's, or the Command Center list's
     if (hb && a !== hb) hb.focus(); }
   });
-  const clearEsc = (e) => { const w = e.target.closest ? e.target.closest('.hw') : null; root.querySelectorAll('.hw[data-esc]').forEach((x) => { if (x !== w) x.removeAttribute('data-esc'); }); };
+  const clearEsc = (e) => { const w = e.target.closest ? e.target.closest('.hw') : null, pw = e.target.closest ? e.target.closest('.loc') : null; root.querySelectorAll('.hw[data-esc]').forEach((x) => { if (x !== w) x.removeAttribute('data-esc'); }); root.querySelectorAll('.loc[data-esc]').forEach((x) => { if (x !== pw) x.removeAttribute('data-esc'); }); };
   root.addEventListener('mouseover', clearEsc); root.addEventListener('focusin', clearEsc);
   root.addEventListener('mouseover', lbFloat); root.addEventListener('focusin', lbFloat);
   lbApply();

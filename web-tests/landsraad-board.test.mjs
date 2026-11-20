@@ -174,8 +174,11 @@ test('the place: a house with no position says so and does not open anything; on
   assert.deepEqual(calls, [], 'nothing is opened on the Saved map');
   assert.ok(ui.doc.querySelector('#lsrow-900 .more').textContent.includes('This house is not mapped yet'), 'the opened row explains it too');
   assert.equal(ui.doc.querySelector('#lsrow-900 .more .pin'), null, 'no position is drawn that is not known');
-  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .pin').style.top, '50%');
-  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .pin').style.left, '25%');
+  // #1069: the picture is a window around the pin, so the pin is at the middle of the window; the small whole map carries the place itself (a quarter in, halfway down)
+  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .mwin .pin').style.top, '50%');
+  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .mwin .pin').style.left, '50%');
+  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .mfull .mdot').style.top, '50%');
+  assert.equal(ui.doc.querySelector('#lsrow-901 .more .minimap .mfull .mdot').style.left, '25%');
   assert.ok(text(ui.doc.querySelector('#lsrow-901 .more')).includes('north rim'));
 });
 
@@ -267,7 +270,8 @@ test('the place has a quick peek for a mouse (the same lines as the opened row) 
   assert.ok(pop, 'the peek is in the place');
   assert.equal(pop.getAttribute('aria-hidden'), 'true', 'the peek is mouse only; the opened row is the way in for the keyboard and touch');
   assert.ok(text(pop).includes('The O’dham (Hagga Basin)') && text(pop).includes('north rim') && text(pop).includes('Click the place to open the Saved map'), text(pop));
-  assert.equal(pop.querySelector('.pin').style.left, '25%');
+  assert.equal(pop.querySelector('.mwin .pin').style.left, '50%', 'the pin is the middle of the picture window');
+  assert.equal(pop.querySelector('.mfull .mdot').style.left, '25%', 'and the whole map holds the place itself');
   assert.ok(ui.doc.querySelector('#lsrow-901 .loc-t[data-lb=map]').title.includes('Hover for a quick peek'));
 });
 
@@ -349,7 +353,7 @@ test('a hub (a place the Saved map has no picture of) is muted, says why in its 
   assert.ok(ui.doc.querySelector('#lsrow-900 .loc-t svg'), 'the pin icon stays on the dimmed place');
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc-t .cue')) === 'no map picture', 'a cue in words, not only a colour');
   const more = text(ui.doc.querySelector('#lsrow-900 .more'));
-  assert.ok(more.includes(why) && more.includes('no pin or map link') && !more.includes('From you'), more);
+  assert.ok(more.includes('outside the frame of the picture of Harko Village') && more.includes('no pin or map link') && !more.includes('From you'), more); // #1069: the editor has the picture; the place is outside its frame
   assert.equal(ui.doc.querySelector('#lsrow-900 .more .pin'), null, 'no pin is drawn on a made-up picture');
 });
 

@@ -44,6 +44,7 @@ A tier with no delivery record is counted as neither collected nor not collected
 - The Grid and List buttons switch between the board and a sortable list of the same Houses.
 - In the Classic list, click a row to open it.
 - A House's place opens the Saved map at that House. A yellow ring on the map marks its place, and the line above the map names it, and **Back to House** returns to it on the Landsraad tab, in the view you are in (the board, or the Classic list with only that House shown).
+- Hover a House's place, or put the keyboard focus on it, for a quick peek: a zoomed window of the real map picture (Hagga Basin, the Deep Desert, Arrakeen or Harko Village) with the same ring that the Saved map draws, the whole map small in a corner with the window marked on it, and the Region and From you lines. Escape puts the peek away. A place outside the frame of its picture, or on a map the editor has no picture of, shows a plain outline and says why. Hover or focus a House's name for its card, which starts with the large House symbol, the name and the region. The editor has no picture of the House swatches, so there is no swatch hover.
 
 ## The plaque and the victory panel
 
