@@ -355,6 +355,26 @@ async function main() {
       else if (r.canvasTop < r.headerBottom - 1 || r.canvasTop > r.vh - 100) report.hard.push(current + ': the map is not in view (it starts at ' + r.canvasTop + ' of a window ' + r.vh + ' high, the header ends at ' + r.headerBottom + '): ' + JSON.stringify(r));
       else if (r.focus !== 'lmc') report.hard.push(current + ': the keyboard focus is not on the map: ' + r.focus);
       if (/(classic|board)-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '.png'), Buffer.from(shot.data, 'base64')); }
+      // and the way back: "Back to House X" on that Saved map opens the Landsraad tab with the House chosen and its card, row or list line in view below the sticky header, not at the top of the page (#1072)
+      if (drawn && r.line) {
+        const bk = await evalIn(`(() => { const k = document.querySelector('#lmhouse [data-lmback]'); if (!k) return null; k.scrollIntoView({ block: 'center' }); const q = k.getBoundingClientRect(); return { x: Math.round(q.left + q.width / 2), y: Math.round(q.top + q.height / 2), id: k.dataset.lmback }; })()`);
+        if (!bk) report.hard.push(current + ': the Saved map has no way back to the House');
+        else {
+          await b.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: bk.x, y: bk.y });
+          await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: bk.x, y: bk.y, button: 'left', clickCount: 1 });
+          await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: bk.x, y: bk.y, button: 'left', clickCount: 1 });
+          let back = null;
+          for (let i = 0; i < 40 && !back; i++) { await sleep(150); back = await evalIn(`(() => document.querySelector('#lsb') ? 1 : 0)()`).catch(() => 0); }
+          await sleep(700);
+          const q = await evalIn(`(() => { const id = ${JSON.stringify(bk.id)}; const n = document.querySelector('#lsb-lcc') ? (document.querySelector('.lcc-bd-cell[data-id="' + id + '"]') || document.querySelector('.lcc-bd-row[data-id="' + id + '"]')) : document.querySelector('#lsrow-' + id); let hb = 0; document.querySelectorAll('header, #gamewarn, #launchpass').forEach((e) => { hb = Math.max(hb, e.getBoundingClientRect().bottom); });
+            const r = n && n.getBoundingClientRect(); const insp = document.querySelector('.lcc-bd-insp'); return { scrollY: Math.round(scrollY), vh: innerHeight, headerBottom: Math.round(hb), found: !!n, top: r && Math.round(r.top), bottom: r && Math.round(r.bottom), board: !!document.querySelector('#lsb-lcc'), inspector: insp ? insp.getAttribute('data-id') : null, focus: document.activeElement && (document.activeElement.getAttribute('data-fk') || document.activeElement.className) }; })()`);
+          report.cases.push({ name: current + '-back', ...q });
+          const seen = q.found && q.bottom > q.headerBottom && q.top < q.vh;
+          if (!seen) report.hard.push(current + ': Back to House did not bring the House into view: ' + JSON.stringify(q));
+          else if (q.board && q.inspector !== bk.id) report.hard.push(current + ': Back to House did not choose the House on the board: ' + JSON.stringify(q));
+          if (/(classic|board)-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '-back.png'), Buffer.from(shot.data, 'base64')); }
+        }
+      }
       process.stdout.write('m');
     }
   }

@@ -798,7 +798,7 @@ async function playerView() {
 }
 // The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
 // (lcc/lcc-spec.js). The view only changes how the tracks are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
-const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null, reveal: false }; // reveal: a link opened the page for one path (#1041), so the page scrolls to the lanes once it is drawn
+const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null };
 const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
 const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
 // Opening a House of a path on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
@@ -806,29 +806,27 @@ function specGoHouse(id) {
   if (!Number.isInteger(id)) return;
   // The board is shown for this visit only: the view the person chose (saved under lsb.view) is not rewritten (#1060), so a Classic user is back on the Classic list the next time the page is opened, and the View switch is there to stay.
   if (window.LCC && window.LCCM && window.LCCB) { LV.view = 'board'; const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
-  tab = 'landsraad'; browserStore.set('tab', tab); render();
+  tab = 'landsraad'; browserStore.set('tab', tab); askReveal(() => lbRevealHouse(id)); render();
 }
 // The way back from the Saved map to a House: the Landsraad tab in the view the person is in now (the board with the House chosen, or the Classic list with only that House shown and opened). It only moves between pages and writes nothing (#1060).
 function lbOpenHouseHere(id) {
   if (!Number.isInteger(id)) return;
   if (lbBoardOn()) { const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
   else { LB.show = 'all'; LB.hs = 'any'; LB.jump = String(id); LB.open.add(id); }
-  tab = 'landsraad'; browserStore.set('tab', tab); render();
+  tab = 'landsraad'; browserStore.set('tab', tab); askReveal(() => lbRevealHouse(id)); render();
 }
 // And back: the specialization of a House opens that path in the Specialization tab's Command Center view. It only moves between pages (the chosen path is the view's own state) and writes nothing.
 function specGoPath(track) {
   if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
-  window.LCCS.state.sel = track; SPV.view = 'cc'; SPV.reveal = true; // shown for this visit only: the saved choice (spec.view) is not rewritten (#1060)
-  sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); render();
+  window.LCCS.state.sel = track; SPV.view = 'cc'; // shown for this visit only: the saved choice (spec.view) is not rewritten (#1060)
+  sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); askReveal(specReveal); render();
 }
 const SPV_HOST = { goHouse: specGoHouse };
-// The lanes and the chosen path's dossier are below the page's header and totals. A link that opens a path (specGoPath) brings them into view once the page is drawn: render() has already moved a
-// tab change to the top (#1025), so this has to come after the draw, never before it. The sticky header is cleared by the page's scroll-padding-top.
+// The lanes and the chosen path's dossier are below the page's header and totals. A link that opens a path (specGoPath) brings them into view once the page is drawn (askReveal). The sticky header is cleared by the page's scroll-padding-top.
 function specReveal() { const t = $('#lcs-root .lcc-sp-headrow'); if (t && typeof t.scrollIntoView === 'function') t.scrollIntoView({ block: 'start' }); }
 function specMount() {
   const m = $('#lcs-mount');
   if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST);
-  if (SPV.reveal && m) { SPV.reveal = false; specReveal(); }
 }
 const NO_TRACK_NUMBER = 'Number not known yet: see Track numbers below.';
 // The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
@@ -2961,6 +2959,15 @@ function lbMountBoard() {
   const tm = $('#lsb-lcc-term');
   if (tm && LD && window.LCCT) window.LCCT.mount(tm, lbTermModel(LD));
 }
+// A link that opened the Landsraad tab for one House (askReveal): the House's card on the board (the grid or the list of the board), or its row in the Classic list, is brought into view and given the focus,
+// the way Jump to house does. Runs once, after the page is drawn. The board's own Inspector already shows the House; this is the part that moves the page to it.
+function lbRevealHouse(id) {
+  const n = lbBoardOn() ? $('#lsb-lcc [data-fk="ht:' + id + '"]') : $('#lsrow-' + id + ' .hn');
+  if (!n) return;
+  const at = n.closest('.lcc-bd-cell, .lcc-bd-row, .hr') || n;
+  if (typeof at.scrollIntoView === 'function') at.scrollIntoView({ block: lbBoardOn() ? 'center' : 'start' });
+  if (n.focus) n.focus({ preventScroll: true });
+}
 // After a filter of the board changes: a house the filter leaves out is no longer chosen for the actions on several houses (what is not shown is never written), and a question that named it closes.
 function lbBoardFiltered(ids) {
   let dropped = false;
@@ -3411,6 +3418,10 @@ function tmapSync() {
 // render(true) is the redraw after an action (or the page's own refresh from the file): it keeps the place; render('scroll') keeps only the scroll offsets; render('rows') keeps the page offset and the offset of the table box that holds the control pressed (from, or the focused control), for a change that shows other rows in another table box (the old offset of that box is not put back onto them, #697; a list the person scrolled and pressed a button in stays where it is, #824). Any other call is a move to another page, which starts at the top.
 // auto is the page's own refresh from the file: it keeps the place the same way, but the page is never scrolled to the refocused control (#696).
 let shownTab = null; // the tab the page was last drawn for
+// A link that opens a page at one of its parts (a House on the Landsraad tab, a path on the Specialization tab) cannot scroll there itself: the page is not drawn yet, and the move to another page starts at the top (#1025).
+// It asks with askReveal(fn) before it calls render(); render() runs fn once, after the page is drawn and the view is put back, so the scroll to the part is the last scroll and nothing undoes it (#1041, #1072).
+let revealOnce = null;
+const askReveal = (fn) => { revealOnce = fn; };
 async function render(keepPlace, auto, from) {
   const keep = focusSpec(document.activeElement);
   const place = keepPlace === true || keepPlace === 'scroll' || keepPlace === 'rows' ? viewSnapshot() : reloaded;
@@ -3427,12 +3438,13 @@ async function render(keepPlace, auto, from) {
   } catch (e) {
     setHTML($('#main'), html`<div class="card d-panel bad">${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);
   }
-  SPV.reveal = false; // a request to scroll to a path is for this one draw only
   viewApply(place);
   tmapSync();
   goSync();
   if (tab === 'player' && $('#tdout')) goPlaces(false);
   refocus(keep, !auto);
+  const reveal = revealOnce; revealOnce = null; // asked for this one draw only: a later redraw, or a visit by the tabs, is not scrolled again
+  if (reveal) reveal();
 }
 
 const D = (e) => e.target.closest('[data-act]');
