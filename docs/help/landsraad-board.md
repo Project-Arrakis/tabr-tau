@@ -26,7 +26,7 @@ A tier with no delivery record is counted as neither collected nor not collected
 | Mark | Meaning |
 |---|---|
 | ✓ | Collected |
-| ○ | Earned and not collected (waiting at the House representative): an empty ring |
+| ◆ | Earned and not collected (waiting at the House representative): a gold box |
 | the tier number | Not reached |
 | ? | No delivery record in the save |
 

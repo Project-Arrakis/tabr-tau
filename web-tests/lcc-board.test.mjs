@@ -143,7 +143,7 @@ test('a card shows five numbered tier boxes and the line N/5 EARNED with the col
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
   assert.equal(boxes.length, 5);
-  assert.deepEqual(boxes.map((b) => text(b)), ['○', '○', '○', '4', '5'], 'a waiting reward is an empty ring (no gold, #1071), a tier not reached keeps its number');
+  assert.deepEqual(boxes.map((b) => text(b)), ['◆', '◆', '◆', '4', '5'], 'a waiting reward is a diamond in a gold box (the card boxes keep their look, #1082), a tier not reached keeps its number');
   assert.deepEqual(boxes.map((b) => b.classList.contains('waiting')), [true, true, true, false, false]);
   assert.equal(text(w.querySelector('.lcc-hc-count')), '3/5 EARNED', 'one line on the card, no count line under it (#1078)');
   assert.equal(w.querySelectorAll('.lcc-hc-q').length, 0);
@@ -159,7 +159,7 @@ test('the five tier boxes tell collected, waiting, delivery unknown and not reac
   const ui = await open(a);
   const w = tileOf(ui, 'Wallach');
   const boxes = [...w.querySelectorAll('.lcc-hc-t')];
-  assert.deepEqual(boxes.map((b) => text(b)), ['✓', '?', '○', '4', '5']);
+  assert.deepEqual(boxes.map((b) => text(b)), ['✓', '?', '◆', '4', '5']);
   assert.deepEqual(boxes.map((b) => ['delivered', 'uncertain', 'waiting'].find((c) => b.classList.contains(c)) || 'off'), ['delivered', 'uncertain', 'waiting', 'off', 'off']);
   assert.match(boxes[1].getAttribute('aria-label'), /no delivery record$|no delivery record\./);
   assert.doesNotMatch(boxes[1].getAttribute('aria-label'), /collected/);
