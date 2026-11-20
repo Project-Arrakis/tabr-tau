@@ -200,7 +200,7 @@ Pictures (in `docs/design/mock-pictures/landsraad-control-area-2/`, because `web
 
 ### Pictures (E2, in `docs/design/mock-pictures/landsraad-control-area-2/`)
 
-`e2-1280-dark.png`, `e2-1280-light.png`, `e2-390-dark.png`, `e2-390-light.png` (nothing chosen, chosen, the Fill question), `e2-drawer-open.png` (grid and list layout), `e2-confirm-open.png`, `e2-tooltips.png`, `e2-rule-filter.png` (All, Not started, All), `e2-annotated-1280-dark.png` and `e2-annotated-390-dark.png` (callouts: Lens row, Drawer, Docked plate; `?annotate=1` or `?annotate=phone` draws them over the page, they exist in no other view), `e2-bottom-1280x720.png`, `e2-bottom-1280x600.png` (static), `e2-bottom-1024x768.png`, `e2-bottom-390x780.png` (scrolled to the end, last row clear), `e2-today-vs-e2.png` (today, E2 and E3 at one crop, first-card offsets). Copies are in the scratchpad folders of the worker.
+`e2-1280-dark.png`, `e2-1280-light.png`, `e2-390-dark.png`, `e2-390-light.png` (nothing chosen, chosen, the Fill question), `e2-drawer-open.png` (grid and list layout), `e2-confirm-open.png`, `e2-tooltips.png`, `e2-rule-filter.png` (All, Not started, All), `e2-annotated-1280-dark.png` and `e2-annotated-390-dark.png` (callouts: Lens row, Drawer, Docked plate; `?annotate=1` or `?annotate=phone` draws them over the page, they exist in no other view), `e2-bottom-1280x720.png`, `e2-bottom-1280x600.png` (static), `e2-bottom-1024x768.png`, `e2-bottom-390x780.png` (scrolled to the end, last row clear), `e2-today-vs-e2.png` (today, E2 and E3 at one crop, first-card offsets).
 
 Plate heights measured (px): slim 44 (1280, 1024) and 52 (390); full 81 and 142; with the question 143 and 243. At 1280 x 720 the plate is docked and sticky; at 1280 x 600 it is static.
 
