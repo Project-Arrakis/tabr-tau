@@ -1,6 +1,7 @@
 // #1083 and #1081, and the leftover of #1069, in the page's own code (jsdom) with the synthetic answer of M1 and no game save.
 //   #1083: the owner line of a House card and the pledge cell of the list have no bullet or circle before the words; the card hover and the Inspector say "House Harkonnen"; the line keeps off the card
 //          edge (a CSS rule test here; the real fit, a text range against its card in a real browser engine, is measured by scripts/lcc-m7-sweep.mjs).
+//   #1081: the empty Inspector hint follows the view.
 //   #1069: a place with no pin says "no picture of X yet" only when there is no picture, and "X is outside the picture of Y" when the picture exists.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,6 +65,27 @@ test('#1083: the owner line keeps off the card edge and never clips (CSS rules; 
   assert.match(win, /max-width:\s*100%/);
   assert.match(win, /white-space:\s*normal/, 'a card too narrow for the line breaks it between the words');
   assert.doesNotMatch(win, /text-overflow:\s*(clip|ellipsis)|overflow:\s*(hidden|clip)|white-space:\s*nowrap/, 'no clip, no ellipsis, no forced single line');
+});
+
+// ---- #1081 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+const hintOf = (ui) => text(ui.doc.querySelector('#lsb-lcc .lcc-bd-insp > .lcc-bd-mut'));
+test('#1081: the empty Inspector hint follows the view: on the board in the grid, in the list in the list, and no "what each action would do"', async () => {
+  const g = await open('grid');
+  assert.equal(hintOf(g.ui), 'Choose a House on the board to see its tiers and progress.');
+  const l = await open('list');
+  assert.equal(hintOf(l.ui), 'Choose a House in the list to see its tiers and progress.');
+  for (const s of [hintOf(g.ui), hintOf(l.ui)]) assert.doesNotMatch(s, /action|or in the list|on the board or/);
+});
+test('#1081: switching the view changes the hint, and Classic has no such sentence', async () => {
+  const { ui } = await open('grid');
+  ui.doc.querySelector('#lsb-lcc [data-lcb="layout"][data-val="list"]').click();
+  await ui.settle();
+  assert.equal(hintOf(ui), 'Choose a House in the list to see its tiers and progress.');
+  ui.doc.querySelector('#lsb-lcc [data-lcb="layout"][data-val="grid"]').click();
+  await ui.settle();
+  assert.equal(hintOf(ui), 'Choose a House on the board to see its tiers and progress.');
+  const classic = await open('grid', null, 'classic');
+  assert.doesNotMatch(text(classic.ui.doc.body), /Choose a House on the board|its tiers, its progress|what each action would do/);
 });
 
 // ---- #1069 leftover: the tooltip of a place with no pin ---------------------------------------------------------------------------------------------------------------------------------------

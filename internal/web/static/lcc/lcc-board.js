@@ -569,7 +569,7 @@
     head.appendChild(el('h3', 'lcc-bd-eyebrow lcc-bd-insp-h', 'HOUSE INTELLIGENCE', { id: 'lcc-bd-insp-h' }));
     side.appendChild(head);
     if (!h) {
-      side.appendChild(el('p', 'lcc-bd-mut', 'Choose a House on the board or in the list to see its tiers, its progress and what each action would do.'));
+      side.appendChild(el('p', 'lcc-bd-mut', board.ready && state.layout === 'grid' ? 'Choose a House on the board to see its tiers and progress.' : 'Choose a House in the list to see its tiers and progress.'));
       return side;
     }
     side.setAttribute('data-id', h.id);
