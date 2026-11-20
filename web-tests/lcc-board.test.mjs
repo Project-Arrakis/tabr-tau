@@ -323,7 +323,7 @@ test('the list: House name A to Z by default (#953), sortable by every column bo
   assert.equal(ui.doc.querySelector('th[aria-sort="descending"]').textContent.trim().startsWith('House'), true);
   const g = ui.doc.querySelector('#lcc-bd-group'); g.value = 'region'; g.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   const heads = [...ui.doc.querySelectorAll('.lcc-bd-grouprow th')].map((h) => text(h));
-  assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Location unknown · 22']);
+  assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Region unknown · 22']);
   assert.equal(ui.doc.querySelector('.lcc-bd-list').getAttribute('role'), null, 'a real table, not a pile of divs');
   assert.ok(ui.doc.querySelector('.lcc-bd-list caption'));
 });

@@ -625,7 +625,7 @@
   // ---- Specialization lane card ---------------------------------------------------------------------------------------------------------------------------------------
   const fmt = (n) => Number(n).toLocaleString('en-US');
   const num = (n) => typeof n === 'number' && Number.isFinite(n);
-  // laneState(vm): the labels of one lane, kept apart so XP and keystones are never one word. LV100 (the XP cap) is not "all keystones"; "full path" needs both, proved by both numbers.
+  // laneState(vm): the labels of one lane, kept apart so XP and keystones are never one word. LV100 (the XP cap) is not "all keystones"; "complete" needs both, proved by both numbers.
   function laneState(vm) {
     const maxXp = num(vm.maxXp) ? vm.maxXp : 0, xp = num(vm.xp) ? vm.xp : 0;
     const capped = maxXp > 0 && xp >= maxXp;
@@ -636,7 +636,7 @@
   // renderLaneCard(vm): vm = { track, level, maxLevel, xp, maxXp, keystonesOwned, keystonesTotal, selected, unresolved }.
   function renderLaneCard(vm) {
     vm = vm || {};
-    const label = TRACK_LABEL[norm(vm.track)] || 'Unknown path';
+    const label = TRACK_LABEL[norm(vm.track)] || 'Unknown specialization';
     const st = laneState(vm);
     const b = el('button', 'lcc lcc-lane', '', { type: 'button', 'aria-pressed': vm.selected ? 'true' : 'false', 'data-track': TRACKS.indexOf(norm(vm.track)) >= 0 ? norm(vm.track) : null, 'data-xpcap': st.capped ? 'true' : null, 'data-ks-complete': st.complete ? 'true' : null, 'data-full': st.full ? 'true' : null, 'data-unresolved': vm.unresolved ? 'true' : null });
     const icon = el('span', 'lcc-lane-icon');
@@ -649,19 +649,19 @@
     lv.appendChild(el('b', '', num(vm.level) ? vm.level : '—'));
     lv.appendChild(el('small', '', ' / ' + (num(vm.maxLevel) ? vm.maxLevel : 100)));
     b.appendChild(lv);
-    const bar = el('span', 'lcc-lane-bar', '', { role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': st.pct, 'aria-label': 'XP toward the cap of this path' });
+    const bar = el('span', 'lcc-lane-bar', '', { role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': st.pct, 'aria-label': 'XP toward the cap of this specialization' });
     const fill = el('i', 'lcc-lane-fill');
     fill.style.setProperty('--lcc-v', st.pct + '%'); // a value that changes at run time goes through the style object, never a style attribute in markup (the content security policy)
     bar.appendChild(fill);
     b.appendChild(bar);
     b.appendChild(el('span', 'lcc-lane-nums', (num(vm.xp) ? fmt(vm.xp) : '—') + ' XP · ' + (st.unknownKeystones ? 'keystones unknown' : fmt(vm.keystonesOwned) + '/' + fmt(vm.keystonesTotal) + ' keystones')));
     const tags = el('span', 'lcc-lane-tags');
-    if (vm.unresolved) tags.appendChild(el('span', 'lcc-flag lcc-flag-warn', 'TRACK NOT IDENTIFIED'));
-    else if (st.full) tags.appendChild(el('span', 'lcc-flag lcc-flag-cap', '✦ FULL PATH COMPLETE'));
+    if (vm.unresolved) tags.appendChild(el('span', 'lcc-flag lcc-flag-warn', 'NOT IDENTIFIED'));
+    else if (st.full) tags.appendChild(el('span', 'lcc-flag lcc-flag-cap', '✦ COMPLETE'));
     else {
       if (st.capped) tags.appendChild(el('span', 'lcc-flag lcc-flag-cap', '✦ XP CAP REACHED'));
       if (st.complete) tags.appendChild(el('span', 'lcc-flag lcc-flag-ks', 'KEYSTONES COMPLETE'));
-      if (!st.capped && !st.complete) tags.appendChild(el('span', 'lcc-flag', 'PATH IN PROGRESS'));
+      if (!st.capped && !st.complete) tags.appendChild(el('span', 'lcc-flag', 'IN PROGRESS'));
     }
     b.appendChild(tags);
     b.setAttribute('aria-label', label + ', level ' + (num(vm.level) ? vm.level : 'unknown') + ' of ' + (num(vm.maxLevel) ? vm.maxLevel : 100) + ', ' + (num(vm.xp) ? fmt(vm.xp) : 'unknown') + ' XP' + (st.capped ? ', XP cap reached' : '') + ', ' + (st.unknownKeystones ? 'keystones unknown' : vm.keystonesOwned + ' of ' + vm.keystonesTotal + ' keystones' + (st.complete ? ', all keystones bought' : '')) + (vm.selected ? ', selected' : ''));

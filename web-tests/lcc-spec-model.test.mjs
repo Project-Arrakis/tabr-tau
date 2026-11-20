@@ -67,7 +67,7 @@ test('the lanes come in the approved order, whatever order the save answers in',
   assert.deepEqual(vm.rows.map((r) => r.key), ['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
 });
 
-test('XP cap and keystones are separate: level 100 with no keystone is not complete, all keystones at level 0 is not level 100, only both is the full path', () => {
+test('XP cap and keystones are separate: level 100 with no keystone is not complete, all keystones at level 0 is not level 100, only both is complete', () => {
   const cap = rowOf(S.readSpecs(byId('xp-44182-cap-zero-keystones').response, null), 'combat');
   assert.equal(cap.capped, true); assert.equal(cap.keyComplete, false); assert.equal(cap.kind, 'cap'); assert.equal(cap.level, 100);
   assert.equal(S.masteryText(cap), 'XP CAP REACHED');
@@ -79,8 +79,8 @@ test('XP cap and keystones are separate: level 100 with no keystone is not compl
   assert.ok(!/CAP REACHED|LEVEL 100/.test(S.masteryText(keys)));
   const both = rowOf(S.readSpecs(byId('both-complete').response, null), 'combat');
   assert.equal(both.kind, 'full');
-  assert.equal(S.masteryText(both), 'FULL PATH COMPLETE');
-  assert.equal(S.laneBadge(both), '✦ FULL PATH COMPLETE');
+  assert.equal(S.masteryText(both), 'COMPLETE');
+  assert.equal(S.laneBadge(both), '✦ COMPLETE');
   const fresh = rowOf(S.readSpecs(byId('xp-0-keystones-0-of-41').response, null), 'combat');
   assert.equal(fresh.kind, 'progress'); assert.equal(S.masteryText(fresh), 'XP CAP NOT REACHED');
 });
@@ -111,7 +111,7 @@ test('a track whose number is not known has no XP, no level and no cap; it is fl
   const vm = S.readSpecs(byId('conflicting-learned-number-leaves-combat-unresolved').response, null);
   const c = rowOf(vm, 'combat');
   assert.equal(c.known, false); assert.equal(c.xp, null); assert.equal(c.level, null); assert.equal(c.kind, 'unresolved'); assert.equal(c.capped, false);
-  assert.equal(S.laneBadge(c), 'TRACK NOT IDENTIFIED');
+  assert.equal(S.laneBadge(c), 'NOT IDENTIFIED');
   assert.equal(vm.anyUnidentified, true);
   assert.ok(vm.unassigned.length >= 1);
   assert.equal(vm.rows.filter((r) => r.known).length, 4);

@@ -70,7 +70,7 @@ test('level 100 ornament: the gold line is drawn for a track at the XP cap only,
   const m = () => ui.doc.querySelector('#lcs-mastery');
   // Crafting is at level 100: the ornament class and the words
   assert.ok(m().classList.contains('is-on'));
-  assert.equal(text(m()), 'FULL PATH COMPLETE');
+  assert.equal(text(m()), 'COMPLETE');
   ui.click('[data-lcs-lane="combat"]'); await ui.settle();
   assert.equal(m().classList.contains('is-on'), false, 'level 46 has no ornament line');
   assert.equal(text(m()), 'XP CAP NOT REACHED');
@@ -103,7 +103,7 @@ test('the keystone total is marked partial when a track is not identified, and s
   const ui = await openSpec('conflicting-learned-number-leaves-combat-unresolved');
   const stat = ui.doc.querySelector('#lcs-keycount').parentNode;
   assert.match(text(ui.doc.querySelector('#lcs-keycount')), /\/ 205\*$/);
-  assert.match(text(stat.querySelector('small')), /\* ONE PATH IS NOT MATCHED YET/);
+  assert.match(text(stat.querySelector('small')), /\* ONE SPECIALIZATION IS NOT MATCHED YET/);
   closeAll();
   const none = await openSpec('keystone-total-zero-no-map');
   assert.doesNotMatch(text(none.doc.querySelector('#lcs-keycount').parentNode.querySelector('small')), /NOT IDENTIFIED/);

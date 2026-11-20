@@ -1,10 +1,10 @@
-// The Command Center's Specializations view (milestone M5): the model of the five tracks read from the save, and the page built from it.
+// The Command Center's Specializations view (milestone M5): the model of the five specializations read from the save, and the page built from it.
 //
-// What this file is: a reader and a renderer. readSpecs() turns the answer of the specialization read of the editor (and, for the Houses of each path, the Houses of the Landsraad read) into plain values;
+// What this file is: a reader and a renderer. readSpecs() turns the answer of the specialization read of the editor (and, for the Houses of each specialization, the Houses of the Landsraad read) into plain values;
 // mount() draws them with createElement and textContent (never a string of HTML), so a name from a save cannot become markup.
 // What this file is not: it holds no demo data, it fetches nothing and it writes nothing. Every button it draws carries the data-act of a control the editor already has (spAdd, spMax,
 // spReset, spKeyAll, spKeyReset, spResetAll), and the page's own handlers for those send the same requests with the same questions; the one new
-// name, spAddCC, only checks the number typed and then runs spAdd. The track-number mapping and the raw-row writer are not drawn here any more (#986): they stay in the classic list. A value the save does not hold is shown as "Not in the save", never made up.
+// name, spAddCC, only checks the number typed and then runs spAdd. The track-number mapping (the save's own numbers) and the raw-row writer are not drawn here any more (#986): they stay in the classic list. A value the save does not hold is shown as "Not in the save", never made up.
 (function (root) {
   'use strict';
 
@@ -60,8 +60,8 @@
   // The model. resp is the answer of the specialization read; houses (optional) is [{ id, name, line }] from the Landsraad read, or null when that read is not there.
   function readSpecs(resp, houses) {
     const out = { ok: false, problem: '', maxXp: 0, levelsTrusted: false, resetCount: 0, rows: [], unassigned: [], housesKnown: Array.isArray(houses), totals: null, anyUnidentified: false };
-    if (!resp || typeof resp !== 'object' || !Array.isArray(resp.rows) || !Array.isArray(resp.unassigned)) { out.problem = 'The save gave no specialization tracks this page can read.'; return out; }
-    if (!isInt(resp.maxXp) || resp.maxXp <= 0) { out.problem = 'The save gave no largest XP for a track, so the progress cannot be shown.'; return out; }
+    if (!resp || typeof resp !== 'object' || !Array.isArray(resp.rows) || !Array.isArray(resp.unassigned)) { out.problem = 'The save gave no specializations this page can read.'; return out; }
+    if (!isInt(resp.maxXp) || resp.maxXp <= 0) { out.problem = 'The save gave no largest XP for a specialization, so the progress cannot be shown.'; return out; }
     out.maxXp = resp.maxXp;
     out.levelsTrusted = resp.maxXp === LEVEL_XP[MAX_LEVEL];
     out.resetCount = isInt(resp.resetCount) && resp.resetCount >= 0 ? resp.resetCount : 0;
@@ -101,19 +101,19 @@
       keysWhy: out.rows.some((r) => !r.keyKnown) ? 'total' : out.rows.some((r) => !r.known) ? 'unidentified' : '',
     };
     out.ok = out.rows.length > 0;
-    if (!out.ok) out.problem = 'This save has no specialization tracks.';
+    if (!out.ok) out.problem = 'This save has no specializations.';
     return out;
   }
 
   // The words of a track's state, kept apart so XP and keystones are never one word: LEVEL 100 is the XP cap and says nothing about keystones, "full path" needs both numbers.
   function masteryText(r) {
-    if (!r.known) return 'TRACK NOT IDENTIFIED';
-    if (r.kind === 'full') return 'FULL PATH COMPLETE'; // the level (the plate above), the XP and the keystone count (the bars below) are not said again here (#1053)
+    if (!r.known) return 'NOT IDENTIFIED';
+    if (r.kind === 'full') return 'COMPLETE'; // the level (the plate above), the XP and the keystone count (the bars below) are not said again here (#1053)
     if (r.kind === 'cap') return 'XP CAP REACHED';
     if (r.kind === 'keys') return 'KEYSTONES COMPLETE';
     return 'XP CAP NOT REACHED';
   }
-  const laneBadge = (r) => (!r.known ? 'TRACK NOT IDENTIFIED' : r.kind === 'full' ? '✦ FULL PATH COMPLETE' : r.kind === 'cap' ? '✦ XP CAP REACHED' : r.kind === 'keys' ? 'KEYSTONES COMPLETE' : 'PATH IN PROGRESS');
+  const laneBadge = (r) => (!r.known ? 'NOT IDENTIFIED' : r.kind === 'full' ? '✦ COMPLETE' : r.kind === 'cap' ? '✦ XP CAP REACHED' : r.kind === 'keys' ? 'KEYSTONES COMPLETE' : 'IN PROGRESS');
   function xpRemainText(vm, r) {
     if (r.xp === null) return NONE;
     if (r.capped) return 'XP CAP REACHED — NO FURTHER XP LEVELS';
@@ -123,10 +123,10 @@
   const keysText = (r) => (r.keyKnown ? r.keyOwned + ' / ' + r.keyTotal : NONE);
   const pctOf = (n, d) => (isNum(n) && d > 0 ? Math.max(0, Math.min(100, (n / d) * 100)) : 0);
   const storedText = (r) => String(Math.round(r.storedLevel * 100) / 100);
-  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not known') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'track not identified, no XP shown');
+  const laneLabel = (vm, r) => r.label + ', ' + (r.known ? 'level ' + (r.level === null ? 'unknown' : r.level) + ' of 100, ' + fmt(r.xp) + ' XP, ' + (r.keyKnown ? r.keyOwned + ' of ' + r.keyTotal + ' keystones' : 'keystones not known') + (r.levelMismatch ? ', the save stores level ' + storedText(r) : '') + (r.capped ? ', XP cap reached' : '') + (r.keyComplete ? ', keystones complete' : '') : 'specialization not identified, no XP shown');
 
   // ---- the page ----------------------------------------------------------------------------------------------------------------------------------------------------------------
-  // sel is the chosen path; xp holds what was typed in the XP field of each path, so choosing another lane and coming back, or drawing the view again, does not put 1000 back (#899)
+  // sel is the chosen specialization; xp holds what was typed in the XP field of each specialization, so choosing another lane and coming back, or drawing the view again, does not put 1000 back (#899)
   const state = { sel: 'crafting', xp: {} };
   const doc = () => root.document;
   function el(tag, cls, text, attrs) {
@@ -165,15 +165,15 @@
     add(h, el('div', 'lcc-sp-hero-art', '', { 'aria-hidden': 'true' }), null);
     h.firstChild.appendChild(el('span', '', '✥'));
     const t = el('div', 'lcc-sp-hero-title');
-    add(t, el('p', 'lcc-sp-eyebrow', 'THE FIVE PATHS OF ARRAKIS · IMPERIAL ARCHIVE'));
+    add(t, el('p', 'lcc-sp-eyebrow', 'THE FIVE SPECIALIZATIONS OF ARRAKIS · IMPERIAL ARCHIVE'));
     const h2 = el('h2', 'lcc-sp-h2', 'SPECIALIZATION ', { id: 'lcs-title' });
     h2.appendChild(el('em', '', 'COMMAND'));
     add(t, h2); // no lead sentence (#980): what the view is and how its operations work are in the Help tab
     const s = el('div', 'lcc-sp-hero-stats', '', { role: 'group', 'aria-label': 'Progression overview' });
     const stat = (v, k, id, title) => add(el('div', 'lcc-sp-stat'), el('b', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }), el('small', '', k, title ? { title } : undefined));
     const T = vm.totals;
-    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NONE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Paths whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
-      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NONE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'SOME PATHS SHOW NO TOTAL' : 'ONE PATH IS NOT MATCHED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
+    add(s, stat(T.tracks ? T.atCap + ' / ' + T.tracks : NONE, 'SPECIALIZATIONS COMPLETED', 'lcs-capcount', 'Specializations whose XP has reached the cap (level 100). Keystones are counted apart.'), // renamed from TRACKS AT XP CAP (#1042): the count is the same
+      stat(T.total > 0 ? T.owned + ' / ' + T.total + (T.keysPartial ? '*' : '') : NONE, T.keysPartial && T.total > 0 ? 'KEYSTONES (* ' + (T.keysWhy === 'total' ? 'SOME SPECIALIZATIONS SHOW NO TOTAL' : 'ONE SPECIALIZATION IS NOT MATCHED YET') + ')' : 'KEYSTONES', 'lcs-keycount')); // two totals: the third, the largest XP of a track, is dropped (#1042); the XP ceiling is still on the dossier
     return add(h, t, s);
   }
 
@@ -184,10 +184,10 @@
     add(ic, pic('lcc-sp-lane-img', r.key, 72));
     const lv = el('span', 'lcc-sp-lane-lv', '', { 'aria-hidden': 'true' });
     add(lv, el('b', '', r.known && r.level !== null ? 'LV ' + r.level : 'LV —'), el('span', '', ' / 100'));
-    // the level of the lane is the one of its XP; when the save stores another level the lane says so, not only the dossier of the chosen path (#899)
+    // the level of the lane is the one of its XP; when the save stores another level the lane says so, not only the dossier of the chosen specialization (#899)
     const mm = r.levelMismatch ? el('span', 'lcc-sp-lane-mm', '⚠ SAVE STORES LV ' + storedText(r), { 'aria-hidden': 'true' }) : null;
     add(b, ic, el('strong', 'lcc-sp-lane-name', r.label.toUpperCase(), { 'aria-hidden': 'true' }), lv,
-      bar('lcc-sp-lane-bar', pctOf(r.xp, vm.maxXp), 'XP of this path toward the cap', r.xp === null ? 0 : r.xp, vm.maxXp),
+      bar('lcc-sp-lane-bar', pctOf(r.xp, vm.maxXp), 'XP of this specialization toward the cap', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('span', 'lcc-sp-lane-nums', (r.xp === null ? NONE + ' XP' : fmt(r.xp) + ' XP') + ' · ' + (r.keyKnown ? r.keyOwned + '/' + r.keyTotal + ' keystones' : NONE + ' keystones'), { 'aria-hidden': 'true' }),
       el('span', 'lcc-sp-lane-badge', laneBadge(r), { 'aria-hidden': 'true' }), mm);
     b.querySelector('.lcc-sp-lane-bar').setAttribute('aria-hidden', 'true');
@@ -199,13 +199,13 @@
     const head = el('div', 'lcc-sp-dtitle');
     const ic = add(el('div', 'lcc-sp-dossier-ic', '', { 'aria-hidden': 'true' }), pic('lcc-sp-dossier-img', r.key, 96));
     const hd = el('div', 'lcc-sp-dheading');
-    add(hd, el('p', 'lcc-sp-eyebrow', 'PROGRESSION DOSSIER · SELECTED PATH'), el('h2', 'lcc-sp-h2s', r.label.toUpperCase(), { id: 'lcs-dos-h' }),
-      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP in a track the editor cannot match to this path yet.')); // a path is picked by its name: the number behind a known path is not shown (#708)
-    add(head, ic, hd, el('span', 'lcc-sp-flag' + (r.capped ? ' is-cap' : ''), !r.known ? 'TRACK NOT IDENTIFIED' : r.capped ? 'LEVEL 100 · XP CAP REACHED' : 'LEVEL ' + (r.level === null ? '—' : r.level)));
+    add(hd, el('p', 'lcc-sp-eyebrow', 'PROGRESSION DOSSIER · SELECTED SPECIALIZATION'), el('h2', 'lcc-sp-h2s', r.label.toUpperCase(), { id: 'lcs-dos-h' }),
+      r.known ? null : el('p', 'lcc-sp-small', 'This save has XP the editor cannot match to this specialization yet.')); // a specialization is picked by its name: the number behind a known one is not shown (#708)
+    add(head, ic, hd, el('span', 'lcc-sp-flag' + (r.capped ? ' is-cap' : ''), !r.known ? 'NOT IDENTIFIED' : r.capped ? 'LEVEL 100 · XP CAP REACHED' : 'LEVEL ' + (r.level === null ? '—' : r.level)));
     add(d, head);
 
     if (!r.known) {
-      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this path: the editor cannot match it to a track in this save yet. The keystone buttons still work.', { id: 'lcs-unres-note' }));
+      add(d, el('p', 'lcc-sp-note lcc-sp-note-warn', 'XP editing is off for this specialization: the editor cannot match it in this save yet. The keystone buttons still work.', { id: 'lcs-unres-note' }));
     }
     const g = el('div', 'lcc-sp-prog');
     const plate = el('div', 'lcc-sp-plate');
@@ -215,12 +215,12 @@
     const st = el('div', 'lcc-sp-status');
     const line = (k, v, id) => add(el('div', 'lcc-sp-line'), el('span', '', k), el('strong', '', v, { id, title: v === NONE ? NOT_IN_SAVE : null }));
     add(st, line('XP', r.xp === null ? NONE : fmt(r.xp) + ' / ' + fmt(vm.maxXp), 'lcs-xp'),
-      bar('lcc-sp-xpbar', pctOf(r.xp, vm.maxXp), 'Experience of the selected path', r.xp === null ? 0 : r.xp, vm.maxXp),
+      bar('lcc-sp-xpbar', pctOf(r.xp, vm.maxXp), 'Experience of the selected specialization', r.xp === null ? 0 : r.xp, vm.maxXp),
       el('div', 'lcc-sp-sub', xpRemainText(vm, r), { id: 'lcs-xpremain' }));
-    if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this track, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));
+    if (r.levelMismatch) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save stores level ' + (Math.round(r.storedLevel * 100) / 100) + ' for this specialization, but its XP is level ' + r.level + ' on the XP table. Nothing was changed; the level the save stores is left as it is.', { id: 'lcs-mismatch' }));
     if (!vm.levelsTrusted) add(st, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The save’s largest XP (' + fmt(vm.maxXp) + ') is not the one this page’s level table ends on, so the level shown is the one the save stores.', { id: 'lcs-table-note' }));
     add(st, line('KEYSTONES', keysText(r), 'lcs-keys'),
-      bar('lcc-sp-keybar', r.keyKnown ? pctOf(r.keyOwned, r.keyTotal) : 0, 'Keystones purchased on the selected path', r.keyOwned, r.keyKnown ? r.keyTotal : 0)); // "XP cap and keystones are independent" is in the Help tab (#980)
+      bar('lcc-sp-keybar', r.keyKnown ? pctOf(r.keyOwned, r.keyTotal) : 0, 'Keystones purchased on the selected specialization', r.keyOwned, r.keyKnown ? r.keyTotal : 0)); // "XP cap and keystones are independent" is in the Help tab (#980)
     add(g, plate, st);
     add(d, g);
 
@@ -245,8 +245,8 @@
     const off = !r.known;
     const why = off ? 'lcs-nonum' : null;
     const g1 = el('div', 'lcc-sp-group');
-    add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'INDIVIDUAL TRACK')));
-    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The editor cannot match this path to a track in this save, so XP editing is off.', { id: 'lcs-nonum' }));
+    add(g1, add(el('div', 'lcc-sp-glabel'), el('strong', '', r.label.toUpperCase() + (off ? ' · NOT IDENTIFIED' : '')), el('span', '', 'THIS SPECIALIZATION')));
+    if (off) add(g1, el('p', 'lcc-sp-note lcc-sp-note-warn', 'The editor cannot match this specialization in this save, so XP editing is off.', { id: 'lcs-nonum' }));
     add(g1, el('label', 'lcc-sp-lbl', 'Add XP', { for: 'spx' + r.track }));
     const inp = el('input', 'lcc-sp-input', '', { id: 'spx' + r.track, type: 'number', step: 1, min: 1, max: vm.maxXp, value: Object.prototype.hasOwnProperty.call(state.xp, r.track) ? state.xp[r.track] : 1000, 'aria-describedby': 'lcs-xphint lcs-xperr' + (why ? ' ' + why : ''), disabled: off });
     inp.addEventListener('keydown', (e) => { if (e.key === '-' || e.key === 'Subtract') e.preventDefault(); }); // no minus sign: XP is not removed here (#1032)
@@ -256,28 +256,28 @@
     g1.lastChild.hidden = !g1.lastChild.textContent; // an empty note takes no room
     inp.setAttribute('aria-invalid', g1.lastChild.hidden ? 'false' : 'true');
     // what the two buttons do is a hover or focus tip, no longer a standing line under them (#1062)
-    const tk = tipOf('lcs-trkhint', 'About Grant LV 100 and Reset Track XP', 'Grant LV 100 sets this track to level 100 and its XP cap. Reset Track XP sets its XP and level back to 0. Neither changes any keystone.');
+    const tk = tipOf('lcs-trkhint', 'About Grant LV 100 and Reset XP', 'Grant LV 100 sets this specialization to level 100 and its XP cap. Reset XP sets its XP and level back to 0. Neither changes any keystone.');
     add(g1, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), add(el('div', 'lcc-sp-grid2'),
       btn('✦ Grant LV 100', '', { 'data-act': 'spMax', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') }),
-      btn('Reset Track XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })), tk.mark, tk.tip)));
+      btn('Reset XP', 'is-danger', { 'data-act': 'spReset', 'data-t': r.track, disabled: off, 'aria-label': 'Reset XP for this specialization', 'aria-describedby': 'lcs-trkhint' + (why ? ' ' + why : '') })), tk.mark, tk.tip)));
     add(a, g1);
 
     const g2 = el('div', 'lcc-sp-group lcc-sp-global', '', { role: 'group', 'aria-labelledby': 'lcs-glob-h' });
-    add(g2, add(el('div', 'lcc-sp-glabel'), el('strong', '', 'All Five Tracks', { id: 'lcs-glob-h' }), el('span', '', 'GLOBAL OPERATIONS')));
+    add(g2, add(el('div', 'lcc-sp-glabel'), el('strong', '', 'All Specializations', { id: 'lcs-glob-h' }), el('span', '', 'GLOBAL OPERATIONS')));
     const T = vm.totals;
     // the scope of the two keystone buttons is a hover or focus tip (#1062); the count is the KEYSTONES tile of the header
-    const ks = tipOf('lcs-keyscope', 'About the two keystone buttons', T.total > 0 ? 'Keystones now: ' + T.owned + ' of ' + T.total + ' purchased across all ' + T.tracks + ' tracks. The two keystone buttons change every track, not the selected one.' : 'The two keystone buttons change every track, not the selected one. The save does not say how many keystones there are.');
+    const ks = tipOf('lcs-keyscope', 'About the two keystone buttons', T.total > 0 ? 'Keystones now: ' + T.owned + ' of ' + T.total + ' purchased across all ' + T.tracks + ' specializations. The two keystone buttons change every specialization, not the selected one.' : 'The two keystone buttons change every specialization, not the selected one. The save does not say how many keystones there are.');
     add(g2, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), add(el('div', 'lcc-sp-grid2'),
       btn('Grant All Keystones', '', { 'data-act': 'spKeyAll', 'aria-describedby': 'lcs-keyscope' }),
       btn('Reset All Keystones', 'is-danger', { 'data-act': 'spKeyReset', 'aria-describedby': 'lcs-keyscope' })), ks.mark, ks.tip)));
     const left = vm.unassigned.length;
     const resetOff = !vm.resetCount;
-    const resetBtn = btn('Reset XP of All Known Tracks (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });
-    const resetSay = (resetOff ? 'Nothing to reset: none of the paths the editor can match has XP.' + (left ? ' ' + left + (left === 1 ? ' track the editor cannot match yet is left alone.' : ' tracks the editor cannot match yet are left alone.') : '')
-      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' track' : ' tracks') + ' the editor can match to a path, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' track the editor cannot match yet is left alone.' : ' tracks the editor cannot match yet are left alone.') : ''));
+    const resetBtn = btn('Reset XP of All Known Specializations (' + vm.resetCount + ')', 'is-danger lcc-sp-wide', { 'data-act': 'spResetAll', 'data-n': vm.resetCount, 'data-left': left, disabled: resetOff, 'aria-describedby': 'lcs-resetnote' });
+    const resetSay = (resetOff ? 'Nothing to reset: none of the specializations the editor can match has XP.' + (left ? ' ' + left + (left === 1 ? ' specialization the editor cannot match yet is left alone.' : ' specializations the editor cannot match yet are left alone.') : '')
+      : 'Resets the XP and level of ' + vm.resetCount + (vm.resetCount === 1 ? ' specialization' : ' specializations') + ' the editor can match, after you type a confirmation. Keystones are not touched.' + (left ? ' ' + left + (left === 1 ? ' specialization the editor cannot match yet is left alone.' : ' specializations the editor cannot match yet are left alone.') : ''));
     if (resetOff) add(g2, resetBtn, el('p', 'lcc-sp-hint', resetSay, { id: 'lcs-resetnote' }));
     else {
-      const rt = tipOf('lcs-resetnote', 'About resetting all tracks', resetSay);
+      const rt = tipOf('lcs-resetnote', 'About resetting all specializations', resetSay);
       add(g2, wireTip(add(el('div', 'lcc-sp-resetrow lcc-tt'), resetBtn, rt.mark, rt.tip)));
     }
     return add(a, g2);
@@ -302,10 +302,10 @@
 
   function housesOf(vm, r) {
     const s = el('section', 'lcc-sp-houses lcc-sp-surface', '', { 'aria-labelledby': 'lcs-hs-h' });
-    add(s, el('p', 'lcc-sp-eyebrow', 'LANDSRAAD INTELLIGENCE'), el('h3', 'lcc-sp-h3', 'Associated Houses · ' + r.label, { id: 'lcs-hs-h', title: 'The Houses of this path, from a public community tracker, not from the game or the save: treat it as a reference. Choosing a House opens it on the Landsraad board; nothing is written.' }));
+    add(s, el('p', 'lcc-sp-eyebrow', 'LANDSRAAD INTELLIGENCE'), el('h3', 'lcc-sp-h3', 'Associated Houses · ' + r.label, { id: 'lcs-hs-h', title: 'The Houses of this specialization, from a public community tracker, not from the game or the save: treat it as a reference. Choosing a House opens it on the Landsraad board; nothing is written.' }));
     const list = el('ul', 'lcc-sp-hlist', '', { role: 'list' });
-    if (r.houses === null) add(s, el('p', 'lcc-sp-note', 'The Landsraad of this save could not be read, so the Houses of this path are ' + NOT_IN_SAVE.toLowerCase() + '.'));
-    else if (!r.houses.length) add(s, el('p', 'lcc-sp-note', 'No House of this term is listed under this path.'));
+    if (r.houses === null) add(s, el('p', 'lcc-sp-note', 'The Landsraad of this save could not be read, so the Houses of this specialization are ' + NOT_IN_SAVE.toLowerCase() + '.'));
+    else if (!r.houses.length) add(s, el('p', 'lcc-sp-note', 'No House of this term is listed under this specialization.'));
     else {
       for (const h of r.houses) {
         const title = LC() && LC().houseTitle ? LC().houseTitle(h.name) : String(h.name);
@@ -318,11 +318,11 @@
     return s;
   }
 
-  // The one line that is left of the old mapping section (#986): shown only when the save holds a row of specialization XP that no path owns. Read-only: nothing here writes.
+  // The one line that is left of the old mapping section (#986): shown only when the save holds a row of specialization XP that no specialization owns. Read-only: nothing here writes.
   function unknownRowOf(vm) {
     if (!vm.unassigned.length) return null;
     const nums = vm.unassigned.map((u) => u.number);
-    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'The save holds XP in a track the editor does not know (left as it is): track ' : 'The save holds XP in tracks the editor does not know (left as they are): tracks ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
+    return el('p', 'lcc-sp-note lcc-sp-note-warn', (nums.length === 1 ? 'The save holds XP for a specialization the editor does not know (left as it is): number ' : 'The save holds XP for specializations the editor does not know (left as they are): numbers ') + nums.join(', ') + '.', { id: 'lcs-unknown-row' });
   }
 
   function emptyOf(msg) {
@@ -335,12 +335,12 @@
     container.textContent = '';
     const rootEl = el('div', 'lcc lcc-sp', '', { id: 'lcs-root', 'aria-label': 'Specializations Command Center' });
     container.appendChild(rootEl);
-    if (!vm || !vm.ok) { rootEl.appendChild(emptyOf(vm && vm.problem ? vm.problem : 'The specialization tracks could not be read.')); return rootEl; }
+    if (!vm || !vm.ok) { rootEl.appendChild(emptyOf(vm && vm.problem ? vm.problem : 'The specializations could not be read.')); return rootEl; }
     if (!vm.rows.some((x) => x.key === state.sel)) state.sel = vm.rows[0].key;
     const r = vm.rows.find((x) => x.key === state.sel);
     add(rootEl, heroOf(vm));
     const head = el('div', 'lcc-sp-headrow');
-    add(head, add(el('div'), el('p', 'lcc-sp-eyebrow', 'CHOOSE A PATH'), el('h3', 'lcc-sp-h3', 'Specialization Lanes')));
+    add(head, add(el('div'), el('p', 'lcc-sp-eyebrow', 'CHOOSE A SPECIALIZATION'), el('h3', 'lcc-sp-h3', 'Specialization Lanes')));
     add(rootEl, head);
     const lanes = el('div', 'lcc-sp-lanes', '', { role: 'group', 'aria-label': 'Five specialization lanes' });
     for (const x of vm.rows) lanes.appendChild(laneOf(vm, x));

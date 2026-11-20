@@ -164,7 +164,7 @@ test('Reset level and XP: off, with its reason, when the character has no XP or 
   }
 });
 
-// ---- XP of the specialization tracks
+// ---- XP of the specializations
 
 const specs = (resetCount, unassigned = []) => ({ rows: ['Combat', 'Crafting', 'Exploration', 'Gathering', 'Sabotage'].map((track, i) => ({ track, number: i < 2 ? i + 2 : null, xp: i < 2 ? 500 : 0, level: 3, keystoneOwned: 0, keystoneTotal: 2, granted: false })),
   unassigned, maxXp: 44182, tracks: ['Combat', 'Crafting', 'Exploration', 'Gathering', 'Sabotage'], resetCount });
@@ -174,25 +174,25 @@ async function openSpecs(ui) {
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
 }
 
-test('Reset XP of all known tracks: says the unknown rows are left alone, and sends the confirmed count', async () => {
+test('Reset XP of all known specializations: says the unknown rows are left alone, and sends the confirmed count', async () => {
   const ui = await boot({ get: { '/api/player/specs': specs(2, [{ number: 7, xp: 900, level: 8 }]) }, post: { '/api/player/specs/reset-all': { ok: true, changed: 2, noop: false } } }); ui.freeze();
   await openSpecs(ui);
   const btn = ui.doc.querySelector('[data-act="spResetAll"]');
-  assert.equal(btn.textContent.trim(), 'Reset XP of all known tracks (2)');
+  assert.equal(btn.textContent.trim(), 'Reset XP of all known specializations (2)');
   assert.equal(btn.disabled, false);
   assert.ok(ui.doc.getElementById('spresetleft').textContent.includes('left alone'), 'the count of rows left alone stays on the page');
   assert.ok(ui.doc.getElementById('spresettip').textContent.includes('Keystones are not touched'), 'what the button does is its tooltip');
   ui.click('[data-act="spResetAll"]'); await ui.settle();
   const text = ui.doc.querySelector('#ask').textContent;
   assert.ok(text.includes('Reset the XP of 2 tracks?') && text.includes('Type reset 2 tracks to continue'));
-  assert.ok(text.includes('1 row of the save whose track is not known yet is left alone'));
+  assert.ok(text.includes('1 row of the save whose track is not known yet is left alone')); // the question is recorded in the golden request file: its words stay (#1061)
   assert.ok(text.includes('Keystones are not touched'));
   ui.type('reset 2 tracks'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/specs/reset-all').map((p) => p.body), [{ expected: 2 }]);
 });
 
-test('Reset XP of all known tracks: off when no known track has XP', async () => {
+test('Reset XP of all known specializations: off when none has XP', async () => {
   const ui = await boot({ get: { '/api/player/specs': specs(0) } }); ui.freeze();
   await openSpecs(ui);
   const btn = ui.doc.querySelector('[data-act="spResetAll"]');

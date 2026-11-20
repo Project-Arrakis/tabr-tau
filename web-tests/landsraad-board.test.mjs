@@ -293,7 +293,7 @@ test('the stylesheet styles the status lines by the ids the board draws, and kee
   assert.ok(!/\.lsb \.kv\b/.test(css), 'the global .kv card (boxed, 11px values, words broken anywhere) must not meet the term facts');
 });
 
-test('when no house has a place yet the board says so once: no place in every row, Group by region and the Location sort are off with the reason', async () => {
+test('when no house has a place yet the board says so once: no place in every row, Group by region and the Place sort are off with the reason', async () => {
   const ui = await open();
   assert.ok(text(ui.doc.querySelector('#lsb-nolocs')).includes('No house has a place'));
   assert.equal(ui.doc.querySelectorAll('#lsb-rows .loc-t').length, 0, 'no place button in any row');
@@ -301,7 +301,7 @@ test('when no house has a place yet the board says so once: no place in every ro
   const g = ui.doc.querySelector('[data-lb=group]');
   assert.ok(g.disabled && ui.doc.querySelector('#lsb-grp-hint'), 'Group by region is off with a hint');
   assert.equal(text(ui.doc.querySelector('#lsb-grp-hint')), 'Group by region is off: it needs a place for the houses.', 'the note is a full sentence (#670)');
-  assert.ok(rows(ui).every((r) => text(r.querySelector('.c-loc')) === 'not mapped yet'), 'each Location cell says it, not a bare dash (#669), the same words as a single house without a place');
+  assert.ok(rows(ui).every((r) => text(r.querySelector('.c-loc')) === 'not mapped yet'), 'each Place cell says it, not a bare dash (#669), the same words as a single house without a place');
   assert.ok(ui.doc.querySelector('[data-col=location] .sorth').disabled);
   const known = { known: true, map: 'Hagga Basin', area: 'The O’dham', place: 'rim', x: 0.25, y: 0.5 };
   const ui2 = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100)] }));
