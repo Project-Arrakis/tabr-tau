@@ -148,9 +148,6 @@
 .lcc-hc-t[aria-disabled="true"] { cursor: not-allowed; }
 .lcc-hc-count { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 5px; width: 100%; margin-top: 1px; font: 700 8px/1.25 var(--lcc-sans); letter-spacing: .03em; color: var(--lcc-dim); }
 .lcc-hc-count b { color: var(--lcc-strong); font-weight: 800; letter-spacing: .04em; }
-.lcc-hc-q-ok { color: var(--lcc-teal-t); }
-.lcc-hc-q-wait { color: var(--lcc-dim); }
-.lcc-hc-q-unk { color: var(--lcc-red-t); }
 /* the choice for the actions on several Houses: ours alone, a small box at the top between the number and the badge */
 .lcc-bd-pickl { position: absolute; z-index: 5; left: calc(50% - 9px); top: 8px; display: grid; place-items: center; width: 18px; height: 18px; cursor: pointer; opacity: .62; }
 .lcc-bd-pickl:hover, .lcc-bd-pickl:focus-within, .lcc-bd-pickl:has(:checked) { opacity: 1; }
@@ -405,10 +402,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-hc-t { position: relative; flex: 0 0 24px; width: 24px; max-width: 24px; height: 24px; padding: 0; font: 800 12px/22px var(--lcc-sans); }
 .lcc-hc-t::after { content: ''; position: absolute; left: -1px; right: -1px; top: -6px; bottom: -6px; }
 .lcc-hc-t:focus-visible { outline: 2px solid var(--lcc-focus); outline-offset: 1px; }
-/* the footer of every card is two lines tall, so the tier boxes of the five cards of a row stand on one line: "N/5 REACHED", then the three counts together */
-.lcc-hc-count { font-size: 12px; gap: 2px 6px; min-height: 33px; align-content: flex-start; margin-top: 3px; }
+/* the footer of every card is one line: "N/5 EARNED" (the collected counts are its hover, #1078) */
+.lcc-hc-count { font-size: 12px; gap: 2px 6px; min-height: 18px; align-content: flex-start; margin-top: 3px; }
 .lcc-hc-count b { flex: 0 0 100%; text-align: center; overflow-wrap: anywhere; }
-.lcc-hc-count .lcc-hc-q { white-space: nowrap; }
 .lcc-hc-count > b:only-child { font-weight: 700; letter-spacing: .04em; color: var(--lcc-dim); text-transform: uppercase; }
 .lcc-bd-pickl { width: 24px; height: 24px; left: calc(50% - 12px); top: 5px; }
 .lcc-bd-pick { width: 16px; height: 16px; }

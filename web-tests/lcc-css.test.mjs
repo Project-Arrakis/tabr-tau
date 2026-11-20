@@ -204,9 +204,9 @@ test('tier boxes: 24 by 24 px with 2 px between them where touch or a narrow win
 });
 
 test('the cards of a row line up: the footer is two lines tall, the counts stand together on one, and the empty case is styled like the other owner lines', () => {
-  assert.match(bare, /\.lcc-hc-count \{ font-size: 12px; gap: 2px 6px; min-height: 33px;/);
+  assert.match(bare, /\.lcc-hc-count \{ font-size: 12px; gap: 2px 6px; min-height: 18px;/);
+  assert.doesNotMatch(bare, /lcc-hc-q/, 'the count line under N/5 EARNED is gone (#1078)');
   assert.match(bare, /\.lcc-hc-count b \{ flex: 0 0 100%; text-align: center;/);
-  assert.match(bare, /\.lcc-hc-count \.lcc-hc-q \{ white-space: nowrap; \}/);
   assert.match(bare, /\.lcc-hc-count > b:only-child \{[^}]*text-transform: uppercase/);
   assert.match(bare, /\.lcc-hc-owner \{[^}]*white-space: nowrap/, 'the bullet and the faction name do not part');
   for (const m of bare.matchAll(/\.lcc-hc-owner \{([^}]*)\}/g)) assert.doesNotMatch(m[1], /text-transform:\s*uppercase/, 'PLEDGED TO HARKONNEN in capitals does not fit a card (#1073)');
@@ -368,7 +368,6 @@ test('contrast: 12 px text on the cards and in the Actions panel passes 4.5:1 ag
 test('contrast: the rules that paint that text use the text tokens, and the strokes keep the accents', () => {
   const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && r.body.includes('color: var(--lcc-' + tok + ')')), sel + ' takes color from --lcc-' + tok);
   use('.lcc-hc-a .lcc-hc-owner', 'teal-t'); use('.lcc-hc-h .lcc-hc-owner', 'red-t');
-  use('.lcc-hc-q-ok', 'teal-t'); use('.lcc-hc-q-wait', 'dim'); use('.lcc-hc-q-unk', 'red-t');
   use('.lcc-bd-editor .lcc-bd-sec-h', 'gold-t'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
   use('.lcc-bd-tier-s.mk.delivered', 'tier-bg'); use('.lcc-bd-act.lcc-bd-act-danger', 'red-t');
   assert.match(bare, /\.lcc-bd-act\.lcc-bd-act-danger \{ border-color: var\(--lcc-red\);/, 'the danger button keeps the accent for its stroke');

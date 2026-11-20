@@ -294,15 +294,9 @@
     const count = el('div', 'lcc-hc-count');
     if (h.takenNoTiers) count.appendChild(el('b', '', TAKEN.noTiers, { title: TAKEN.noTiersWhy, 'data-taken': 'no-tiers' }));
     else if (h.tierCount) {
-      const sp = () => count.appendChild(root.document.createTextNode(' '));
-      count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' EARNED', { title: 'Reward tiers of yours earned in this House: ' + h.reached + ' of ' + h.tierCount + '. Earned is not collected: the counts beside it say how many of them you have collected.' }));
-      if (h.reached > 0) { // the collected and not collected counts under the figure are for a House with something earned; under 0/5 EARNED they only said 0 and 0 (#1062)
-      sp();
-      count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-ok', '✓ ' + h.collected, { title: h.collected + ' collected' }));
-      sp();
-      count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-wait', '○ ' + h.waiting, { title: h.waiting + ' not collected (waiting at the representative)' }));
-      if (h.unknownDelivery) { sp(); count.appendChild(el('span', 'lcc-hc-q lcc-hc-q-unk', '? ' + h.unknownDelivery, { title: h.unknownDelivery + ' earned with no delivery record: not counted as collected or waiting' })); }
-      }
+      // the collected and not collected counts are the hover of the figure, not a second line on every card (#1078); the accessible name of the card says them in words
+      const said = h.reached > 0 ? ' Collected: ' + h.collected + '. Not collected (waiting at the representative): ' + h.waiting + '.' + (h.unknownDelivery ? ' With no delivery record, so in neither count: ' + h.unknownDelivery + '.' : '') : '';
+      count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' EARNED', { title: 'Reward tiers of yours earned in this House: ' + h.reached + ' of ' + h.tierCount + '. Earned is not collected.' + said }));
     } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
     card.appendChild(count);
     if (editable) card.appendChild(pickBox(h, picks, dim));
