@@ -184,10 +184,10 @@ test('Reset XP of all known specializations: says the unknown rows are left alon
   assert.ok(ui.doc.getElementById('spresettip').textContent.includes('Keystones are not touched'), 'what the button does is its tooltip');
   ui.click('[data-act="spResetAll"]'); await ui.settle();
   const text = ui.doc.querySelector('#ask').textContent;
-  assert.ok(text.includes('Reset the XP of 2 tracks?') && text.includes('Type reset 2 tracks to continue'));
-  assert.ok(text.includes('1 row of the save whose track is not known yet is left alone')); // the question is recorded in the golden request file: its words stay (#1061)
+  assert.ok(text.includes('Reset the XP of 2 specializations?') && text.includes('Type reset 2 specializations to continue'));
+  assert.ok(text.includes('1 row of the save that the editor cannot match to a specialization yet is left alone')); // the question is recorded in the golden request file (#1061)
   assert.ok(text.includes('Keystones are not touched'));
-  ui.type('reset 2 tracks'); ui.tick(GAP);
+  ui.type('reset 2 specializations'); ui.tick(GAP);
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(posts(ui, '/api/player/specs/reset-all').map((p) => p.body), [{ expected: 2 }]);
 });

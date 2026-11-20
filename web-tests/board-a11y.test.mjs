@@ -38,7 +38,7 @@ test('the Classic board region is named by its own heading, not by itself (#659 
   const ui = await classic();
   const sec = ui.doc.querySelector('section#lsb-board');
   assert.equal(sec.getAttribute('aria-labelledby'), 'lsb-board-h');
-  assert.equal(ui.doc.getElementById('lsb-board-h').textContent.replace(/\s+/g, ' ').trim(), 'Task board 4 houses');
+  assert.equal(ui.doc.getElementById('lsb-board-h').textContent.replace(/\s+/g, ' ').trim(), 'Houses 4 houses');
 });
 
 test('the Classic list is a table with rows and cells: each House is a row with its name as the row header (#659 G-035)', async () => {

@@ -68,7 +68,7 @@
     "body": {}
    }
   ],
-  "asked": "Grant all keystones?Every specialization keystone of every track is bought. One edit. Grant allCancel",
+  "asked": "Grant all keystones?Every keystone of every specialization is bought. One edit. Grant allCancel",
   "said": "5 keystones granted (queued: written as soon as the save can be written)"
  },
  "Grant all keystones, asked then Yes": {
@@ -78,7 +78,7 @@
     "body": {}
    }
   ],
-  "asked": "Grant all keystones?Every specialization keystone of every track is bought. One edit. Grant allCancel",
+  "asked": "Grant all keystones?Every keystone of every specialization is bought. One edit. Grant allCancel",
   "said": "5 keystones granted (queued: written as soon as the save can be written)"
  },
  "Grant max, asked then No": {
@@ -140,12 +140,12 @@
     }
    }
   ],
-  "asked": "Reset the XP of 2 tracks?The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched. 1 row of the save whose track is not known yet is left alone, since removing it could clear the wrong track. One edit. A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back. Type reset 2 tracks to continue. Reset XPCancel",
-  "said": "5 tracks reset to 0 XP (queued: written as soon as the save can be written)"
+  "asked": "Reset the XP of 2 specializations?The XP and level of every specialization the editor can match go back to 0, the same as the Reset button of each specialization. Keystones are not touched. 1 row of the save that the editor cannot match to a specialization yet is left alone, since removing it could clear the wrong one. One edit. A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back. Type reset 2 specializations to continue. Reset XPCancel",
+  "said": "5 specializations reset to 0 XP (queued: written as soon as the save can be written)"
  },
  "Reset XP of all known tracks, wrong sentence": {
   "sent": [],
-  "asked": "Reset the XP of 2 tracks?The XP and level of every specialization track whose number the editor knows go back to 0, the same as the Reset button of each track. Keystones are not touched. 1 row of the save whose track is not known yet is left alone, since removing it could clear the wrong track. One edit. A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back. Type reset 2 tracks to continue. Reset XPCancel",
+  "asked": "Reset the XP of 2 specializations?The XP and level of every specialization the editor can match go back to 0, the same as the Reset button of each specialization. Keystones are not touched. 1 row of the save that the editor cannot match to a specialization yet is left alone, since removing it could clear the wrong one. One edit. A backup of the save is taken before the change is written to the game file, and Restore on the Database tab (Save backups) puts it back. Type reset 2 specializations to continue. Reset XPCancel",
   "said": ""
  },
  "Reset all keystones, asked then No": {
