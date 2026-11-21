@@ -1,5 +1,5 @@
 // #981: the term's time is ONE row, ENDS IN, in hours and minutes of the time the term has left (the term's end on the play clock minus where the play clock stood when the save was written).
-// No Starts row, no play-clock seconds, no real time of the save, no length of the term anywhere in the Term section, on the board or in the classic list. The decree elected during the term is
+// No Starts row, no play-clock seconds, no real time of the save, no length of the term anywhere in the Term section, on the board (the one Landsraad view since #1028). The decree elected during the term is
 // labelled Next term's decree. Real app.js and lcc scripts, the synthetic answer (no game save is read).
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -89,13 +89,4 @@ test('the Earlier terms rows carry no play-clock line', async () => {
   for (const d of h.querySelectorAll('details')) d.open = true;
   assert.ok(h.querySelector('.lcc-tm-term'), 'there is an earlier term');
   assert.doesNotMatch(text(h), /Play clock|play time| s \(|No calendar date/);
-});
-
-test('the classic list says the same: one Ends in value, Next term\'s decree, no Start or End seconds, no play-clock line under Earlier terms', async () => {
-  const ui = await open(null, { 'lsb.view': 'classic' });
-  const root = ui.doc.querySelector('#lsb');
-  const t = text(root);
-  assert.match(t, /Ends in\s*140 h 13 m/);
-  assert.match(t, /Next term's decree/);
-  assert.doesNotMatch(t, /Play clock|1,000,000|1,604,800|\bStart\b|\bElected decree\b/);
 });

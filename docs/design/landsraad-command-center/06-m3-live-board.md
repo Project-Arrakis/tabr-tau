@@ -1,5 +1,8 @@
 # Command Center M3: the live board, the House Inspector and edit parity
 
+> Note (2026-11-20, #1028): the Classic Landsraad list described below was retired. The Command Center board is now the only Landsraad view and the default (see DECISIONS.md, section M). Mentions of the classic list, its result line or its switch are the record of that milestone, not the current page.
+
+
 Milestone M3 of the Landsraad and Specialization Command Center. The Landsraad tab gets a second view: the Command Center board, a fixed five-by-five grid of the 25 Houses with a list layout and a House Inspector, drawn from the same read as the classic list and writing through the same code. The classic list stays, is the default, and is the fallback when the Command Center files are not loaded.
 
 Read with `03-parity-baseline.md` (the L01 to L28 rows this note answers), `05-m2-visual-foundation.md` (the parts and art this milestone uses) and `DECISIONS.md`.

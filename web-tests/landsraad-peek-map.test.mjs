@@ -1,5 +1,4 @@
-// #1069: the quick peek of a House's place (the hover of the place in the Classic list and the Command Center list, the place peek under the Place line of the House card, the Inspector's place peek and the
-// "Where" part of an opened Classic row) draws the REAL picture of the House's map, not the generic schematic octagon: a window of the picture around the pin, with the whole map small in a corner and
+// #1069: the quick peek of a House's place (the hover of the place in the Command Center list, the place peek under the Place line of the House card and the Inspector's place peek) draws the REAL picture of the House's map, not the generic schematic octagon: a window of the picture around the pin, with the whole map small in a corner and
 // the window marked on it. The pin is the same fraction of the picture as on the Saved map (x * Width, y * Height), so the test works the pin back out of what the page drew and compares it with the place
 // the read gives, using the picture and the map space read from internal/ops/livemap.go (not copied here). The schematic stays only for a place outside the frame of its picture and for a map the editor has
 // no picture of, and says why. The House hover card gets the large House symbol, the name and the region. Display only: nothing is written, no request is made for a picture until the peek is shown (the
@@ -35,8 +34,8 @@ function answer() {
   return a;
 }
 const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
-async function open(view, layout) {
-  const ui = await boot({ get: { '/api/landsraad': answer() }, post: {}, local: { tab: 'landsraad', 'lsb.view': view, 'lsb.layout': layout } });
+async function open(layout) {
+  const ui = await boot({ get: { '/api/landsraad': answer() }, post: {}, local: { tab: 'landsraad', 'lsb.layout': layout } });
   await ui.settle();
   return ui;
 }
@@ -52,13 +51,13 @@ function pinOf(peek, frame) {
 }
 
 // ---- the real picture, on the right map, with the pin where the Saved map puts it ----
-for (const [view, layout] of [['classic', 'grid'], ['board', 'list']]) {
+{
   for (const [name, key, fx, fy] of PLACES.slice(0, 4)) {
-    test(`#1069: ${view} view, a House on ${LABEL[key]}: the place peek draws the picture of that map with the pin at the Saved map's place`, async () => {
+    test(`#1069: board list, a House on ${LABEL[key]}: the place peek draws the picture of that map with the pin at the Saved map's place`, async () => {
       const a = answer(), id = idOf(a, name), frame = FRAMES[key];
       assert.ok(frame, 'the map is in livemap.go');
-      const ui = await open(view, layout);
-      const sel = view === 'classic' ? `#lsrow-${id} .c-loc .loc > .pop` : `.lcc-bd-row[data-id="${id}"] td.lcc-bd-loc .loc > .pop`;
+      const ui = await open('list');
+      const sel = `.lcc-bd-row[data-id="${id}"] td.lcc-bd-loc .loc > .pop`;
       const peek = ui.doc.querySelector(sel);
       assert.ok(peek, 'the peek: ' + sel);
       const m = peek.querySelector('.minimap');
@@ -83,15 +82,15 @@ for (const [view, layout] of [['classic', 'grid'], ['board', 'list']]) {
       assert.match(text(peek), name === 'Alexin' ? /Place\s*Arrakeen/ : /From you\s*about 1\.5 km/);
       assert.match(text(peek), /Click the place to open the Saved map/);
       assert.equal(peek.getAttribute('aria-hidden'), 'true');
-      assert.match(m.getAttribute('aria-label'), new RegExp('Map of ' + LABEL[key]));
+      assert.ok(m.getAttribute('aria-label').includes('Map of ' + LABEL[key]), m.getAttribute('aria-label'));
     });
   }
 }
 
 test('#1069: a place near a corner of its picture is not centred: the window stays inside the picture and the small map moves away from the pin', async () => {
-  const a = answer(), ui = await open('classic', 'grid');
+  const a = answer(), ui = await open('list');
   for (const [name, key, fx, fy, corner] of [['Lindaren', 'HaggaBasin', 0.97, 0.93, 'c-lb'], ['Mutelli', 'Arrakeen', 0.02, 0.03, 'c-rb']]) {
-    const m = ui.doc.querySelector(`#lsrow-${idOf(a, name)} .c-loc .loc > .pop .minimap`);
+    const m = ui.doc.querySelector(`.lcc-bd-row[data-id="${idOf(a, name)}"] td.lcc-bd-loc .loc > .pop .minimap`);
     const p = pinOf(m, FRAMES[key]);
     assert.ok(Math.abs(p.x - fx) < 0.002 && Math.abs(p.y - fy) < 0.002, name + ' pin');
     assert.ok(p.left >= -1e-9 && p.left + p.zoom <= 1 + 1e-9 && p.top >= -1e-9 && p.top + p.fh <= 1 + 1e-9, name + ': inside the picture');
@@ -101,32 +100,31 @@ test('#1069: a place near a corner of its picture is not centred: the window sta
 });
 
 // ---- the place peek is the same picture everywhere ----
-test('#1069: the Place line of the House card, the opened Classic row and the Inspector draw the same picture, and a click on the picture still opens the place (#1025)', async () => {
+test('#1069: the Place line of the House card and the Inspector draw the same picture, and a click on the picture still opens the place (#1025)', async () => {
   const a = answer(), id = idOf(a, 'Vernius');
-  let ui = await open('classic', 'grid');
-  const card = ui.doc.querySelector(`#lsrow-${id} .hcard .loc > .pop .minimap.mpic`), where = ui.doc.querySelector(`#lsrow-${id} .more .minimap.mpic`);
-  assert.ok(card && where, 'the card peek and the opened row both have the picture');
+  const ui = await open('list');
+  const card = ui.doc.querySelector(`.lcc-bd-row[data-id="${id}"] .hcard .loc > .pop .minimap.mpic`), cell = ui.doc.querySelector(`.lcc-bd-row[data-id="${id}"] td.lcc-bd-loc .loc > .pop .minimap.mpic`);
+  assert.ok(card && cell, 'the card peek and the list place both have the picture');
   assert.equal(card.querySelector('.mimg').getAttribute('src'), '/maps/deep-desert.png');
-  ui = await open('board', 'list');
   click(ui, `[data-fk="ht:${id}"]`); await ui.settle();
   const insp = ui.doc.querySelector('.lcc-bd-insp .loc > .pop .minimap.mpic');
   assert.ok(insp, 'the Inspector place peek is the picture');
   assert.equal(ui.doc.querySelector('.lcc-bd-insp').querySelectorAll('.minimap').length, 1, 'the one picture, in the mouse-over');
-  const grid = await open('board', 'grid');
+  const grid = await open('grid');
   assert.ok(grid.doc.querySelector(`li.lcc-bd-cell[data-id="${id}"] .hcard .loc > .pop .minimap.mpic`), 'and the grid card');
   // a click on any part of the picture is a click on the place
   for (const part of ['.mwin', '.mwin .pin', '.mfull', '.mfull img']) {
-    const u = await open('classic', 'grid');
-    click(u, u.doc.querySelector(`#lsrow-${id} .c-loc .loc > .pop ${part}`)); await u.settle();
+    const u = await open('list');
+    click(u, u.doc.querySelector(`.lcc-bd-row[data-id="${id}"] td.lcc-bd-loc .loc > .pop ${part}`)); await u.settle();
     assert.equal(u.w.liveMapState().focus.label, 'Vernius', part);
   }
 });
 
 // ---- the schematic stays only where there is no picture to show, and says why ----
 test('#1069: the schematic octagon is only for a place outside its picture and for a map with no picture, says why, and draws no pin', async () => {
-  const a = answer(), ui = await open('classic', 'grid');
+  const a = answer(), ui = await open('list');
   for (const [name, why] of [['Thorvald', /outside the frame of the picture, so there is no pin/], ['Sor', /no picture of Caladan yet/], ['Wallach', /no picture of Somewhere that this place can be pinned on/]]) {
-    const peek = ui.doc.querySelector(`#lsrow-${idOf(a, name)} .c-loc .loc > .pop`);
+    const peek = ui.doc.querySelector(`.lcc-bd-row[data-id="${idOf(a, name)}"] td.lcc-bd-loc .loc > .pop`);
     assert.ok(peek, name + ': the peek');
     const m = peek.querySelector('.minimap');
     assert.ok(m.querySelector('svg'), name + ': the schematic');
@@ -135,13 +133,17 @@ test('#1069: the schematic octagon is only for a place outside its picture and f
     assert.match(text(m.querySelector('.mwhy')), why, name);
     assert.doesNotMatch(m.querySelector('svg').outerHTML, /schematic, not to scale/, 'the 3 px label inside the drawing is gone: the reason is real text');
   }
-  assert.match(text(ui.doc.querySelector(`#lsrow-${idOf(a, 'Thorvald')} .more`)), /This place is outside the frame of the picture of Hagga Basin\. There is no pin or map link for this house\./);
+  // the opened row of the Classic list is gone; the Inspector says the same of a place with no pin: no map link, and the reason
+  click(ui, `[data-fk="ht:${idOf(a, 'Thorvald')}"]`); await ui.settle();
+  const insp = ui.doc.querySelector('.lcc-bd-insp');
+  assert.equal(insp.querySelector('.lcc-bd-act[data-lb="map"]'), null, 'no map link for a place with no pin');
+  assert.ok(insp.querySelector('.lcc-bd-cap'), 'the reason is said in the Place section');
 });
 
 // ---- nothing is fetched until the peek is shown, and nothing leaves the program ----
 test('#1069: every picture of a peek is lazy and from this program; the page holds no inlined picture and no other address', async () => {
-  const ui = await open('classic', 'grid');
-  const imgs = [...ui.doc.querySelectorAll('.lsb .pop img, .lsb .hcard img.hsym, .lsb .more .minimap img')];
+  const ui = await open('list');
+  const imgs = [...ui.doc.querySelectorAll('.lsb .pop img, .lsb .hcard img.hsym')];
   assert.ok(imgs.length > 10, 'the pictures are on the page');
   for (const i of imgs) {
     assert.equal(i.getAttribute('loading'), 'lazy', i.outerHTML.slice(0, 80));
@@ -159,13 +161,13 @@ test('#1069: the peek opens on keyboard focus as well as on hover (the style she
   assert.match(css, /\.lsb \.loc:hover>\.pop\{display:block!important\}/, 'hover');
   assert.match(css, /\.lsb \.loc:has\(:focus-visible\)>\.pop\{display:block!important\}/, 'keyboard focus on the place');
   assert.match(css, /\.lsb \.loc\[data-esc\]>\.pop\{display:none!important\}/, 'Escape');
-  const a = answer(), id = idOf(a, 'Kenola'), ui = await open('classic', 'grid');
-  const btn = ui.doc.querySelector(`#lsrow-${id} .c-loc .loc-t`), loc = btn.closest('.loc');
+  const a = answer(), id = idOf(a, 'Kenola'), ui = await open('list');
+  const btn = ui.doc.querySelector(`.lcc-bd-row[data-id="${id}"] td.lcc-bd-loc .lcc-bd-linkb`), loc = btn.closest('.loc');
   btn.focus();
   btn.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
   assert.ok(loc.hasAttribute('data-esc'), 'the peek is put away');
   assert.equal(ui.doc.activeElement, btn, 'the focus stays on the link');
-  const other = ui.doc.querySelector(`#lsrow-${idOf(a, 'Vernius')} .c-loc .loc-t`);
+  const other = ui.doc.querySelector(`.lcc-bd-row[data-id="${idOf(a, 'Vernius')}"] td.lcc-bd-loc .lcc-bd-linkb`);
   other.focus(); other.dispatchEvent(new ui.w.FocusEvent('focusin', { bubbles: true }));
   assert.ok(!loc.hasAttribute('data-esc'), 'and it comes back when the focus is somewhere else');
   // the narrow window shows the peek as a sheet over the page, as before (#1025)
@@ -173,9 +175,9 @@ test('#1069: the peek opens on keyboard focus as well as on hover (the style she
 });
 
 // ---- the House hover card: the large symbol, the name and the region ----
-for (const [view, layout, sel] of [['classic', 'grid', (id) => `#lsrow-${id} .hcard`], ['board', 'list', (id) => `.lcc-bd-row[data-id="${id}"] .hcard`], ['board', 'grid', (id) => `li.lcc-bd-cell[data-id="${id}"] .hcard`]]) {
-  test(`#1069: ${view} ${layout}: the House hover card starts with the large House symbol, the name and the region`, async () => {
-    const a = answer(), ui = await open(view, layout);
+for (const [layout, sel] of [['list', (id) => `.lcc-bd-row[data-id="${id}"] .hcard`], ['grid', (id) => `li.lcc-bd-cell[data-id="${id}"] .hcard`]]) {
+  test(`#1069: board ${layout}: the House hover card starts with the large House symbol, the name and the region`, async () => {
+    const a = answer(), ui = await open(layout);
     const card = ui.doc.querySelector(sel(idOf(a, 'Vernius')));
     assert.ok(card, 'the card');
     const img = card.querySelector('.hhead img.hsym');
@@ -195,7 +197,7 @@ for (const [view, layout, sel] of [['classic', 'grid', (id) => `#lsrow-${id} .hc
 }
 
 test('#1069: the House symbol file is one of the Command Center art files, found in a fixed list, never built from a name', async () => {
-  const a = answer(), ui = await open('classic', 'grid');
+  const a = answer(), ui = await open('grid');
   const files = new Set(fs.readdirSync(path.join(repoRoot, 'internal', 'web', 'static', 'lcc', 'art', 'houses')));
   const srcs = [...ui.doc.querySelectorAll('.lsb .hcard img.hsym')].map((i) => i.getAttribute('src'));
   assert.equal(srcs.length, 25, 'every House has its symbol');

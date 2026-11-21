@@ -93,9 +93,3 @@ test('the term section says a draft is not applied yet, and the plaque keeps the
   await ui.settle();
   assert.equal(hint(), '', 'written: no hint');
 });
-
-test('the classic list view is left as it was: no hint line is added there', async () => {
-  const ui = await open({ 'lsb.view': 'classic' });
-  pick(ui, '#lsb-tad', 4);
-  assert.equal(ui.doc.querySelector('#lcc-tm-pending'), null);
-});

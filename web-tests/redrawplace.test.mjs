@@ -242,7 +242,7 @@ test('Bases: Open on a low row keeps the list of bases at its offset', async () 
 
 // The page's own refresh from the file (about every twenty seconds while the game runs) gives the focus back to the control that had it, but must never
 // scroll the page to it: the person pressed a button near the top, scrolled down to read, and the refresh must not pull the page back up (#696).
-const fixtureState = () => JSON.parse(fs.readFileSync(nodePath.join(nodePath.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
+const fixtureState = () => JSON.parse(fs.readFileSync(process.env.UI_FIXTURES_FILE || nodePath.join(process.env.UI_FIXTURES_DIR || nodePath.join(nodePath.dirname(fileURLToPath(import.meta.url)), 'fixtures'), 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
 
 test('the automatic refresh keeps the focus and does not scroll the page; a press still scrolls its control into view', async () => {
   const state = { ...fixtureState(), changedOnDisk: false, dirty: false, pending: [] };

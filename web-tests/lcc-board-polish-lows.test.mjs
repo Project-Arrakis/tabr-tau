@@ -98,8 +98,8 @@ test('#883: a House id that arrives as a digit string is read as the number', ()
 });
 
 // ---- #890: no win claims in the folded text ------------------------------------------------------------------------------------------------------------------------------
-test('#890: the Classic list\'s folded help and the Reopen mouse-overs speak of the completion and the faction that holds the favor, not of a win or a winner', async () => {
-  const ui = await open('classic');
+test('#890: the folded help and the Reopen mouse-overs of the board speak of the completion and the faction that holds the favor, not of a win or a winner', async () => {
+  const ui = await open('board');
   const root = ui.doc.querySelector('#lsb');
   const all = [text(root)];
   for (const n of root.querySelectorAll('[title]')) all.push(n.getAttribute('title'));
@@ -142,12 +142,14 @@ test('#1077: the House panel has no TOP CONTRIBUTORS block, with or without cont
 });
 
 // ---- #921: the Choose boxes ignore the browser's saved form state ----------------------------------------------------------------------------------------------------------
-test('#921: the Choose boxes of the board and of the Classic list, and the Classic list\'s detail boxes, are drawn with autocomplete off', async () => {
-  for (const view of ['board', 'classic']) {
-    const ui = await open(view);
-    const boxes = [...ui.doc.querySelectorAll('#lsb .lcc-bd-pick, #lsb input.pick, #lsb input.xc')];
-    assert.ok(boxes.length >= 25, view + ': boxes found');
-    for (const b of boxes) assert.equal(b.getAttribute('autocomplete'), 'off', view + ': ' + (b.getAttribute('aria-label') || b.className));
+test('#921: the Choose boxes of the board are drawn with autocomplete off', async () => {
+  for (const layout of ['grid', 'list']) {
+    const ui = await boot({ get: { '/api/landsraad': synthetic() }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.layout': layout } });
+    await ui.settle();
+    const boxes = [...ui.doc.querySelectorAll('#lsb .lcc-bd-pick')];
+    assert.ok(boxes.length >= 25, layout + ': boxes found');
+    for (const b of boxes) assert.equal(b.getAttribute('autocomplete'), 'off', layout + ': ' + (b.getAttribute('aria-label') || b.className));
+    closeAll();
   }
 });
 

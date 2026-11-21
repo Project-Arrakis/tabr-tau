@@ -92,9 +92,8 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   const spare = a13.tasks.find((t) => t.completed === 0);
   spare.completed = 1; spare.winning_faction_id = 1;
   ui = await open(a13, 'full');
-  // the board is drawn when the tab opens; draw it again with Motion Full by going to the classic list and back
-  const sw = (v) => { const b = ui.doc.querySelector('[data-lb="view"][data-view="' + v + '"]'); b.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
-  sw('classic'); sw('board'); await ui.settle();
+  // the board is drawn when the tab opens; draw it again with Motion Full
+  await ui.w.landsraadView(); await ui.settle();
   const won = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')].filter((c) => c.getAttribute('data-victory') === 'win');
   assert.equal(won.length, 13);
   assert.ok(won.every((c) => c.getAttribute('data-owner') === 'a'), 'only the Houses of the faction with the count');
@@ -108,7 +107,7 @@ test('the winning count: a faction with more than half of the Houses gets the ou
   }
   // Calm: the still outline stays, the animation class does not
   ui.doc.documentElement.setAttribute('data-motion', 'calm');
-  sw('classic'); sw('board'); await ui.settle();
+  await ui.w.landsraadView(); await ui.settle();
   const calm = [...ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc[data-victory="win"]')];
   assert.equal(calm.length, 13);
   assert.equal(calm.some((c) => c.classList.contains('lcc-win-anim') || c.querySelector('.lcc-win-sweep')), false);

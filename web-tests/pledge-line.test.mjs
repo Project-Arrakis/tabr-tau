@@ -76,7 +76,7 @@ test('#1081: the empty Inspector hint follows the view: on the board in the grid
   assert.equal(hintOf(l.ui), 'Choose a House in the list to see its tiers and progress.');
   for (const s of [hintOf(g.ui), hintOf(l.ui)]) assert.doesNotMatch(s, /action|or in the list|on the board or/);
 });
-test('#1081: switching the view changes the hint, and Classic has no such sentence', async () => {
+test('#1081: switching the board layout changes the hint', async () => {
   const { ui } = await open('grid');
   ui.doc.querySelector('#lsb-lcc [data-lcb="layout"][data-val="list"]').click();
   await ui.settle();
@@ -84,8 +84,6 @@ test('#1081: switching the view changes the hint, and Classic has no such senten
   ui.doc.querySelector('#lsb-lcc [data-lcb="layout"][data-val="grid"]').click();
   await ui.settle();
   assert.equal(hintOf(ui), 'Choose a House on the board to see its tiers and progress.');
-  const classic = await open('grid', null, 'classic');
-  assert.doesNotMatch(text(classic.ui.doc.body), /Choose a House on the board|its tiers, its progress|what each action would do/);
 });
 
 // ---- #1069 leftover: the tooltip of a place with no pin ---------------------------------------------------------------------------------------------------------------------------------------
@@ -100,7 +98,7 @@ test('a place with no pin says "no picture of X yet" only when there is no pictu
   assert.equal(says({ map: 'Harko Village', area: 'Harko Village' }), 'This place is outside the picture of Harko Village.');
   assert.equal(says({}), 'The Saved map has no picture of this place yet.');
 });
-test('the list link tooltip, the Inspector note and the Classic hover say it the same, in both cases', async () => {
+test('the list link tooltip and the Inspector note say it the same, in both cases', async () => {
   const { ui, a } = await open('list', (x) => {
     const set = (n, l) => { x.tasks.find((t) => t.house_name === 'DA_House' + n).location = { known: true, cell: '', place: '', unconfirmed: false, map_key: '', ...l }; };
     set('Sor', { map: 'Caladan', area: 'Caladan' }); // no picture at all
@@ -114,14 +112,6 @@ test('the list link tooltip, the Inspector note and the Classic hover say it the
     await ui.settle();
     assert.ok([...ui.doc.querySelectorAll('#lsb-lcc .lcc-bd-insp .lcc-bd-cap')].some((p) => text(p) === say), n + ': the Place note says ' + say);
   }
-  // the Classic hover (app.js has its own copy of the words)
-  const classic = await open('grid', (x) => {
-    x.tasks.find((t) => t.house_name === 'DA_HouseSor').location = { known: true, cell: '', place: '', unconfirmed: false, map_key: '', map: 'Caladan', area: 'Caladan' };
-    x.tasks.find((t) => t.house_name === 'DA_HouseThorvald').location = { known: true, cell: '', place: '', unconfirmed: false, map_key: '', map: 'Hagga Basin', area: 'Imperial Basin' };
-  }, 'classic');
-  const hov = (n) => classic.ui.doc.querySelector('#lsrow-' + idOf(classic.a, n) + ' .loc-t').title;
-  assert.equal(hov('Sor'), NO_PIC('Caladan') + '.');
-  assert.equal(hov('Thorvald'), 'Imperial Basin is outside the picture of Hagga Basin.');
 });
 test('the maps the two copies of the words know are the maps of the Go table and of the page', () => {
   const go = read('internal', 'ops', 'landsraad_locations.go').match(/var houseMapKey = map\[string\]string\{([^}]*)\}/)[1];

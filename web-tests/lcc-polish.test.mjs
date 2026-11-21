@@ -136,7 +136,7 @@ test('the earlier terms: the table is a keyboard-reachable region that is named 
   assert.match(term, /\.lcc-tm-tablewrap:focus-visible \{ outline: 3px solid var\(--lcc-focus\)/);
 });
 
-test('the pool lists the decrees in the order of the save, as the classic panel does; the drop-downs stay sorted by name', async () => {
+test('the pool lists the decrees in the order of the save, as the retired classic panel did; the drop-downs stay sorted by name', async () => {
   const a = synthetic();
   const ui = await openBoard();
   const rows = [...ui.doc.querySelectorAll('#lcc-term .lcc-tm-row')].map((r) => Number(r.dataset.decree));

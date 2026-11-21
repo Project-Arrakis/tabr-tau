@@ -1,7 +1,7 @@
 // #1025: every place link of a House on the Landsraad pages opens the Saved map on the right map, with the map scrolled into view and that House's pin marked, and says which House it shows.
 // The bug: the page kept the scroll offset of the board it had just left, and the Saved map (a shorter page) ended up scrolled to the table of marker types at its bottom, with no map in view.
-// The test follows each link variant (Classic list row, Classic hover card, Command Center list link, list and grid hover cards, the inspector's place line and its Open in the Saved map action, and
-// the Jump to House then the inspector) for a House on every map the Saved map has (Hagga Basin, the Deep Desert, the two hubs). jsdom has no layout, so what it can check is where the page asks
+// The test follows each link variant of the Command Center board (list link, list and grid hover cards, the inspector's place line and its Open in the Saved map action, and
+// Find House then the inspector; the Classic list's links went with the Classic list, #1028) for a House on every map the Saved map has (Hagga Basin, the Deep Desert, the two hubs). jsdom has no layout, so what it can check is where the page asks
 // to scroll: the Saved map card is the scroll target (scrollIntoView, which the style sheet's scroll-padding keeps clear of the sticky header) and the page is not left at the old offset.
 // The real offsets in a browser engine are measured by the headless sweep (scripts/lcc-m7-sweep.mjs, case maplink-*). Display and navigation only: nothing is written.
 import test, { afterEach } from 'node:test';
@@ -30,16 +30,14 @@ function board() {
 const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 
-// every place link of the pages, by the way a person reaches it: where the page is shown (view, layout), what is done first, and the link
+// every place link of the pages, by the way a person reaches it: where the page is shown (layout), what is done first, and the link
 const VARIANTS = [
-  { name: 'Classic list: the place link of the row', view: 'classic', layout: 'grid', link: (id) => `#lsrow-${id} .loc-t[data-lb="map"]` },
-  { name: 'Classic list: the Place line of the hover card', view: 'classic', layout: 'grid', link: (id) => `#lsrow-${id} .hcard .hcard-place` },
-  { name: 'Command Center list: the place link of the row', view: 'board', layout: 'list', link: (id) => `td.lcc-bd-loc .lcc-bd-linkb[data-id="${id}"]` },
-  { name: 'Command Center list: the Place line of the hover card', view: 'board', layout: 'list', link: (id) => `.lcc-bd-row .hcard-place[data-id="${id}"]` },
-  { name: 'Command Center grid: the Place line of the hover card', view: 'board', layout: 'grid', link: (id) => `li.lcc-bd-cell[data-id="${id}"] .hcard-place` },
-  { name: 'Command Center inspector: the place line under the House name', view: 'board', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]' },
-  { name: 'Command Center inspector: the Open in the Saved map action', view: 'board', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' },
-  { name: 'Command Center: Find House, then the inspector', view: 'board', layout: 'grid', pre: (ui, id) => { click(ui, '[data-lk="findbtn"]'); click(ui, '[data-lk="fpick"][data-id="' + id + '"]'); click(ui, '[data-fk="ht:' + id + '"]'); }, link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' }, // Find House scrolls and outlines only (tau #974); the card opens the inspector
+  { name: 'list: the place link of the row', layout: 'list', link: (id) => `td.lcc-bd-loc .lcc-bd-linkb[data-id="${id}"]` },
+  { name: 'list: the Place line of the hover card', layout: 'list', link: (id) => `.lcc-bd-row .hcard-place[data-id="${id}"]` },
+  { name: 'grid: the Place line of the hover card', layout: 'grid', link: (id) => `li.lcc-bd-cell[data-id="${id}"] .hcard-place` },
+  { name: 'inspector: the place line under the House name', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]' },
+  { name: 'inspector: the Open in the Saved map action', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' },
+  { name: 'Find House, then the inspector', layout: 'grid', pre: (ui, id) => { click(ui, '[data-lk="findbtn"]'); click(ui, '[data-lk="fpick"][data-id="' + id + '"]'); click(ui, '[data-fk="ht:' + id + '"]'); }, link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' }, // Find House scrolls and outlines only (tau #974); the card opens the inspector
 ];
 
 // what the page was asked to scroll, in order: the window to an offset, an element into view (by its id or its class)
@@ -54,7 +52,7 @@ for (const v of VARIANTS) {
   for (const [name, key, fx, fy, area] of PLACES) {
     test(`#1025: ${v.name}, a House on ${CFG[key].label}: the Saved map opens on that map, scrolled to the map, with the pin marked and the House named`, async () => {
       const a = board(), id = idOf(a, name);
-      const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap(key) }, local: { tab: 'landsraad', 'lsb.view': v.view, 'lsb.layout': v.layout } });
+      const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap(key) }, local: { tab: 'landsraad', 'lsb.layout': v.layout } });
       await ui.settle();
       if (v.pre) { v.pre(ui, id); await ui.settle(); }
       const link = ui.doc.querySelector(v.link(id));
@@ -83,7 +81,7 @@ for (const v of VARIANTS) {
       assert.equal(line.nextElementSibling.className, 'lm-wrap', 'right above the map');
       const t = line.textContent.replace(/\s+/g, ' ').trim();
       assert.ok(t.startsWith(`Showing House ${name} on ${CFG[key].label}.`), t);
-      assert.match(ui.doc.querySelector('#lmc').getAttribute('aria-label'), new RegExp(`^Saved map of ${CFG[key].label}, centred on House ${name}\\.`));
+      assert.ok(ui.doc.querySelector('#lmc').getAttribute('aria-label').startsWith(`Saved map of ${CFG[key].label}, centred on House ${name}.`), ui.doc.querySelector('#lmc').getAttribute('aria-label'));
       // the keyboard lands on the map, not on the page body or the table
       assert.equal(ui.doc.activeElement.id, 'lmc');
       void area;
@@ -93,7 +91,7 @@ for (const v of VARIANTS) {
 
 test('#1025: the page starts at the top after a move to another page by the tab bar, and keeps its place after its own redraw', async () => {
   const a = board();
-  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('HaggaBasin') }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
+  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('HaggaBasin') }, local: { tab: 'landsraad', 'lsb.layout': 'grid' } });
   await ui.settle();
   const log = watchScroll(ui);
   click(ui, '[data-tab="livemap"]'); await ui.settle();
@@ -108,9 +106,9 @@ test('#1025: the page starts at the top after a move to another page by the tab 
 
 test('#1025: "Stop showing it" takes the House off the Saved map (the ring and the line) and writes nothing', async () => {
   const a = board(), id = idOf(a, 'Kenola');
-  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('HaggaBasin') }, local: { tab: 'landsraad', 'lsb.view': 'classic' } });
+  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('HaggaBasin') }, local: { tab: 'landsraad', 'lsb.layout': 'list' } });
   await ui.settle();
-  click(ui, `#lsrow-${id} .loc-t[data-lb="map"]`); await ui.settle();
+  click(ui, `td.lcc-bd-loc .lcc-bd-linkb[data-id="${id}"]`); await ui.settle();
   assert.ok(ui.doc.querySelector('#lmhouse'));
   click(ui, '[data-lmclear]'); await ui.settle();
   assert.equal(ui.doc.querySelector('#lmhouse'), null);
@@ -121,17 +119,17 @@ test('#1025: "Stop showing it" takes the House off the Saved map (the ring and t
 
 test('#1025: a place with no map picture of its own (a hub) is still a link, and the Saved map draws its outline with the House marked', async () => {
   const a = board(), id = idOf(a, 'Alexin');
-  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('Arrakeen') }, local: { tab: 'landsraad', 'lsb.view': 'classic' } });
+  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('Arrakeen') }, local: { tab: 'landsraad', 'lsb.layout': 'list' } });
   await ui.settle();
-  click(ui, `#lsrow-${id} .loc-t[data-lb="map"]`); await ui.settle();
+  click(ui, `td.lcc-bd-loc .lcc-bd-linkb[data-id="${id}"]`); await ui.settle();
   assert.ok(ui.doc.querySelector('#lmnopic'), 'says the map has no picture yet');
   assert.match(ui.doc.querySelector('#lmhouse').textContent, /Showing House Alexin on Arrakeen/);
 });
 
 test('#1025: a click on the quick peek (the small map under a place, a sheet over the link at a narrow window) is a click on the place', async () => {
-  for (const [view, layout, pop] of [['classic', 'grid', (i) => `#lsrow-${i} .loc > .pop`], ['board', 'list', (i) => `.lcc-bd-row .hcard .loc > .pop`]]) {
+  for (const [view, layout, pop] of [['board', 'list', (i) => `.lcc-bd-row .hcard .loc > .pop`]]) {
     const a = board(), hid = idOf(a, 'Kenola');
-    const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('HaggaBasin') }, local: { tab: 'landsraad', 'lsb.view': view, 'lsb.layout': layout } });
+    const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap('HaggaBasin') }, local: { tab: 'landsraad', 'lsb.layout': layout } });
     await ui.settle();
     const p = [...ui.doc.querySelectorAll(pop(hid))].find((n) => n.querySelector('.minimap') && /Kenola/.test(n.textContent));
     assert.ok(p, view + ': the peek of Kenola');

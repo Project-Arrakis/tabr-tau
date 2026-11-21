@@ -1,6 +1,6 @@
 // The Command Center inspector and cards pass (tau #943, #936, #938, #939, #942, #945, #948), in the page's own code (jsdom), with the synthetic answer of M1 and no game save.
 // #943: every click on a tier square answers in a toast (one at a time, timed, the Command Center's own words), and the board keeps no result line and no copy of one.
-// #936: Not reached / Not collected / Collected in both views. #938: the cards carry the Classic mouse-over text of a tier, built once. #939: the place line and the one-line specialization.
+// #936: Not reached / Not collected / Collected. #938: the cards carry the mouse-over text of a tier (the words of the retired Classic list, #1028), built once. #939: the place line and the one-line specialization.
 // #942: the four counts are quiet read-only figures. #945: no caption paragraph under the board.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -68,16 +68,6 @@ test('#943 A: the same click in the panel of the House, with a faction chosen th
   click(ui, card(ui, a, 'Hagal', 1));
   assert.match(text(last(ui)), /^To remove tiers of House Hagal, choose tier 4 in Set tier/, 'a click after a write is answered');
   assert.equal(toasts(ui).length, 1, 'the toast of the write is replaced, not stacked');
-});
-
-test('#943 A: the Classic list keeps its own wording and its result line', async () => {
-  const a = synthetic();
-  const ui = await open('classic');
-  const r = ui.doc.querySelector('#lsrow-' + idOf(a, 'Thorvald'));
-  const x = r.querySelector('.xc'); x.checked = true; x.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  click(ui, r.querySelector('.tc[data-t="2"]'));
-  assert.equal(text(ui.doc.querySelector('#lsb-result')), 'To remove tiers of House Thorvald, click the highest reached tier (tier 5).');
-  assert.match(r.querySelector('.tc[data-t="2"]').getAttribute('aria-label'), /To remove tiers, click the highest reached tier \(tier 5\)\./);
 });
 
 test('#943: the stale wording is gone from the board: the tooltips and names of the lower boxes name Set tier and Apply tier', async () => {
@@ -175,7 +165,7 @@ test('#943: the focus of a write that took away its control goes to the heading 
 });
 
 // ---- #936: the three words ----------------------------------------------------------------------------------------------------------------------------------------------
-test('#936: Not reached / Not collected / Collected on the cards, in the panel and in the Classic list, and "To collect" is nowhere', async () => {
+test('#936: Not reached / Not collected / Collected on the cards and in the panel, "To collect" is nowhere, and the longer explanation stays in the screen-reader text', async () => {
   const a = synthetic();
   const ui = await open();
   look(ui, a, 'Wallach');
@@ -195,32 +185,28 @@ test('#936: Not reached / Not collected / Collected on the cards, in the panel a
   assert.equal(i.querySelector('.lcc-bd-legend'), null, 'the legend of the marks is in the Help tab (#980); each tier row names its own state');
   const all = text(ui.doc.querySelector('#lsb')) + ' ' + [...ui.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
   assert.doesNotMatch(all, /to collect|Waiting at representative|Waiting to collect/i);
-  const classic = await open('classic');
-  const r = classic.doc.querySelector('#lsrow-' + idOf(a, 'Wallach'));
-  const x = r.querySelector('.xc'); x.checked = true; x.dispatchEvent(new classic.w.Event('change', { bubbles: true }));
-  assert.deepEqual([...r.querySelectorAll('.tc .pl')].map(text), ['Not collected', 'Not collected', 'Not collected', 'Not reached', 'Not reached']);
-  const classicAll = text(classic.doc.querySelector('#lsb')) + ' ' + [...classic.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
-  assert.doesNotMatch(classicAll, /waiting to collect|Waiting to collect/);
-  assert.match(classicAll, /earned, not collected \(waiting at the house representative\)/, 'the longer explanation stays in the screen-reader text');
+  assert.match(all, /earned, not collected \(waiting at the house representative\)/, 'the longer explanation stays in the screen-reader text');
 });
 
-// ---- #938: the Classic mouse-over on the cards -------------------------------------------------------------------------------------------------------------------------
-test('#938: every tier square of a card has the Classic list\'s mouse-over text for the same tier, built once, with a name for a screen reader and the focus path', async () => {
+// ---- #938: the mouse-over on the cards -------------------------------------------------------------------------------------------------------------------------
+test('#938: every tier square of a card has its mouse-over text, built once, with a name for a screen reader and the focus path', async () => {
   const a = synthetic();
   const ui = await open();
-  const classic = await open('classic');
+  // the words of the retired Classic list for the same tier (#1028), pinned: the reward, the state, and what a click does
+  const PIN = {
+    'Thorvald:1': 'Reward: 10,000 Solari. Tier 1 is earned. To remove tiers, choose tier 4 in Set tier and press Apply tier: tiers come off one at a time, the highest first.',
+    'Wallach:2': 'Reward: 1 Unlisted item. Tier 2 is earned. To remove tiers, choose tier 2 in Set tier and press Apply tier: tiers come off one at a time, the highest first.',
+    'Kenola:2': 'Reward: 1 Unlisted item. Give tier 2: your contribution goes to 2,400, so tiers 1 to 2 are earned (contribution is cumulative). Writes 1 mission: +6,000 Solari, +1,000 House Scrip, +1,500 Gathering XP, 1 reward waiting at the house representative. Written at once.',
+    'Sor:1': 'Reward: 10,000 Solari. Give tier 1: your contribution goes to 1,200, so tier 1 is earned (contribution is cumulative). Writes no missions: your own earlier progress already counts for this ground. Written at once.',
+  };
   for (const name of ['Thorvald', 'Wallach', 'Kenola', 'Sor']) {
-    const r = classic.doc.querySelector('#lsrow-' + idOf(a, name));
-    const x = r.querySelector('.xc'); x.checked = true; x.dispatchEvent(new classic.w.Event('change', { bubbles: true }));
     for (let n = 1; n <= 5; n++) {
-      const board = card(ui, a, name, n), old = r.querySelector('.tc[data-t="' + n + '"]');
-      // the one difference is the way to remove a lower reached tier: the board names Set tier and Apply tier, the Classic list says to click the highest reached tier
-      // and the board says earned where Classic says reached (#962: the one pair of words, earned and collected)
-      const cut = (s) => s.split(' To remove tiers, ')[0].replace(/ is reached/g, ' is earned').replace(/ are reached/g, ' are earned');
-      assert.equal(cut(ttl(ui, board)), cut(old.getAttribute('title')), name + ' tier ' + n + ': the mouse-over is the Classic text');
-      if (old.getAttribute('title').includes('click the highest reached tier')) assert.match(ttl(ui, board), /To remove tiers, choose tier \d in Set tier and press Apply tier/);
-      else assert.equal(ttl(ui, board), cut(old.getAttribute('title')));
-      assert.ok(ttl(ui, board).length > 20);
+      const board = card(ui, a, name, n), t = ttl(ui, board);
+      if (PIN[name + ':' + n]) assert.equal(t, PIN[name + ':' + n], name + ' tier ' + n);
+      assert.ok(t.length > 20);
+      assert.match(t, /^Reward: /, name + ' tier ' + n + ': the reward is in the text');
+      assert.doesNotMatch(t, /click the highest reached tier|is reached|are reached/, 'the Classic rule is not told on the board; earned, not reached (#962)');
+      if (/ is earned\. To remove tiers/.test(t)) assert.match(t, /To remove tiers, choose tier \d in Set tier and press Apply tier/);
       assert.ok(board.getAttribute('aria-label').startsWith('House ' + name + ', tier ' + n), board.getAttribute('aria-label'));
       assert.ok(board.getAttribute('data-fk').startsWith('ct:'), 'the focus path stays');
       assert.equal(board.tagName, 'BUTTON', 'a button: the keyboard and touch reach it, not only the pointer');
@@ -232,21 +218,20 @@ test('#938: every tier square of a card has the Classic list\'s mouse-over text 
 });
 
 // ---- #939: the place line and the specialization ------------------------------------------------------------------------------------------------------------------------
-test('#939: the place is under the House name, a link with the Classic hint, and the specialization is one line that is the button', async () => {
+test('#939: the place is under the House name, a link with the hint, and the specialization is one line that is the button', async () => {
   const a = synthetic();
   const ui = await open();
   look(ui, a, 'Kenola');
   const i = ui.doc.querySelector('.lcc-bd-insp');
   const t = i.querySelector('.lcc-bd-insp-title');
   const kids = [...t.children].map((c) => c.className.split(' ')[0]);
-  assert.deepEqual(kids, ['lcc-bd-insp-name', 'loc', 'lcc-bd-linkb', 'lcc-bd-lvl'], 'name, place (the link and its peek, in the Classic wrapper), specialization, its level (#646): in this order');
+  assert.deepEqual(kids, ['lcc-bd-insp-name', 'loc', 'lcc-bd-linkb', 'lcc-bd-lvl'], 'name, place (the link and its peek), specialization, its level (#646): in this order');
   const loc = t.querySelector('.lcc-bd-loc');
-  assert.equal(loc.getAttribute('data-lb'), 'map', 'the Classic click');
-  assert.equal(loc.getAttribute('title'), 'Click the place to open the Saved map. Hover for a quick peek.', 'the Classic hint, and the peek (the map picture) that the mouse-over carries');
+  assert.equal(loc.getAttribute('data-lb'), 'map', 'the click that opens the Saved map');
+  assert.equal(loc.getAttribute('title'), 'Click the place to open the Saved map. Hover for a quick peek.', 'the hint, and the peek (the map picture) that the mouse-over carries');
   assert.equal(text(loc.querySelector('.lcc-bd-loc-a')), 'SYNTHETIC AREA 1');
   assert.equal(text(loc.querySelector('.lcc-bd-loc-s')), 'Hagga Basin');
-  const classic = await open('classic');
-  assert.equal(loc.getAttribute('aria-label'), classic.doc.querySelector('#lsrow-' + idOf(a, 'Kenola') + ' .loc-t').getAttribute('aria-label'), 'the same name for a screen reader as the Classic list');
+  assert.equal(loc.getAttribute('aria-label'), 'House Kenola: SYNTHETIC AREA 1 (Hagga Basin), Hagga Basin. Open in the Saved map', 'the name for a screen reader');
   assert.equal(i.querySelector('.lcc-bd-where'), null, 'the old place line of the band is gone');
   const gp = t.querySelector('.lcc-bd-gopath');
   assert.match(text(gp), /^[A-Z][a-z]+ Specialization$/);
@@ -255,7 +240,7 @@ test('#939: the place is under the House name, a link with the Classic hint, and
   assert.equal(i.querySelector('.lcc-bd-bloc'), null);
   assert.doesNotMatch(text(i), /Associated specialization|Open [A-Z][a-z]+ in Specializations$/);
   const calls = []; const real = ui.w.liveMapShow; ui.w.liveMapShow = (...x) => { calls.push(x); real(...x); };
-  click(ui, loc); // the same click as the Classic list: the Saved map opens at the House
+  click(ui, loc); // the Saved map opens at the House
   assert.deepEqual(calls.map((c) => [c[0], c[1], c[2], c[3]]), [['HaggaBasin', 0.25, 0.5, 'Kenola']]);
 });
 

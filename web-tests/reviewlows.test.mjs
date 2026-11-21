@@ -4,6 +4,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
+import { synthetic } from './lcc-fixture.mjs';
 
 afterEach(closeAll);
 
@@ -131,19 +132,20 @@ test('CR-5: a research group marker and a config Reset that is off say why in te
 
 // ---------- CR-8
 
-test('CR-8: a Landsraad board with tasks and no term row is answered in words, before any question, with no raw script error', async () => {
-  const TIERS = [1200, 2400, 3600, 4800, 6000];
-  const task = { id: 900, board_index: 0, house_name: 'DA_HouseAlexin', goal_amount: 4000, completed: 0, contributions: [], player_contributions: [], my_contribution: 0, my_recorded: false,
-    rewards: TIERS.map((threshold) => ({ threshold, amount: 1, template_id: 'Item.A', reached: false, delivered: false })) };
-  const board = { term: null, factions: [{ id: 1, name: 'Atreides' }], character: { player_id: 1, name: 'Tester', faction_id: 1 }, decrees: [], rotation: [], tasks: [task] };
-  const ui = await boot({ get: { '/api/landsraad': board }, post: { '/api/landsraad/apply': { ok: true, changed: 1 } } });
+test('CR-8: a Landsraad board with tasks and no term row is answered in words, with no control that writes and no raw script error', async () => {
+  // The Classic list drew a Fill button here and answered a click with "no Landsraad term". The board does not draw a control that writes for a read it could not check (it needs the term to tie a House to
+  // it), so there is no click to answer: the words are on the page, nothing is asked, and no request is made. (lbSend keeps the same sentence as a backstop for a click that cannot be made from the page.)
+  const a = synthetic(); a.term = null;
+  const ui = await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': { ok: true, changed: 1 } }, local: { tab: 'landsraad' } });
   ui.freeze();
-  ui.click('[data-tab="landsraad"]'); await ui.settle();
-  const fill = ui.doc.querySelector('.qa-fill[data-id="900"]');
-  assert.ok(fill, 'the board is drawn without a term');
-  fill.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); await ui.settle(); // staged: the page needs no term for that
-  const t = ui.doc.querySelector('#toast');
-  assert.ok(t.textContent.includes('no Landsraad term') && t.querySelector('.err') && !/null|undefined|Cannot read/.test(t.textContent), t.textContent);
+  await ui.settle();
+  const board = ui.doc.querySelector('#lsb-lcc');
+  assert.ok(board && board.querySelector('[data-fk^="ht:"]'), 'the Houses are drawn without a term');
+  for (const sel of ['[data-fk^="b-"]', '.lcc-bd-act', '[data-lb="tier"]', '[data-fk^="rf:"]', '#lsb-fac']) assert.equal(ui.doc.querySelector(sel), null, 'no control that writes: ' + sel);
+  const t = ui.doc.querySelector('#main').textContent.replace(/\s+/g, ' ');
+  assert.ok(t.includes('nothing can be written from this view') && t.includes('The Landsraad term could not be read'), t);
+  assert.ok(t.includes('This save has no Landsraad term'), 'the term section says so');
+  assert.ok(!/null|undefined|Cannot read|NaN/.test(t), 'no raw script error in the words: ' + t.slice(0, 300));
   assert.equal(ui.doc.querySelector('#ask [role="dialog"]'), null, 'no question is asked');
   assert.equal(posts(ui, '/api/landsraad/apply').length, 0);
   ui.dom.window.close();

@@ -1,6 +1,6 @@
-// The Command Center board writes through the editor's one route (M3, stages C and D). Every click of the Inspector is the classic list's own click: the same request, the same stale guard, the same
-// busy lock, the same queued wording. This file proves it by doing the same thing in both views and comparing what was sent and what was said, and tests what only the board adds: the question
-// before a win is replaced, the names in the question about several Houses, and the redraw that keeps the House and the focus. Real page code, the synthetic answer of M1, no game save.
+// The Command Center board writes through the editor's one route (M3, stages C and D). The Classic list is retired (#1028); the requests of the board are the ones it sent, recorded in the golden files
+// (lcc-board-requests.test.mjs). This file tests what every write carries (the term, the stale guard, the busy lock, the queued wording), the question before a win is replaced, the names in the question about
+// several Houses, and the redraw that keeps the House and the focus. Real page code, the synthetic answer of M1, no game save.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
@@ -13,11 +13,11 @@ const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const writes = (ui) => ui.posted.filter((p) => p.path === '/api/landsraad/apply');
-// what the page said last: the Classic list's result line, or the toast of the board (the board keeps no result line, #943)
+// what the page said last: the toast of the board (the board keeps no result line, #943)
 const toastEls = (ui) => [...ui.doc.querySelectorAll('#toast .d-toast')];
 const toastText = (ui) => { const t = toastEls(ui).pop(); return t ? text(t.querySelector('span')) : ''; };
-const result = (ui) => (ui.doc.querySelector('#lsb-result') ? text(ui.doc.querySelector('#lsb-result')) : toastText(ui));
-// the same words without the punctuation that joins them: the Classic sentence and the board's lines say the same things
+const result = (ui) => toastText(ui);
+// the words without the punctuation that joins them
 const same = (s) => s.replace(/[.;,:]/g, '').replace(/\s+/g, ' ').trim();
 const idOf = (a, name) => a.tasks.find((t) => t.house_name === 'DA_House' + name).id;
 async function open(view, answer = synthetic(), post = { '/api/landsraad/apply': OK }) {
@@ -25,45 +25,38 @@ async function open(view, answer = synthetic(), post = { '/api/landsraad/apply':
   await ui.settle();
   return ui;
 }
-// the same control in the two views: the classic list's opened row, or the board's Inspector
+// the controls of the board: the Inspector's tier ladder and its action buttons
 const control = {
-  classic: {
-    tier: (ui, a, name, i) => { const r = ui.doc.querySelector('#lsrow-' + idOf(a, name)); const x = r.querySelector('.xc'); if (!x.checked) { x.checked = true; x.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } return r.querySelector('.tc[data-t="' + i + '"]'); },
-    // in the classic row Fill is the quick action of the summary, and the opened row holds Fill faction goal, Complete and Reopen
-    act: (ui, a, name, which) => { const r = ui.doc.querySelector('#lsrow-' + idOf(a, name)); const x = r.querySelector('.xc'); if (!x.checked) { x.checked = true; x.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } return r.querySelector({ fill: '.c-qa .qa-fill', fillgoal: '.acts .act-fill', complete: '.acts .act-complete', reopen: '.acts .act-reopen' }[which]); },
-  },
   board: {
     tier: (ui, a, name, i) => { select_(ui, a, name); return ui.doc.querySelector('.lcc-bd-insp .lcc-bd-tier[data-t="' + i + '"]'); },
-    act: (ui, a, name, which) => { select_(ui, a, name); return ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="' + { fill: 'fill', fillgoal: 'fillgoal', complete: 'complete', reopen: 'reopen' }[which] + '"]'); },
+    act: (ui, a, name, which) => { select_(ui, a, name); return ui.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-do="' + which + '"]'); },
   },
 };
 function select_(ui, a, name) { const sel = ui.doc.querySelector('.lcc-bd-insp'); if (!sel || sel.dataset.id !== String(idOf(a, name))) click(ui, ui.doc.querySelector('[data-fk="ht:' + idOf(a, name) + '"]')); }
 
-// what each scenario does, in both views, on the same House
+// what each scenario does on the board, on the same House. The exact request bodies and sentences are the recorded ones of lcc-board-requests.test.mjs (golden file, recorded from the removed Classic list); this
+// checks what every write of the board carries: one request, the term of the read, what the page showed (the stale guard), and a toast that says what was done.
 const SCENARIOS = [
-  ['a tier raise', 'Kenola', (c, ui, a) => c.tier(ui, a, 'Kenola', 3)],
-  ['the removal of the highest reached tier', 'Kenola', (c, ui, a) => c.tier(ui, a, 'Kenola', 1)],
-  ['Fill', 'Lindaren', (c, ui, a) => c.act(ui, a, 'Lindaren', 'fill')],
-  ['Fill faction goal', 'Lindaren', (c, ui, a) => c.act(ui, a, 'Lindaren', 'fillgoal')],
-  ['Complete', 'Sor', (c, ui, a) => c.act(ui, a, 'Sor', 'complete')],
-  ['Reopen', 'Hurata', (c, ui, a) => c.act(ui, a, 'Hurata', 'reopen')],
+  ['a tier raise', (c, ui, a) => c.tier(ui, a, 'Kenola', 3), /^House Kenola: your contribution 1,200 → 3,600/],
+  ['the removal of the highest reached tier', (c, ui, a) => c.tier(ui, a, 'Kenola', 1), /^House Kenola: your contribution 1,200 → 0 \(tier 1 removed\)/],
+  ['Fill', (c, ui, a) => c.act(ui, a, 'Lindaren', 'fill'), /^House Lindaren/],
+  ['Fill faction goal', (c, ui, a) => c.act(ui, a, 'Lindaren', 'fillgoal'), /^House Lindaren/],
+  ['Complete', (c, ui, a) => c.act(ui, a, 'Sor', 'complete'), /^House Sor: Atreides progress 1,700 → 4,000; house taken by Atreides/],
+  ['Reopen', (c, ui, a) => c.act(ui, a, 'Hurata', 'reopen'), /^House Hurata/],
 ];
-for (const [label, , pick] of SCENARIOS) {
-  test('parity: ' + label + ' sends the same request and says the same in the classic list and on the board', async () => {
+for (const [label, pick, saysRe] of SCENARIOS) {
+  test('board write: ' + label + ' sends one request with the term and the stale guard, and says what it did', async () => {
     const a = synthetic();
-    const got = {};
-    for (const view of ['classic', 'board']) {
-      const ui = await open(view, synthetic());
-      click(ui, pick(control[view], ui, a));
-      await ui.settle();
-      got[view] = { sent: writes(ui).map((w) => w.body), said: same(result(ui)) };
-      closeAll();
-    }
-    assert.equal(got.classic.sent.length, 1, 'one request: ' + JSON.stringify(got.classic.sent));
-    assert.deepEqual(got.board.sent, got.classic.sent, 'the board sends exactly what the classic list sends');
-    assert.equal(got.board.said, got.classic.said, 'and says the same things, one result per line on the board');
-    assert.equal(got.board.sent[0].term_id, 7, 'the term of the read is in the request, for the stale guard');
-    const h = got.board.sent[0].houses[0];
+    const ui = await open('board', synthetic());
+    click(ui, pick(control.board, ui, a));
+    await ui.settle();
+    const sent = writes(ui).map((w) => w.body), said = result(ui);
+    assert.equal(sent.length, 1, 'one request: ' + JSON.stringify(sent));
+    assert.match(said, saysRe, 'the toast says what was done: ' + said);
+    assert.equal(ui.doc.querySelector('#lsb-result'), null, 'the board keeps no result line');
+    assert.equal(sent[0].term_id, 7, 'the term of the read is in the request, for the stale guard');
+    assert.equal(sent[0].houses.length, 1);
+    const h = sent[0].houses[0];
     assert.ok('was_mine' in h && 'was_done' in h && 'was_win' in h, 'every request carries what the page showed (the stale guard)');
   });
 }
@@ -221,15 +214,6 @@ test('Complete on a House another faction took asks first, names the faction who
   click(ui, '[data-fk="c-yes"]');
   await ui.settle();
   assert.deepEqual(writes(ui).map((w) => w.body.houses), [[{ task_id: vernius.id, was_mine: vernius.my_contribution, was_done: true, was_win: 2, complete_for: 1 }]]);
-});
-
-test('the classic list is not changed by this: Complete on a taken House still writes at once there', async () => {
-  const ui = await open('classic');
-  const a = synthetic();
-  click(ui, control.classic.act(ui, a, 'Vernius', 'complete'));
-  await ui.settle();
-  assert.equal(ui.doc.querySelector('#lsb-confirm'), null);
-  assert.equal(writes(ui).length, 1);
 });
 
 test('several Houses: the question names them, the faction and how many change, and one request carries them all', async () => {

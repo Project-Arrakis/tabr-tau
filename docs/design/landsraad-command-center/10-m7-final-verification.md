@@ -1,5 +1,8 @@
 # Command Center M7: final verification and acceptance
 
+> Note (2026-11-20, #1028): the Classic Landsraad list described below was retired. The Command Center board is now the only Landsraad view and the default (see DECISIONS.md, section M). Mentions of the classic list, its result line or its switch are the record of that milestone, not the current page.
+
+
 This note is the acceptance document for the Landsraad and Specialization Command Center (issue #768, milestones M1 to M7). It says what was verified and how, what was not, which issues are open, and what the operator still has to check by hand. Nothing in it was checked in the game, on a real save or on a real phone.
 
 **Recommendation: CONDITIONAL. NOT YET SHIPPED as the default.** The Command Center stays behind its switches (the classic views stay the default), which is the rollback. No automated gate fails and no P0 or P1 defect was found in this pass. What blocks calling it done is the list in section 7, which only the operator can do, and the open issues in section 6 (one is medium and new: #906).

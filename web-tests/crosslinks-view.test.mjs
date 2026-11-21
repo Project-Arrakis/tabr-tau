@@ -1,7 +1,8 @@
 // #1060: the links between the Landsraad and the Specializations tabs, and the way back from the Saved map, do not rewrite the view the person chose.
 // "Open in Specializations" (House Inspector) and "Open House" (a House of a path) used to save the Command Center view for good (browser storage keys spec.view and lsb.view), so a Classic user was
-// switched for good. They show the other view for this visit only now; the saved choice is untouched and the View switch is still there. The Saved map's "Showing House X" line has a way back to the
-// House, in the view the person is in. Display and navigation only: nothing is written.
+// switched for good. They show the other view for this visit only now; the saved Specializations choice is untouched and its view switch is still there. The Landsraad has one view now (#1028): the board,
+// whatever an old browser still stores under lsb.view (the page removes the key at load), so "Open House" and the Saved map's "Back to House" always land on the board. The Saved map's "Showing House X"
+// line has a way back to that House. Display and navigation only: nothing is written.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
@@ -24,7 +25,7 @@ function board() {
 }
 const kenola = (a) => a.tasks.find((t) => t.house_name === 'DA_HouseKenola');
 
-test('#1060: Open House from the Specializations shows the board for this visit and keeps the saved Classic choice', async () => {
+test('#1060: Open House from the Specializations shows the board with that House chosen, and the old saved Classic choice is gone', async () => {
   const a = synthetic();
   const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': a }, local: { tab: 'player', 'spec.view': 'cc', 'lsb.view': 'classic' } });
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
@@ -32,15 +33,13 @@ test('#1060: Open House from the Specializations shows the board for this visit 
   click(ui, '[data-lcs-go="' + house.id + '"]'); await ui.settle(); await ui.wait(20); await ui.settle();
   assert.equal(ui.w.localStorage.getItem('tab'), 'landsraad');
   assert.ok(ui.doc.querySelector('.lcc-bd-insp[data-id="' + house.id + '"]'), 'the House is open on the board');
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'classic', 'the saved choice is not rewritten');
-  assert.equal(ui.doc.querySelector('[data-lb="view"][data-view="board"]').getAttribute('aria-pressed'), 'true', 'the View switch says which view is shown');
-  click(ui, '[data-lb="view"][data-view="classic"]'); await ui.settle();
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'classic');
-  assert.ok(ui.doc.querySelector('#lsb-rows'), 'the switch is the way back to the Classic list');
+  assert.equal(ui.w.localStorage.getItem('lsb.view'), null, 'the old saved choice is removed at load and not written again');
+  assert.equal(ui.doc.querySelector('[data-lb="view"]'), null, 'there is no View switch: the board is the only view');
+  assert.equal(ui.doc.querySelector('#lsb-rows'), null, 'no Classic list');
   assert.deepEqual(ui.posted, [], 'nothing is written');
 });
 
-test('#1060: Open in Specializations from the House Inspector shows the Command Center view for this visit and keeps the saved Classic choice', async () => {
+test('#1060: Open in Specializations from the House Inspector shows the Command Center Specializations view for this visit and keeps the saved Classic Specializations choice', async () => {
   const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid', 'spec.view': 'classic' } });
   await ui.settle();
   let went = null;
@@ -56,29 +55,30 @@ test('#1060: Open in Specializations from the House Inspector shows the Command 
   assert.deepEqual(ui.posted, [], 'nothing is written');
 });
 
-test('#1060: the Saved map line "Showing House X" has a way back to that House, in the Classic list', async () => {
+test('#1060: the Saved map line "Showing House X" has a way back to that House, from the place cell of the list layout', async () => {
   const a = board(), id = kenola(a).id;
-  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap() }, local: { tab: 'landsraad', 'lsb.view': 'classic' } });
+  const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap() }, local: { tab: 'landsraad', 'lsb.view': 'classic', 'lsb.layout': 'list' } });
   await ui.settle();
-  click(ui, `#lsrow-${id} .loc-t[data-lb="map"]`); await ui.settle();
+  click(ui, `tr.lcc-bd-row[data-id="${id}"] [data-lb="map"]`); await ui.settle();
   const back = ui.doc.querySelector('#lmhouse [data-lmback]');
   assert.ok(back, 'the way back');
   assert.equal(text(back), 'Back to House Kenola');
   assert.equal(back.dataset.lmback, String(id));
-  assert.match(text(ui.doc.querySelector('#lmhouse')), /^Showing House Kenola on Hagga Basin\./);
+  assert.match(text(ui.doc.querySelector('#lmhouse')), /^Showing House Kenola on Hagga Basin./);
   assert.doesNotMatch(text(ui.doc.querySelector('#lmhouse')), /yellow ring/, 'the standing sentence is a hover text now (#1062)');
   assert.match(ui.doc.querySelector('#lmhouse').getAttribute('title'), /yellow ring/);
+  ui.w.LCCB.state.sel = null; // the choice on the board is gone while the Saved map is open
   click(ui, back); await ui.settle();
   assert.equal(ui.w.localStorage.getItem('tab'), 'landsraad');
-  assert.ok(ui.doc.querySelector('#lsb-rows'), 'the Classic list, as it was');
-  assert.equal(ui.doc.querySelector('#lsb-jump').value, String(id), 'only that House is shown');
-  assert.equal(ui.doc.querySelector(`#lsrow-${id}`).hidden, false);
-  assert.equal(ui.doc.querySelector(`#lsx-${id}`).checked, true, 'and its row is open');
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'classic');
+  assert.equal(ui.doc.querySelector('#lsb-rows'), null, 'no Classic list, whatever was saved');
+  assert.ok(ui.doc.querySelector('tr.lcc-bd-row[data-id="' + id + '"]'), 'the board is in its list layout, as it was');
+  assert.equal(ui.w.LCCB.state.sel, id);
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp[data-id="' + id + '"]'), 'the House is open in the Inspector');
+  assert.equal(ui.w.localStorage.getItem('lsb.view'), null, 'the old saved choice is gone');
   assert.deepEqual(ui.posted, [], 'nothing is written');
 });
 
-test('#1060: and in the Command Center board, with that House chosen', async () => {
+test('#1060: and from the Inspector of the grid layout, with that House chosen', async () => {
   const a = board(), id = kenola(a).id;
   const ui = await boot({ get: { '/api/landsraad': a, '/api/livemap': livemap() }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
   await ui.settle();

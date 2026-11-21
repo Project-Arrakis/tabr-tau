@@ -3,16 +3,14 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
+import { synthetic } from './lcc-fixture.mjs';
 
 afterEach(closeAll);
 
-const landsraad = () => ({
-  term: { term_id: 7, start_time: 1, end_time: 2, reigning_faction_id: 1, active_decree_id: 1, elected_decree_id: 1 },
-  factions: [{ id: 1, name: 'Atreides' }, { id: 2, name: 'Harkonnen' }],
-  decrees: [{ id: 1, decree_name: 'Decree A', disabled: 0 }],
-  rotation: [],
-  tasks: Array.from({ length: 30 }, (_, i) => ({ id: 100 + i, board_index: i + 1, house_name: 'DA_HouseX' + i, goal_amount: 50, contributions: [], completed: 0, rewards: [{ threshold: 10, amount: 3, template_id: 'Item.A' }] })),
-});
+// The board draws its controls only for a read that passes its checks, so the page here is the synthetic answer of the Command Center
+// (the faction box #lsb-fac is the one behind the faction crests of the board).
+const landsraad = () => synthetic();
+const SOR = () => landsraad().tasks.find((t) => t.house_name === 'DA_HouseSor').id;
 
 // jsdom has no layout, so the page's own scroll offset is a number the test holds and the calls to scrollTo move it
 function holdWindowScroll(w, y) {
@@ -23,7 +21,7 @@ function holdWindowScroll(w, y) {
 }
 
 async function openLandsraad(extra = {}) {
-  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/apply': { ok: true, changed: 1, noop: false, house: 'Alexin', tier: 6000, progress_changed: true, completed_changed: true, contribution_changed: true, contribution_before: 0, has_character: true, outcome: 'written' } }, ...extra });
+  const ui = await boot({ get: { '/api/landsraad': landsraad() }, post: { '/api/landsraad/apply': { ok: true, changed: 1, houses: 1, skipped: 0, contribution_raised: 0, contribution_lowered: 0, completed: 1, reopened: 0, reward_rows: 0, outcome: 'written' } }, ...extra });
   if (!ui.doc.querySelector('#lsb-fac')) { ui.click('[data-tab="landsraad"]'); await ui.settle(); }
   assert.ok(ui.doc.querySelector('#lsb-fac'), 'the Landsraad tab is open');
   return ui;
@@ -36,7 +34,8 @@ test('an action on the Landsraad tab keeps the page offset, the chosen faction a
   const det = ui.doc.querySelector('#main details'); det.open = true;
   const before = ui.doc.querySelector('#lsb-fac');
 
-  ui.click('.qa-cr[data-id="105"]'); await ui.settle(); // Complete: staged for the faction that was chosen
+  ui.click('[data-fk="ht:' + SOR() + '"]'); // a House looked at, then Complete in its Inspector: staged for the faction that was chosen
+  ui.click('.lcc-bd-insp .lcc-bd-act[data-do="complete"]'); await ui.settle();
   const sent = ui.posted.filter((p) => p.path === '/api/landsraad/apply');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].body.houses[0].complete_for, 2, 'the faction that was chosen is the one sent');

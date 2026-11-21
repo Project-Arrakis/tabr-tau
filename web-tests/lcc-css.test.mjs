@@ -293,12 +293,8 @@ test('markup order is the visual order: the action bar is part of the board pane
   assert.ok(!appRules.some((r) => /\.lcc-bd-grid > \.lcc-bd-slot/.test(r.sel)), 'the question and the result line are in the panel, no longer a place of the grid');
 });
 
-test('phones: the bar of the chosen houses is sticky at the bottom, clear of the home bar and of a focused control; the cards have no crest; the way back is shown where the panel is not beside the board', () => {
-  assert.match(appBare, /\.lsb \.phonebar \{ display: none; \}/);
-  const phone = parse(appBare).find((r) => /@media \(max-width: 640px\), \(pointer: coarse\) and \(max-width: 900px\)/.test(r.at) && r.sel === '.lsb .phonebar:not([hidden])');
-  assert.ok(phone && /position: sticky; bottom: 0/.test(phone.body) && /env\(safe-area-inset-bottom/.test(phone.body), 'sticky at the bottom with the safe-area inset');
-  assert.match(appBare, /html:has\(\.phonebar:not\(\[hidden\]\)\) \{ scroll-padding-bottom: 170px; \}/);
-  assert.match(appBare, /\.lsb \.phonebar \.qa \{[^}]*min-height: 44px/, 'a touch target');
+test('phones: the cards have no crest, and the way back is shown where the panel is not beside the board (the old bar of the chosen houses is gone, tau #974)', () => {
+  assert.doesNotMatch(appBare, /phonebar/, 'the old bar of the chosen houses has no rules left (tau #974)');
   assert.match(bare, /@media \(max-width: 640px\), \(pointer: coarse\) and \(max-width: 900px\) \{\s*\.lcc-hc \{ min-height: 0; \}\s*\.lcc-hc-crest \{ display: none; \}/);
   assert.match(appBare, /@container lsbv \(max-width: 1079px\) \{\s*\.lsb #lsb-board \.lcc-bd-back \{ display: inline-flex; \}/);
   assert.match(bare, /\.lcc-bd-back \{ all: unset; display: none;/);

@@ -811,7 +811,7 @@
       pin.appendChild(el('div', 'lcc-bd-ask', '', { 'data-lcc-slot': 'ask' }));
       side.appendChild(pin);
     } else if (!editable) {
-      side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view. The classic list stays available.'));
+      side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view.'));
     }
 
     // who it is pledged to: only what the save's own two fields say; a lead on the faction goal is a lead and never a pledge
@@ -928,7 +928,7 @@
     const w = el('section', 'lcc lcc-bd', '', { 'aria-labelledby': 'lcc-bd-h', 'data-ready': board.ready ? 'true' : 'false' });
     if (!board.ready) {
       const p = el('div', 'lcc-bd-problems', '', { role: 'status' });
-      p.appendChild(el('p', 'lcc-bd-warn', 'The board cannot be drawn as a fixed five by five board, and nothing can be written from this view. The Houses that could be read are in the list. The classic list has the same Houses and its actions.'));
+      p.appendChild(el('p', 'lcc-bd-warn', 'The board cannot be drawn as a fixed five by five board, and nothing can be written from this view. The Houses that could be read are in the list.'));
       const ul = el('ul', 'lcc-bd-why', '', { role: 'list' });
       for (const t of board.problems) ul.appendChild(el('li', '', t));
       p.appendChild(ul);

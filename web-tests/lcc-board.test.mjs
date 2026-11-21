@@ -1,4 +1,4 @@
-// The Command Center board on the real page (M3, stage B): the view switch, the fixed five-by-five board, the list, the House Inspector and the filters. The page code is the real app.js with the
+// The Command Center board on the real page (M3, stage B): the fixed five-by-five board, the list, the House Inspector and the filters. The page code is the real app.js with the
 // real lcc scripts, over the synthetic answer of M1 (no game save is read). What a click writes is tested in lcc-board-write.test.mjs.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,28 +22,16 @@ const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelecto
 const tiles = (ui) => [...ui.doc.querySelectorAll('.lcc-bd-cell')];
 const tileOf = (ui, name) => tiles(ui).find((c) => c.querySelector('.lcc-hc-name').textContent.toLowerCase() === 'house ' + name.toLowerCase());
 
-test('the classic list is the default view, and the switch offers the board', async () => {
-  const ui = await open(synthetic(), { view: 'classic' });
-  assert.ok(ui.doc.querySelector('#lsb-rows'), 'the classic rows are there');
-  assert.equal(ui.doc.querySelector('#lsb-lcc'), null);
-  const sw = [...ui.doc.querySelectorAll('.viewsw [data-lb="view"]')];
-  assert.deepEqual(sw.map((b) => [b.dataset.view, b.getAttribute('aria-pressed')]), [['classic', 'true'], ['board', 'false']]);
-  const fresh = await boot({ get: { '/api/landsraad': synthetic() }, local: { tab: 'landsraad' } });
-  await fresh.settle();
-  assert.ok(fresh.doc.querySelector('#lsb-rows'), 'with nothing remembered the classic list opens');
-});
-
-test('the view switch changes how the same Houses are drawn, and the choice is remembered', async () => {
-  const ui = await open(synthetic(), { view: 'classic' });
-  click(ui, '.viewsw [data-view="board"]');
-  assert.equal(tiles(ui).length, 25);
-  assert.equal(ui.doc.querySelector('#lsb-rows'), null, 'the classic rows are gone');
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'board');
-  assert.equal(ui.doc.querySelector('.viewsw [data-view="board"]').getAttribute('aria-pressed'), 'true');
-  click(ui, '.viewsw [data-view="classic"]');
-  assert.ok(ui.doc.querySelector('#lsb-rows'));
-  assert.equal(ui.doc.querySelector('.lcc-bd'), null);
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'classic');
+test('the board is the only Landsraad view and the default: nothing remembered, or the retired Classic choice remembered, draws the board, and there is no view switch (#1028)', async () => {
+  for (const local of [{ tab: 'landsraad' }, { tab: 'landsraad', 'lsb.view': 'classic' }, { tab: 'landsraad', 'lsb.view': 'board' }]) {
+    const ui = await boot({ get: { '/api/landsraad': synthetic() }, local });
+    await ui.settle();
+    assert.equal(tiles(ui).length, 25, JSON.stringify(local));
+    assert.equal(ui.doc.querySelector('#lsb-rows'), null, 'no Classic rows');
+    assert.equal(ui.doc.querySelector('.viewsw'), null, 'no view switch');
+    assert.equal(ui.doc.querySelector('[data-lb="view"]'), null);
+    closeAll();
+  }
 });
 
 test('the board is 25 tiles in board order, numbered 01 to 25, each a button with its owner in words', async () => {
@@ -105,7 +93,7 @@ test('a board that is not a board (24 Houses) is not drawn as one: a read-only l
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-tiles').length, 0);
   assert.equal(ui.doc.querySelector('.lcc-bd').getAttribute('data-ready'), 'false');
   assert.match(text(ui.doc.querySelector('.lcc-bd-problems')), /24 of 25 Houses/);
-  assert.match(text(ui.doc.querySelector('.lcc-bd-problems')), /classic list/);
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-problems')), /classic list/i, 'no Classic list to send anyone to (#1028)');
   const rows = ui.doc.querySelectorAll('.lcc-bd-row');
   assert.equal(rows.length, 24);
   assert.ok([...rows].every((r) => text(r.querySelector('.lcc-bd-c-no')) === '—'), 'no number is given by a board that failed its checks');
@@ -123,19 +111,6 @@ test('a duplicate board position is refused too, and the House number is never d
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-tiles').length, 0);
   assert.match(text(ui.doc.querySelector('.lcc-bd-problems')), /more than one House/);
   assert.equal(ui.doc.querySelector('.lcc-hc-pos'), null);
-});
-
-test('#768: the classic list shows the House number 01 to 25 too, from the same positions, and none when the board is not a board', async () => {
-  const ui = await open(synthetic(), { view: 'classic' });
-  const nos = [...ui.doc.querySelectorAll('#lsb-rows .hno')].map((n) => text(n).replace('Square ', ''));
-  assert.equal(nos.length, 25);
-  assert.deepEqual([...nos].sort(), [...Array(25).keys()].map((i) => String(i + 1).padStart(2, '0')));
-  const row = [...ui.doc.querySelectorAll('#lsb-rows > li')].find((r) => r.querySelector('.hn b').textContent === 'Wallach');
-  assert.equal(text(row.querySelector('.hno')), 'Square 08');
-  assert.equal(row.querySelector('.hno').getAttribute('title'), 'square 8 of 25, row 2, column 3');
-  const a = synthetic(); a.tasks.pop();
-  const bad = await open(a, { view: 'classic' });
-  assert.equal(bad.doc.querySelectorAll('#lsb-rows .hno').length, 0);
 });
 
 test('a card shows five numbered tier boxes and the line N/5 EARNED with the collected and waiting counts, and says them in its name for a screen reader', async () => {
@@ -345,7 +320,7 @@ test('the layout is remembered, and the list carries a Choose box and a Saved ma
   for (const m of maps) assert.match(m.getAttribute('aria-label'), /Open in the Saved map$/);
 });
 
-test('every control that changes the save carries the classic list\'s own data-lb, so one handler, one guard and one queue serve both views', async () => {
+test('every control that changes the save carries the page\'s own data-lb, so one handler, one guard and one queue serve the board', async () => {
   const ui = await open();
   click(ui, tileOf(ui, 'Wallach').querySelector('button'));
   const writes = [...ui.doc.querySelectorAll('.lcc-bd [data-lb]')].filter((e) => !e.closest('[data-bar]') && !e.closest('#lcc-term')).map((e) => e.dataset.lb); // the parts of the action bar the page seats in the control bar are the page's own (#914)
@@ -404,8 +379,6 @@ test('the board header does not say which faction the character is in, and still
   const ui = await open();
   assert.doesNotMatch(text(ui.doc.querySelector('#lsb-board')), /Your character is in (Atreides|Harkonnen)/);
   assert.ok(ui.doc.querySelector('#lsb-fac option'), 'the faction box still names the faction');
-  const classic = await open(synthetic(), { view: 'classic' });
-  assert.ok(classic.doc.querySelector('#lsb-fac'), 'the classic list is as it was');
   const none = synthetic();
   none.character.faction_id = null;
   const ui2 = await open(none);
