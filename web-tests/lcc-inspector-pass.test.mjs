@@ -239,7 +239,7 @@ test('#939: the place is under the House name, a link with the Classic hint, and
   const i = ui.doc.querySelector('.lcc-bd-insp');
   const t = i.querySelector('.lcc-bd-insp-title');
   const kids = [...t.children].map((c) => c.className.split(' ')[0]);
-  assert.deepEqual(kids, ['lcc-bd-insp-name', 'loc', 'lcc-bd-linkb'], 'name, place (the link and its peek, in the Classic wrapper), specialization: in this order');
+  assert.deepEqual(kids, ['lcc-bd-insp-name', 'loc', 'lcc-bd-linkb', 'lcc-bd-lvl'], 'name, place (the link and its peek, in the Classic wrapper), specialization, its level (#646): in this order');
   const loc = t.querySelector('.lcc-bd-loc');
   assert.equal(loc.getAttribute('data-lb'), 'map', 'the Classic click');
   assert.equal(loc.getAttribute('title'), 'Click the place to open the Saved map. Hover for a quick peek.', 'the Classic hint, and the peek (the map picture) that the mouse-over carries');

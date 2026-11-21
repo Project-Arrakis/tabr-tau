@@ -147,6 +147,9 @@
   const listWords = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
 
   // ---- the panel head, the filters and the legend ----------------------------------------------------------------------------------------------------------------------------
+  // The character's level in a House's specialization (#646): 'Level 57', or a dash when the level is not known (the title says why). One wording on the card's mouse-over, the emblem's and the House panel.
+  const LEVEL_WHY = 'Not read yet: the level comes from the Specializations tab, which reads it when it is opened';
+  const levelText = (h) => 'Level ' + (h.level === null || h.level === undefined ? '—' : h.level);
   // The summary line of the term (#440): how many Houses are at the top tier, in progress and not started, counted from the same House state the Show tabs filter by (M().matches); each count is a key that sets that Show tab.
   // Nothing is drawn for a character in no faction (every House would read as not started). It writes nothing: it only changes which Houses are shown.
   function summary(board) {
@@ -448,7 +451,7 @@
     // the specialization emblem (#963, #976): the path's clean emblem picture (only the emblem, cut from the banner picture) drawn in one tint like the House crest; no frame, no progress edge
     const banner = L().emblemAsset(h.track);
     if (banner) {
-      const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization', 'data-track': h.track });
+      const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization, ' + levelText(h), 'data-track': h.track });
       const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 28, height: 28, src: banner.src, decoding: 'async' });
       img.addEventListener('error', () => { img.hidden = true; });
       g.appendChild(img);
@@ -467,7 +470,7 @@
     const notes = [];
     if (h.waiting > 0) notes.push(h.waiting + ' reward' + (h.waiting === 1 ? '' : 's') + ' not collected');
     sel.setAttribute('aria-label', [(h.number ? W().square + ' ' + h.number + ', ' : '') + h.name + ', ' + pl.line.charAt(0).toLowerCase() + pl.line.slice(1)].concat(h.track ? [W().specialization.toLowerCase() + ' ' + trackWord(h.track)] : ['specialization not in the save'], h.takenNoTiers ? [W().pledged.toLowerCase() + ', no tier record in the save'] : h.tierCount ? [h.reached + ' of ' + h.tierCount + ' ' + W().tiersEarned, h.collected + ' collected'] : ['no tiers in the save'], notes, h.unknownDelivery ? [h.unknownDelivery + ' with no delivery record'] : [], inLine ? ['part of a line of five held by ' + FACTION_WORD[h.owner] + ': ' + listWords(lines.map(lineWord)), winSays] : [], dom ? ['one of the 13 or more Houses of ' + FACTION_WORD[major], winSays] : [], dim ? ['not in the current filter'] : []).join(', '));
-    sel.setAttribute('title', 'House ' + h.name + ', ' + pl.house.charAt(0).toLowerCase() + pl.house.slice(1) + '. ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + 'Click to see its tiers and actions.');
+    sel.setAttribute('title', 'House ' + h.name + ', ' + pl.house.charAt(0).toLowerCase() + pl.house.slice(1) + '. ' + (h.pos ? h.pos.words + '. ' : '') + (inLine ? lineSays + '. ' + winSays + ' ' : '') + (dom ? 'One of the ' + FACTION_WORD[major] + ' Houses, who hold 13 or more Houses. ' + winSays + ' ' : '') + (takenWhy(h) ? takenWhy(h) + ' ' : '') + (h.track ? trackWord(h.track) + ' specialization, ' + levelText(h) + '. ' : '') + 'Click to see its tiers and actions.');
     card.appendChild(sel);
     const ctl = editable ? ctlOf(host, h.id) : null;
     const tiers = el('div', 'lcc-hc-tiers', '', { role: 'group', 'aria-label': 'House ' + h.name + ' reward tiers' + (ctl && ctl.tiers ? '. ' + CHECKED : '') });
@@ -771,6 +774,7 @@
     if (h.track && host && typeof host.goPath === 'function') hb.appendChild(btn('lcc-bd-linkb lcc-bd-gopath', trackWord(h.track) + ' Specialization', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
       'aria-label': trackWord(h.track) + ' Specialization. Open ' + trackWord(h.track) + ' in Specializations. It only moves between pages: nothing is written.' }));
     else hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' Specialization' : '—', h.track ? undefined : { title: 'Specialization not in the save' }));
+    if (h.track) hb.appendChild(el('span', 'lcc-bd-lvl', levelText(h), h.level === null ? { title: LEVEL_WHY } : undefined));
     idn.appendChild(hb);
     side.appendChild(idn);
 
@@ -1238,7 +1242,7 @@
     last = { container, answer, host };
     const fk = container.contains(root.document.activeElement) ? focusKey() : '';
     if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
-    const board = M().readBoard(answer);
+    const board = M().readBoard(answer, host && typeof host.specLevels === 'function' ? host.specLevels() : null);
     last.board = board;
     container.textContent = '';
     const built = build(board, host);

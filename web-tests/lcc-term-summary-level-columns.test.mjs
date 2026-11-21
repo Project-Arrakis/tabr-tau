@@ -59,3 +59,57 @@ test('#440: a character in no faction has no summary line (every House would rea
   assert.ok(ui.doc.querySelector('.lcc-bd-panel-head'), 'the board is drawn');
   assert.equal(ui.doc.querySelector('.lcc-bd-sum'), null);
 });
+
+test('#646: the House panel says Level N after the Specializations tab has read the levels, a dash with a title before, and the board makes no request of its own for it', async () => {
+  const ui = await open();
+  assert.equal(ui.fetched.filter((p) => p === '/api/player/specs').length, 0, 'the Landsraad tab does not read the specializations');
+  click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  let lv = ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-lvl');
+  assert.ok(lv, 'the level is on the specialization line');
+  assert.equal(text(lv), 'Level —', 'not read yet: a dash, never a made-up number');
+  assert.match(lv.getAttribute('title'), /Not read yet/);
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp-title').lastElementChild, lv, 'it follows the specialization name on the same line');
+  assert.equal(ui.w.eval('window.LCC_HOST.specLevels()'), null);
+  assert.match(tileOf(ui, 'Kenola').querySelector('.lcc-hc-select').getAttribute('title') || tileOf(ui, 'Kenola').querySelector('.lcc-hc-select').getAttribute('data-says'), /Gathering specialization, Level —\. Click to see/);
+  // the Specializations tab reads the answer (either view); the board then shows its levels
+  click(ui, 'button[data-tab="player"]'); await ui.settle();
+  click(ui, '[data-sub="player:specialization"]'); await ui.settle();
+  const levels = ui.w.eval('window.LCC_HOST.specLevels()');
+  assert.ok(levels && Number.isInteger(levels.gathering), 'the levels come from the answer the tab read: ' + JSON.stringify(levels));
+  const want = levels.gathering;
+  click(ui, 'button[data-tab="landsraad"]'); await ui.settle();
+  if (!ui.doc.querySelector('.lcc-bd-insp-title')) click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select')); // a chosen House stays chosen when the tab is left and entered again
+  lv = ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-lvl');
+  assert.equal(text(lv), 'Level ' + want);
+  assert.equal(lv.getAttribute('title'), null, 'a known level needs no explanation');
+  const card = tileOf(ui, 'Kenola');
+  assert.match(card.querySelector('.lcc-hc-select').getAttribute('title') || card.querySelector('.lcc-hc-select').getAttribute('data-says'), new RegExp('Gathering specialization, Level ' + want + '\\. Click to see'));
+  assert.equal(card.querySelector('.lcc-hc-spec').getAttribute('title'), 'Gathering specialization, Level ' + want);
+  assert.equal(ui.fetched.filter((p) => p === '/api/player/specs').length, 1, 'one read, made by the Specializations tab');
+  // the level belongs to the line: a House of another line shows that line's level
+  const other = ui.w.eval('window.LCC_HOST.specLevels()');
+  click(ui, tileOf(ui, 'Vernius').querySelector('.lcc-hc-select'));
+  assert.equal(text(ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-lvl')), other.sabotage === undefined ? 'Level —' : 'Level ' + other.sabotage);
+  // a write that gave specialization XP makes the levels stale: the dash comes back, never the old number
+  click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  click(ui, '.lcc-bd-insp .lcc-bd-tier[data-t="3"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/apply').length, 1, 'the raise was sent');
+  assert.equal(ui.w.eval('window.LCC_HOST.specLevels()'), null, 'the levels are from before the write');
+  if (!ui.doc.querySelector('.lcc-bd-insp-title')) click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  assert.equal(text(ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-lvl')), 'Level —', 'the dash comes back, never the old number');
+});
+
+test('#646: a line the save holds no level for, and a House with no specialization, show a dash or nothing and never a number', async () => {
+  const ui = await open();
+  const b = ui.w.LCCM.readBoard(synthetic(), { gathering: 12, combat: -3, crafting: 1.5, sabotage: '7' });
+  const lvl = (n) => b.houses.find((h) => h.name === n).level;
+  assert.equal(lvl('Kenola'), 12, 'a whole number is passed through');
+  assert.equal(b.houses.filter((h) => h.track === 'combat').every((h) => h.level === null), true, 'a negative number is not a level');
+  assert.equal(b.houses.filter((h) => h.track === 'crafting').every((h) => h.level === null), true, 'a fraction is not a level');
+  assert.equal(b.houses.filter((h) => h.track === 'sabotage').every((h) => h.level === null), true, 'a text is not a level');
+  assert.equal(ui.w.LCCM.readBoard(synthetic()).houses.every((h) => h.level === null), true, 'no levels given: every House is unknown');
+  assert.equal(ui.w.LCCM.readBoard(synthetic(), null).houses.every((h) => h.level === null), true);
+  const a = synthetic();
+  a.tasks[0].line = '';
+  assert.equal(ui.w.LCCM.readBoard(a, { gathering: 5 }).houses.find((h) => h.id === a.tasks[0].id).level, null, 'a House with no line has no level');
+});

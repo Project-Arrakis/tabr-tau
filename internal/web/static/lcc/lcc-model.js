@@ -168,12 +168,12 @@
   }
 
   // ---- the board -----------------------------------------------------------------------------------------------------------------------------------------------------------------
-  // readBoard(answer): { ready, problems, term, factions, me, grant, houses, grid, counts, rollup }.
+  // readBoard(answer, levels): { ready, problems, term, factions, me, grant, houses, grid, counts, rollup }.
   //   ready    the answer is a complete, valid board: only then is `grid` set and a count or a position claimed; a write from the board needs it
   //   houses   every readable House, by board position when ready and by name when not
   //   grid     25 Houses by board_index (null when not ready)
   //   counts   { a, h, open, unknown, total }: a + h + open + unknown is the number of Houses read, and 25 when ready
-  function readBoard(l) {
+  function readBoard(l, levels) {
     const a = obj(l) || {};
     const problems = [];
     const term = obj(a.term);
@@ -188,6 +188,8 @@
     const ready = problems.length === 0;
     const tasks = Array.isArray(a.tasks) ? a.tasks.filter((t) => obj(t) && int(t.id) !== null) : [];
     const houses = tasks.map((t) => readHouse(t, F, me, ready ? position(int(t.board_index)) : null));
+    // The character's level in the specialization of each House (#646): levels is { combat: 57, ... } from the specialization tracks the page already holds, or null. A line with no level in it gets null, never a number made up.
+    for (const h of houses) h.level = h.track && obj(levels) && Number.isInteger(levels[h.track]) && levels[h.track] >= 0 ? levels[h.track] : null;
     if (ready) houses.sort((x, y) => x.index - y.index); else houses.sort((x, y) => x.name.localeCompare(y.name));
     const grid = ready ? houses.slice() : null;
     const counts = { a: 0, h: 0, open: 0, unknown: 0, total: houses.length };

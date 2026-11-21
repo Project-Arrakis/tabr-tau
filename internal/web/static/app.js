@@ -798,7 +798,7 @@ async function playerView() {
 }
 // The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
 // (lcc/lcc-spec.js). The view only changes how the specializations are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
-const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null };
+const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null, lv: null, stale: false }; // lv: the specialization answer as the last visit to the Specializations tab read it (either view), the one source of the levels the Landsraad board shows; stale: a Landsraad write gave specialization XP after it was read, so its levels are no longer the save's (#646)
 const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
 const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
 // Opening a House of a specialization on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
@@ -1006,10 +1006,11 @@ async function playerSection(s) {
     const sp = await api('/api/player/specs');
     let hs = null;
     try { const ls = await api('/api/landsraad'); hs = !ls || !Array.isArray(ls.tasks) ? null : ls.tasks.map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it (or without a task list in the answer) they are "Not in the save"
-    SPV.vm = window.LCCS.readSpecs(sp, hs);
+    SPV.vm = window.LCCS.readSpecs(sp, hs); SPV.lv = SPV.vm; SPV.stale = false;
     h.push(html`${specViewSwitch()}<div id="lcs-mount"></div>`);
   } else if (s == 'specialization') {
     const sp = await api('/api/player/specs');
+    SPV.lv = window.LCCS ? window.LCCS.readSpecs(sp, null) : null; SPV.stale = false; // the Landsraad board shows the levels of this answer (#646)
     const known = (r) => r.number != null;
     // Every specialization has a number (the ones the game uses, or the ones assigned earlier): a person picks one by name and the numbers stay out of sight. Only a save whose numbers cannot be told gets the assignment card.
     const allKnown = sp.rows.length > 0 && sp.rows.every(known);
@@ -2682,6 +2683,7 @@ async function lbSend(b, items, label, hs, focusFk) {
     // what the missions of a raise write (landsraad_grant.go), and the warning when rewards were left out because the character's own events already crossed them (#656)
     // an unfill sets the contribution to 0 on every House it changes: it says so, not "a tier removed" (#932)
     const lowered = (n_) => (label === LB_BULK.unfill[0] ? 'your contribution set to 0 on ' + nn(n_, 'house', 'houses') + ' (every tier removed)' : 'lowered on ' + nn(n_, 'house', 'houses') + ' (a tier removed)');
+    if (r.specialization_xp && Object.keys(r.specialization_xp).length) SPV.stale = true; // the levels the board shows came from before this write (#646)
     const grant = lbGrantText(r, queued), left = r.rewards_already_given, back = r.contribution_lowered ? lbBackText(r, queued) : '';
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
@@ -3035,6 +3037,8 @@ window.LCC_HOST = {
   peek: (id) => { const r = LD && LD.tasks.find((x) => x.id === id), h = r ? lbHouse(r, LD) : null; return h && h.loc.known ? lbNode(lbPeek(h)) : null; },
   tips: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbListTips(lbHouse(r, LD)) : null; },
   loc: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbLocModel(lbHouse(r, LD)) : null; }, say: (m) => lbTell(m), decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
+  // the character's level in each specialization, from the answer the Specializations tab read (no request of its own, #646): null until that tab has been opened, and again after a write that gave specialization XP
+  specLevels: () => { const vm = SPV.lv; if (!vm || !vm.ok || SPV.stale) return null; const o = {}; for (const r of vm.rows) if (r.known && Number.isInteger(r.level)) o[r.key] = r.level; return o; },
   unseat: lbUnseat, seat: lbSeat, // presentation only: where the parts of the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return false; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); return true; }, // true when the board's own faction box took it (#882)
