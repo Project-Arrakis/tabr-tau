@@ -173,14 +173,11 @@ test('#920: the two banners of the narrow plaque end level: the cloth takes the 
   assert.match(lcc, /\.lcc-pl-std-a \.lcc-standard-cloth, \.lcc-pl-std-h \.lcc-standard-cloth \{ flex: 1 1 auto; \}/);
 });
 
-test('#998: a selected chip, layout button and view button keep a readable system-colour label in forced colours', () => {
-  const board = css('lcc-board.css'), spec = css('lcc-spec.css');
+test('#998: a selected chip and layout button keep a readable system-colour label in forced colours', () => {
+  const board = css('lcc-board.css');
   const b = board.match(/\.lcc-bd-chip\[aria-pressed="true"\], \.lcc-bd-layout button\[aria-pressed="true"\] \{([^}]*forced-color-adjust: none[^}]*)\}/);
   assert.ok(b, 'the board rule takes the control out of the automatic adjustment');
   assert.match(b[1], /background: Highlight/);
   assert.match(b[1], /color: HighlightText/);
   assert.match(b[1], /outline: 2px solid HighlightText/, 'and marks the selection by an outline, not by the fill alone');
-  const s = spec.match(/\.lcc-sp-vbtn\[aria-pressed="true"\] \{([^}]*forced-color-adjust: none[^}]*)\}/);
-  assert.ok(s, 'the view button of the Specializations too');
-  assert.match(s[1], /color: HighlightText/);
 });

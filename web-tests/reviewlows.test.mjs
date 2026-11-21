@@ -90,10 +90,12 @@ test('CR-5: a specialization track whose number is not known says so beside its 
   const ui = await boot({ get: { '/api/player/specs': specs } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
-  for (const a of ['spAdd', 'spMax', 'spReset']) assert.ok(reason(ui, ui.doc.querySelector(`[data-act="${a}"][data-t="Combat"]`)).includes('cannot match this specialization yet'), a);
-  assert.ok(reason(ui, ui.doc.querySelector('#spxCombat')).includes('cannot match this specialization yet'));
-  for (const a of ['spAdd', 'spMax', 'spReset']) assert.equal(ui.doc.querySelector(`[data-act="${a}"][data-t="Gathering"]`).getAttribute('aria-describedby'), null, 'a known track: nothing is off');
-  assert.equal(ui.doc.querySelector('#spnumGathering'), null);
+  ui.click('[data-lcs-lane="combat"]');
+  for (const a of ['spAddCC', 'spMax', 'spReset']) assert.ok(reason(ui, ui.doc.querySelector(`[data-act="${a}"][data-t="Combat"]`)).includes('cannot match this specialization'), a);
+  assert.ok(reason(ui, ui.doc.querySelector('#spxCombat')).includes('cannot match this specialization'));
+  ui.click('[data-lcs-lane="gathering"]');
+  for (const a of ['spAddCC', 'spMax', 'spReset']) assert.ok(!(ui.doc.querySelector(`[data-act="${a}"][data-t="Gathering"]`).getAttribute('aria-describedby') || '').includes('lcs-nonum'), 'a known track: nothing is off');
+  assert.equal(ui.doc.querySelector('#lcs-nonum'), null);
   ui.dom.window.close();
 });
 

@@ -28,9 +28,9 @@ let fixtures = baseFixtures;
 const read = (n) => fs.readFileSync(path.join(static_, n), 'utf8');
 
 // Allowlists: anything else appearing in the rendered DOM is an injection.
-const TAGS = new Set('html head body meta title link script header nav main div span b a p h1 h2 h3 h4 ul li code small table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath section i em dl dt dd dialog lineargradient stop radialgradient mask filter fegaussianblur circle image img caption ol strong'.split(' '));
+const TAGS = new Set('html head body meta title link script header nav main div aside span b a p h1 h2 h3 h4 ul li code small table thead tbody tr th td input select option datalist button details summary textarea br label canvas svg g rect text path defs clippath section i em dl dt dd dialog lineargradient stop radialgradient mask filter fegaussianblur circle image img caption ol strong'.split(' '));
 const SCRIPTS = new Set(['/motion-boot.js', '/look-boot.js', '/theme-menu.js', '/html.js', '/livemap.js', '/help.js', '/lcc/lcc.js', '/lcc/lcc-model.js', '/lcc/lcc-board.js', '/lcc/lcc-spec.js', '/lcc/lcc-term.js', '/app.js']); // the only scripts the page may contain, all same-origin files (the Motion and Look scripts are in the head, the Theme menu's before the page's)
-const ATTRS = new Set('preserveaspectratio x1 y1 x2 y2 offset stop-color stop-opacity maskcontentunits mask cx cy r filter opacity stroke-opacity stddeviation alt decoding scope aria-checked aria-controls aria-orientation aria-selected aria-disabled autocomplete stroke stroke-width stroke-linecap stroke-linejoin for aria-expanded aria-haspopup focusable fill lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
+const ATTRS = new Set('preserveaspectratio x1 y1 x2 y2 offset stop-color stop-opacity maskcontentunits mask cx cy r filter opacity stroke-opacity stddeviation alt decoding scope aria-checked aria-controls aria-orientation aria-selected aria-disabled autocomplete aria-valuemin aria-valuemax aria-valuenow aria-invalid stroke stroke-width stroke-linecap stroke-linejoin for aria-expanded aria-haspopup focusable fill lang charset name content rel href class id type value min max step placeholder size list selected disabled rows spellcheck colspan title src download role width height aria-modal aria-live aria-label aria-labelledby aria-describedby aria-sort aria-current aria-pressed inert tabindex label checked open viewbox x y rx transform d hidden aria-hidden clip-path'.split(' '));
 
 export function assertClean(doc, label) {
   const bad = [];
@@ -43,6 +43,7 @@ export function assertClean(doc, label) {
       if (n.startsWith('on')) bad.push(`event handler attribute ${n}`);
       if (n === 'style' && tag === 'html' && /^(--(?:hdr|warn)-h:\s*\d+(\.\d+)?px;?\s*)+$/.test(a.value)) continue; // the header height the sticky banner sits below, and the room of the warning bars under it (#910), set by the page itself
       if (n === 'style' && /^(width:\s*\d+(\.\d+)?%;|--h:\s*\d+;|left:\s*\d+(\.\d+)?%;\s*top:\s*\d+(\.\d+)?%;)$/.test(a.value)) continue; // the Landsraad board's measured values (a bar's width, a house symbol's hue, a pin), set through the style object from numbers
+      if (n === 'style' && /^--lcc-v:\s*\d+(\.\d+)?%;?$/.test(a.value)) continue; // the Specializations view's bar fill, a number turned into a percentage and set through the style object (#1105)
       if (n === "style" && /^(--lcc-k-crest-[ah]:\s*url\("\/lcc\/art\/factions\/[a-z]+\.webp"\);?\s*)+$/.test(a.value)) continue; // the Command Center crest of a faction: a fixed same-origin picture, set through the style object (#1028)
       const art = (v) => /^\/lcc\/art\/[A-Za-z0-9_\/.-]+$/.test(v) && !v.includes("//") && !v.includes(".."); // a bundled picture on the same origin: no host form, no climbing out of the folder
       if (tag === "img" && n === "src" && !art(a.value)) bad.push(`img with a source outside the bundled art: ${a.value.slice(0, 60)}`);
@@ -1330,10 +1331,11 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs/keystones/grant': { ok: true, granted: 5 }, '/api/player/specs/keystones/reset': { ok: true, removed: 5 }, '/api/player/specs/xp': { ok: true, before: 3000, after: 4000, level: 26 }, '/api/player/specs/max': { ok: true }, '/api/player/specs/reset': { ok: true, removed: 1 }, '/api/player/specs/assign': { ok: true } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
-  assert.equal(ui.doc.querySelector('img'), null);
-  assert.equal(ui.doc.querySelectorAll('tbody tr').length, 5, 'all five tracks are listed, even with no XP, as in the console');
-  assert.equal(ui.doc.querySelectorAll('[data-act="spAdd"]:not([disabled])').length, 1, 'only the track whose number is known can take XP');
-  assert.ok(ui.doc.body.textContent.includes('Granted'));
+  assert.deepEqual([...ui.doc.querySelectorAll('img')].filter((i) => !(i.getAttribute('src') || '').startsWith('/lcc/art/')), [], 'the only pictures are the bundled art');
+  assert.equal(ui.doc.querySelectorAll('[data-lcs-lane]').length, 5, 'all five specializations are listed, even with no XP');
+  for (const lane of ['combat', 'crafting']) { ui.click('[data-lcs-lane="' + lane + '"]'); assert.equal(ui.doc.querySelector('[data-act="spAddCC"]').disabled, lane !== 'combat', 'only the track whose number is known can take XP: ' + lane); }
+  ui.click('[data-lcs-lane="combat"]');
+  assert.ok(/41\/41 keystones/i.test(ui.doc.body.textContent), 'the granted keystones are counted');
   ui.click('[data-act="spKeyAll"]'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs/keystones/grant').length, 0, 'nothing is sent before the question is answered');
   ui.click('#aok'); await ui.settle();
@@ -1341,7 +1343,7 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   ui.click('[data-act="spKeyReset"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs/keystones/reset').length, 1);
   ui.doc.querySelector('#spxCombat').value = '1000';
-  ui.click('[data-act="spAdd"][data-t="Combat"]'); await ui.settle();
+  ui.click('[data-act="spAddCC"][data-t="Combat"]'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs/xp').map((p) => p.body), [{ track: 'Combat', amount: 1000 }]);
   ui.click('[data-act="spMax"][data-t="Combat"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
   assert.deepEqual(ui.posted.filter((p) => p.path === '/api/player/specs/max').map((p) => p.body), [{ track: 'Combat' }]);
@@ -1359,11 +1361,12 @@ test('Specialization on a save with no track numbers says why the XP controls ar
   const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs': { ok: true } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
-  const note = ui.doc.querySelector('#spnone');
-  assert.ok(note, 'a note appears while no track has a number');
-  assert.ok(note.textContent.includes('Earn a little XP') && note.textContent.includes('Advanced below') && note.textContent.includes('Keystones work now'), note.textContent); // shortened by the text sweep (#426): the longer explanation is in Advanced: track numbers > About this
-  const add = ui.doc.querySelector('[data-act="spAdd"][data-t="Combat"]');
-  assert.ok(add.disabled && add.title.includes('cannot match this specialization yet'), 'a disabled button says why');
+  ui.click('[data-lcs-lane="combat"]');
+  const note = ui.doc.querySelector('#lcs-nonum');
+  assert.ok(note, 'a note appears while the specialization has no number');
+  assert.ok(note.textContent.includes('cannot match this specialization') && note.textContent.includes('XP editing is off'), note.textContent); // shortened by the text sweep (#426): the longer explanation is in Advanced: track numbers > About this
+  const add = ui.doc.querySelector('[data-act="spAddCC"][data-t="Combat"]');
+  assert.ok(add.disabled && add.getAttribute('aria-describedby').includes('lcs-nonum'), 'a disabled button says why');
   assert.ok(!ui.doc.querySelector('[data-act="spKeyAll"]').disabled, 'keystones need no numbers');
   const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Advanced: set a raw row'));
   assert.ok(adv && !adv.open, 'the raw row is folded');
@@ -1376,7 +1379,8 @@ test('Specialization on a save with no track numbers says why the XP controls ar
   const ui2 = await boot({ get: { '/api/player/specs': known } });
   ui2.click('[data-tab="player"]'); await ui2.settle();
   ui2.click('[data-sub="player:specialization"]'); await ui2.settle();
-  assert.equal(ui2.doc.querySelector('#spnone'), null);
+  ui2.click('[data-lcs-lane="combat"]');
+  assert.equal(ui2.doc.querySelector('#lcs-nonum'), null);
   ui2.dom.window.close();
 });
 
@@ -1405,6 +1409,7 @@ test('Resetting a specialization track that holds nothing says nothing changed, 
   const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs/reset': { ok: true, removed: 0 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
+  ui.click('[data-lcs-lane="combat"]');
   ui.click('[data-act="spReset"][data-t="Combat"]'); await ui.settle(); ui.click('#aok'); await ui.settle();
   const t = ui.doc.querySelector('#toast').textContent;
   assert.ok(t.includes('had no XP to reset') && !t.includes('not saved yet'), t);

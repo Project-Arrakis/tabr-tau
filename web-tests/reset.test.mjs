@@ -178,10 +178,11 @@ test('Reset XP of all known specializations: says the unknown rows are left alon
   const ui = await boot({ get: { '/api/player/specs': specs(2, [{ number: 7, xp: 900, level: 8 }]) }, post: { '/api/player/specs/reset-all': { ok: true, changed: 2, noop: false } } }); ui.freeze();
   await openSpecs(ui);
   const btn = ui.doc.querySelector('[data-act="spResetAll"]');
-  assert.equal(btn.textContent.trim(), 'Reset XP of all known specializations (2)');
+  assert.equal(btn.textContent.trim(), 'Reset XP of All Known Specializations (2)');
   assert.equal(btn.disabled, false);
-  assert.ok(ui.doc.getElementById('spresetleft').textContent.includes('left alone'), 'the count of rows left alone stays on the page');
-  assert.ok(ui.doc.getElementById('spresettip').textContent.includes('Keystones are not touched'), 'what the button does is its tooltip');
+  const note = ui.doc.getElementById('lcs-resetnote').textContent;
+  assert.ok(note.includes('left alone'), 'the count of rows left alone stays on the page');
+  assert.ok(note.includes('Keystones are not touched'), 'what the button does is said beside it');
   ui.click('[data-act="spResetAll"]'); await ui.settle();
   const text = ui.doc.querySelector('#ask').textContent;
   assert.ok(text.includes('Reset the XP of 2 specializations?') && text.includes('Type reset 2 specializations to continue'));

@@ -53,7 +53,7 @@ test('every write route is played by an equivalence test: the board and the Term
 const SAFE = ['layout', 'group', 'sort', 'back', 'gopath'];
 test('looking at the board, the term section and the specializations sends nothing: every House, layout, sort, line, link and lane', async () => {
   const a = synthetic();
-  const ui = await boot({ get: { '/api/landsraad': a, '/api/player/specs': SPECS() }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid', 'spec.view': 'cc' } });
+  const ui = await boot({ get: { '/api/landsraad': a, '/api/player/specs': SPECS() }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' } });
   await ui.settle();
   assert.ok(ui.doc.querySelector('#lcc-term'), 'the term section is on the board page');
   // the board: every House, then every safe control that is there
@@ -70,15 +70,13 @@ test('looking at the board, the term section and the specializations sends nothi
   ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   // the term section: open every disclosure
   for (const d of ui.doc.querySelectorAll('#lcc-term details')) d.open = true;
-  // the Specializations view: every lane, the switch to the classic list and back
+  // the Specializations view: every lane
   click(ui, '[data-tab="player"]'); await ui.settle();
   click(ui, '[data-sub="player:specialization"]'); await ui.settle();
   const lanes = [...ui.doc.querySelectorAll('[data-lcs-lane]')];
   assert.equal(lanes.length, 5);
   for (const l of lanes) { click(ui, ui.doc.querySelector('[data-lcs-lane="' + l.dataset.lcsLane + '"]')); await ui.settle(); }
   for (const go of [...ui.doc.querySelectorAll('[data-lcs-go]')].slice(0, 3)) { click(ui, go); await ui.settle(); click(ui, '[data-tab="player"]'); await ui.settle(); click(ui, '[data-sub="player:specialization"]'); await ui.settle(); }
-  click(ui, '[data-spview="classic"]'); await ui.settle();
-  click(ui, '[data-spview="cc"]'); await ui.settle();
   assert.deepEqual(ui.posted, [], 'a request was sent while only looking: ' + JSON.stringify(ui.posted.map((p) => p.path)));
 });
 
@@ -284,7 +282,7 @@ test('fifty tab switches and fifty House jumps leave no new timer, no new listen
   const timers = new Set(); let listeners = 0;
   const ui = await boot({
     get: { '/api/landsraad': synthetic(), '/api/player/specs': SPECS() },
-    local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid', 'spec.view': 'cc' },
+    local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' },
     pre: (w) => {
       const si = w.setInterval.bind(w), ci = w.clearInterval.bind(w);
       w.setInterval = (...a) => { const id = si(...a); timers.add(id); return id; };

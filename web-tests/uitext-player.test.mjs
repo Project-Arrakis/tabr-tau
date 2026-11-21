@@ -78,13 +78,12 @@ test('Skills: the three-numbers note is in About this; the reset explanation is 
 test('Specialization: the 90-word paragraph is in About this, the dead-end note is shorter and drawn only while no track has a number, the unknown-rows line stays', async () => {
   let ui = await boot({ get: { '/api/player/specs': specs(2, [{ number: 7, xp: 900, level: 8 }]) } });
   let main = await page(ui, 'specialization');
-  moves(main, ['Your save stores only a number for each specialization track', 'Removes the XP of every specialization whose number is known']);
+  moves(main, ['Your save stores only a number for each specialization track']);
   assert.ok(!visibleText(main).includes('Changes are written to the game file as you make them'));
   assert.ok(!movedText(main).includes('Changes are written to the game file as you make them'), 'deleted for good: the banner and the results say it');
   assert.equal(ui.doc.querySelector('#spnone'), null, 'some track has a number: no dead-end note');
-  kept(main, ['Reset XP of all known specializations (2)', '1 specialization the editor cannot match yet is left alone.', 'Assigned: Combat = 2, Crafting = 3.', 'Track number 7: 900 XP, level 8']);
-  assert.deepEqual(ui.doc.querySelector('[data-act="spResetAll"]').getAttribute('aria-describedby').split(' '), ['spresettip', 'spresetleft']);
-  assert.ok(ui.doc.querySelector('[data-act="spMax"]').title.includes('44,182'), 'Max XP is on Grant max');
+  kept(main, ['Reset XP of All Known Specializations (2)', '1 specialization the editor cannot match yet is left alone.', 'Assigned: Combat = 2, Crafting = 3.', 'Track number 7: 900 XP, level 8']);
+  assert.equal(ui.doc.querySelector('[data-act="spResetAll"]').getAttribute('aria-describedby'), 'lcs-resetnote');
   // the raw-row warning is still inside its own closed disclosure
   const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Nothing checks that the two match'));
   assert.ok(adv && !adv.open);
@@ -92,10 +91,7 @@ test('Specialization: the 90-word paragraph is in About this, the dead-end note 
 
   ui = await boot({ get: { '/api/player/specs': specs(0, [], 0) } });
   main = await page(ui, 'specialization');
-  const none = ui.doc.querySelector('#spnone');
-  assert.ok(none, 'no track has a number: the note is drawn');
-  assert.ok(none.textContent.includes('No specialization has a number in this save yet, so the XP controls below are off.') && none.textContent.includes('Keystones work now.'));
-  assert.ok(none.textContent.split(/\s+/).length < 50, 'shorter than before: ' + none.textContent.split(/\s+/).length);
+  assert.equal(ui.doc.querySelector('#spnone'), null, 'the Classic dead-end note is gone with the Classic list');
   kept(main, ['Nothing to reset: none of the specializations the editor can match has XP.']);
   ui.dom.window.close();
 });

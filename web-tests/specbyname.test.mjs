@@ -35,7 +35,11 @@ test('all five numbers known: no Specialization numbers section, no box asking f
   assert.ok(!page.textContent.includes("Known a track's number already?"));
   assert.ok(!page.textContent.includes('Assigned:'));
   assert.equal(page.querySelector('[data-about="specialization.numbers"]'), null, 'its About this goes with it');
-  assert.equal(page.querySelectorAll('[data-act="spAdd"]:not([disabled])').length, 5, 'every track takes XP');
+  assert.equal(page.querySelectorAll('[data-lcs-lane]').length, 5);
+  for (const lane of ['combat', 'crafting', 'exploration', 'gathering', 'sabotage']) {
+    ui.click('[data-lcs-lane="' + lane + '"]');
+    assert.equal(page.querySelectorAll('[data-act="spAddCC"]:not([disabled])').length, 1, lane + ' takes XP');
+  }
 });
 
 test('all five numbers known: the raw row asks for a specialization by name and sends the number behind it', async () => {
@@ -75,7 +79,7 @@ test('no track has a number: the dead-end note and the assignment card are drawn
   const ui = await boot({ get: { '/api/player/specs': specs([]) } });
   await open(ui);
   const page = ui.doc.querySelector('#main');
-  assert.ok(page.querySelector('#spnone'));
+  assert.ok(page.querySelector('#lcs-root'), 'the view is drawn, with its XP controls off');
   assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'));
   assert.equal(page.querySelector('#st'), null);
   assert.equal(page.querySelector('[data-act="specSet"]'), null);

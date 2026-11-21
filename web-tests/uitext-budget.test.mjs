@@ -18,7 +18,9 @@ const BLOCK_WORDS = 45;
 // The Landsraad page is the Command Center board since #1028 (the Classic list is gone): the plaque, the term panel, the legend and the ladder are data the lcc scripts draw, and their words have their own tests
 // (lcc-standards, lcc-plaque, lcc-term-*). In the generated fixture (a one-House read that is not a complete board) it shows 225 words, so the page has its own ceiling, with room for little. The block
 // limit is the same for every page.
-const PAGE_WORDS_OF = { landsraad: 250 };
+// The Specializations page is the Command Center view since #1105 (the Classic list is gone): the lanes, the dossier, the totals and the operations are data the lcc script draws, and it shows 197 words in the
+// generated fixture, so it has its own ceiling too, with room for little (the 45-word block limit still applies).
+const PAGE_WORDS_OF = { landsraad: 250, 'player:specialization': 220 };
 
 const KITS = { kits: [{ name: 'Starter', items: [{ item: 'SpicedFuelCell', quantity: 100 }], xp: 5000, skillPoints: 3, problem: '' }], limits: { kits: 20, items: 50, name: 60, quantity: 1000000, xp: 100000000, skillPoints: 100000, fileBytes: 65536 }, problem: '' };
 

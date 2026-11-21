@@ -1,7 +1,8 @@
-// Every control of the Specialization tab that writes sends the same request, asks the same question and says the same thing in the Command Center view as in the classic list (M5). The expected
-// values (web-tests/lcc-spec-requests.golden.json) were recorded from the classic list, the page as it was before the Command Center view existed, with the same inputs; this file plays each
-// scenario in both views and compares them with the file one by one. Real page code, the synthetic answer of M1, no game save. Set LCC_RECORD_REQUESTS=1 to write the file again (only ever done on
-// a tree whose classic list is known to be right).
+// Every control of the Specialization tab that writes sends the request, asks the question and says the thing recorded in web-tests/lcc-spec-requests.golden.json (M5; #1105). The expected values were
+// recorded from the Classic list, the page as it was before the Command Center view existed, with the same inputs; the Classic list is retired (#1105) and this file now plays each scenario on the one view
+// (the Command Center, with the Advanced cards the page keeps under it) and compares it with the file one by one, so the Classic == Command Center equivalence that an earlier version of this file proved by
+// playing both views now stands on the file alone (it is unchanged by #1105: git diff of the golden file is empty). Real page code, the synthetic answer of M1, no game save. Set LCC_RECORD_REQUESTS=1 to
+// write the file again (only ever done on a tree whose request builders are known to be right: the Classic list it was recorded from no longer exists).
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -27,29 +28,26 @@ const POSTS = { '/api/player/specs/xp': { ok: true, before: 3000, after: 4000, l
   '/api/player/specs/assign': { ok: true }, '/api/player/specs': { ok: true } };
 const ROUTE = /^\/api\/player\/specs/;
 
-// the three kinds of scenario the Command Center view no longer has a control for (#986: track mapping and the raw-row writer are classic-list only): the classic list is still checked against the file, unchanged
-const CLASSIC_ONLY = new Set(['Assign number 1 to Combat', 'Assign by hand, Combat 9', 'Assign by hand with no number', 'Raw row: Sabotage 500 XP level 2, asked then Yes', 'Raw row: XP 44182 and level 10, mismatch kept as typed']);
-
 // the scenario where the controls are off and nothing is pressed
 const SENDS_NOTHING = new Set(['Add XP on a track that is not identified: nothing is sent', 'Remove XP -1000: refused, nothing is sent']);
 
-// a scenario is [what is pressed in the classic list, what is pressed in the Command Center view]; both are steps run against the page
+// a scenario is a step run against the page: the controls it presses are the Command Center's, or the Advanced cards under it (assign, assign by hand, raw row)
 const ctl = (ui, sel) => { const e = ui.doc.querySelector(sel); assert.ok(e, 'no element for ' + sel); return e; };
 const set = (ui, sel, v) => { const e = ctl(ui, sel); e.value = String(v); e.dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
 const seen = (ui) => { ui.asked = text(ui.doc.querySelector('#ask [role="dialog"]')); }; // the question as it was put, before it is answered
 const yes = async (ui) => { await ui.settle(); seen(ui); ui.click('#aok'); await ui.settle(); };
 const no = async (ui) => { await ui.settle(); seen(ui); ui.click('[data-act="askNo"]'); };
-const lane = (ui, v, key) => { if (v === 'cc') { ui.click('[data-lcs-lane="' + key + '"]'); } };
+const lane = (ui, key) => { ui.click('[data-lcs-lane="' + key + '"]'); };
 const SCENARIOS = {
-  'Add XP 1000': async (ui, v) => { lane(ui, v, 'combat'); set(ui, '#spxCombat', 1000); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); },
-  'Remove XP -1000: refused, nothing is sent': async (ui, v) => { lane(ui, v, 'combat'); set(ui, '#spxCombat', -1000); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); },
-  'Add XP on another track': async (ui, v) => { lane(ui, v, 'gathering'); set(ui, '#spxGathering', 250); ui.click(v === 'cc' ? '[data-act="spAddCC"][data-t="Gathering"]' : '[data-act="spAdd"][data-t="Gathering"]'); },
-  'Grant max, asked then Yes': async (ui, v) => { lane(ui, v, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await yes(ui); },
-  'Grant max, asked then No': async (ui, v) => { lane(ui, v, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await no(ui); },
-  'Reset one track, asked then Yes': async (ui, v) => { lane(ui, v, 'sabotage'); ui.click('[data-act="spReset"][data-t="Sabotage"]'); await yes(ui); },
+  'Add XP 1000': async (ui) => { lane(ui, 'combat'); set(ui, '#spxCombat', 1000); ui.click('[data-act="spAddCC"][data-t="Combat"]'); },
+  'Remove XP -1000: refused, nothing is sent': async (ui) => { lane(ui, 'combat'); set(ui, '#spxCombat', -1000); ui.click('[data-act="spAddCC"][data-t="Combat"]'); },
+  'Add XP on another track': async (ui) => { lane(ui, 'gathering'); set(ui, '#spxGathering', 250); ui.click('[data-act="spAddCC"][data-t="Gathering"]'); },
+  'Grant max, asked then Yes': async (ui) => { lane(ui, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await yes(ui); },
+  'Grant max, asked then No': async (ui) => { lane(ui, 'combat'); ui.click('[data-act="spMax"][data-t="Combat"]'); await no(ui); },
+  'Reset one track, asked then Yes': async (ui) => { lane(ui, 'sabotage'); ui.click('[data-act="spReset"][data-t="Sabotage"]'); await yes(ui); },
   // a track with no number (#899): the XP controls are off in both views, so no request, and the keystone buttons still work and send the same request
   // (a disabled button sends no click in a browser, so the scenario checks that the controls are off and presses none)
-  'Add XP on a track that is not identified: nothing is sent': async (ui, v) => { lane(ui, v, 'combat'); for (const sel of ['#spxCombat', '[data-act="spMax"][data-t="Combat"]', '[data-act="spReset"][data-t="Combat"]', v === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]']) assert.equal(ctl(ui, sel).disabled, true, sel + ' is off'); },
+  'Add XP on a track that is not identified: nothing is sent': async (ui) => { lane(ui, 'combat'); for (const sel of ['#spxCombat', '[data-act="spMax"][data-t="Combat"]', '[data-act="spReset"][data-t="Combat"]', '[data-act="spAddCC"][data-t="Combat"]']) assert.equal(ctl(ui, sel).disabled, true, sel + ' is off'); },
   'Grant all keystones on a save with a track not identified, asked then Yes': async (ui) => { ui.click('[data-act="spKeyAll"]'); await yes(ui); },
   'Grant all keystones, asked then Yes': async (ui) => { ui.click('[data-act="spKeyAll"]'); await yes(ui); },
   'Reset all keystones, asked then Yes': async (ui) => { ui.click('[data-act="spKeyReset"]'); await yes(ui); },
@@ -63,11 +61,11 @@ const SCENARIOS = {
   'Raw row: XP 44182 and level 10, mismatch kept as typed': async (ui) => { set(ui, '#st', 3); set(ui, '#sx', 44182); set(ui, '#sl', 10); ui.click('[data-act="specSet"]'); await yes(ui); },
 };
 
-async function play(name, view) {
-  const ui = await boot({ get: { '/api/player/specs': SPECS(ON[name]), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': view } });
+async function play(name) {
+  const ui = await boot({ get: { '/api/player/specs': SPECS(ON[name]), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player' } });
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
-  assert.equal(!!ui.doc.querySelector('#lcs-root'), view === 'cc', 'the view that was asked for is the one drawn');
-  await SCENARIOS[name](ui, view);
+  assert.ok(ui.doc.querySelector('#lcs-root'), 'the Command Center view is the one drawn');
+  await SCENARIOS[name](ui);
   await ui.settle(); await ui.wait(20); await ui.settle();
   const ask = ui.doc.querySelector('#ask');
   const out = {
@@ -82,16 +80,9 @@ async function play(name, view) {
 const golden = RECORD || !fs.existsSync(GOLDEN) ? {} : JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
 const recorded = {};
 for (const name of Object.keys(SCENARIOS)) {
-  test('the classic list sends what was recorded: ' + name, async () => {
-    const got = await play(name, 'classic');
+  test('the page sends what was recorded, asks the same question and says the same: ' + name, async () => {
+    const got = await play(name);
     if (RECORD) { recorded[name] = got; fs.writeFileSync(GOLDEN, JSON.stringify(Object.fromEntries(Object.keys(recorded).sort().map((k) => [k, recorded[k]])), null, 1) + '\n'); return; }
-    assert.ok(golden[name], 'a recorded scenario for ' + name);
-    assert.deepEqual(got, golden[name]);
-  });
-  if (CLASSIC_ONLY.has(name)) continue;
-  test('the Command Center view sends the same request, asks the same question and says the same: ' + name, async () => {
-    if (RECORD) return;
-    const got = await play(name, 'cc');
     assert.ok(golden[name], 'a recorded scenario for ' + name);
     assert.deepEqual(got, golden[name]);
     if (!SENDS_NOTHING.has(name)) assert.ok(got.sent.length === 1 || got.asked !== null || got.said !== null, 'a request was sent, a question asked or a reason given');
@@ -103,7 +94,7 @@ for (const name of Object.keys(SCENARIOS)) {
 const BAD = [['blank', ''], ['zero', '0'], ['a fraction', '1.5'], ['not a number', 'abc'], ['over the limit', '44183'], ['under the limit', '-44183'], ['a minus sign', '-1000'], ['minus one', '-1'], ['the negative limit', '-44182'], ['minus zero', '-0'], ['a negative exponent form', '-1e3'], ['an exponent past the limit', '1e5'], ['a fraction as an exponent', '1e-1']];
 for (const [what, v] of BAD) {
   test('Command Center, Add XP with ' + what + ': nothing is sent and the reason is shown', async () => {
-    const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
+    const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player' } });
     ui.click('[data-sub="player:specialization"]'); await ui.settle();
     ui.click('[data-lcs-lane="combat"]');
     set(ui, '#spxCombat', v);
@@ -115,7 +106,7 @@ for (const [what, v] of BAD) {
 }
 test('Command Center, Add XP at the two limits is sent as typed', async () => {
   for (const v of ['44182', '1']) {
-    const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' } });
+    const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player' } });
     ui.click('[data-sub="player:specialization"]'); await ui.settle();
     ui.click('[data-lcs-lane="combat"]');
     set(ui, '#spxCombat', v);
@@ -125,25 +116,23 @@ test('Command Center, Add XP at the two limits is sent as typed', async () => {
   }
 });
 
-// 1e3 and 1.0 are whole numbers: the classic list sends them (as 1000 and 1) and so does this view, the same request for the same typing (#899)
+// 1e3 and 1.0 are whole numbers: the page sends them (as 1000 and 1), the same request for the same typing (#899)
 for (const [typed, sent] of [['1e3', 1000], ['1.0', 1], ['2E2', 200]]) {
-  for (const view of ['classic', 'cc']) {
-    test('Add XP typed as ' + typed + ' is sent as ' + sent + ' in the ' + view + ' view', async () => {
-      const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player', 'spec.view': view } });
-      ui.click('[data-sub="player:specialization"]'); await ui.settle();
-      if (view === 'cc') ui.click('[data-lcs-lane="combat"]');
-      set(ui, '#spxCombat', typed);
-      ui.click(view === 'cc' ? '[data-act="spAddCC"][data-t="Combat"]' : '[data-act="spAdd"][data-t="Combat"]'); await ui.settle();
-      assert.deepEqual(ui.posted.filter((p) => ROUTE.test(p.path)), [{ path: '/api/player/specs/xp', body: { track: 'Combat', amount: sent } }]);
-      closeAll();
-    });
-  }
+  test('Add XP typed as ' + typed + ' is sent as ' + sent, async () => {
+    const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, post: POSTS, local: { tab: 'player' } });
+    ui.click('[data-sub="player:specialization"]'); await ui.settle();
+    ui.click('[data-lcs-lane="combat"]');
+    set(ui, '#spxCombat', typed);
+    ui.click('[data-act="spAddCC"][data-t="Combat"]'); await ui.settle();
+    assert.deepEqual(ui.posted.filter((p) => ROUTE.test(p.path)), [{ path: '/api/player/specs/xp', body: { track: 'Combat', amount: sent } }]);
+    closeAll();
+  });
 }
 
-// ---- the control lists of the two views are the same set of operations ----
-test('the golden file covers all nine operations of the editor: the Command Center view reaches six of them, the classic list all nine', async () => {
+// ---- the golden file covers every operation of the editor ----
+test('the golden file covers all nine operations of the editor, and the page reaches all nine', async () => {
   const routes = new Set();
-  for (const name of Object.keys(SCENARIOS)) for (const view of ['classic', 'cc']) { const g = golden[name]; if (g) for (const s of g.sent) routes.add(s.path); void view; }
+  for (const name of Object.keys(SCENARIOS)) { const g = golden[name]; if (g) for (const s of g.sent) routes.add(s.path); }
   if (RECORD) return;
   assert.deepEqual([...routes].sort(), Object.keys(POSTS).sort(), 'the golden file covers every route');
 });

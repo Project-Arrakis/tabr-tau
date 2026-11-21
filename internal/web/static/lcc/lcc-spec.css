@@ -251,16 +251,3 @@ html[data-motion="off"] .lcc-sp-lane:hover, html[data-motion="calm"] .lcc-sp-lan
   .lcc-sp-dot::before { background: CanvasText; }
   .lcc-sp-dossier[data-kind="cap"] .lcc-sp-level, .lcc-sp-dossier[data-kind="full"] .lcc-sp-level { text-shadow: none; }
 }
-
-/* ---- the switch between the classic list and this view (drawn by the page, above either) ---- */
-.lcc-sp-viewsw { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 12px; }
-.lcc-sp-vlbl { font: 700 12px/1.3 var(--lcc-sans); letter-spacing: .1em; text-transform: uppercase; color: var(--lcc-dim); }
-.lcc-sp-vbtn { min-height: 40px; padding: 0 14px; cursor: pointer; border: 1px solid var(--lcc-stroke); background: var(--lcc-sunken); color: var(--lcc-text); font: 600 13px/1.2 var(--lcc-sans); }
-.lcc-sp-vbtn:hover { border-color: var(--lcc-gold); }
-.lcc-sp-vbtn:focus-visible { outline: 3px solid var(--lcc-focus); outline-offset: 2px; }
-.lcc-sp-vbtn[aria-pressed="true"] { background: var(--lcc-gold); border-color: var(--lcc-gold-hi); color: var(--lcc-on-gold); }
-@media (pointer: coarse), (max-width: 760px) { .lcc-sp-vbtn { min-height: 44px; } }
-@media (forced-colors: active) {
-  .lcc-sp-vbtn { border: 1px solid ButtonText; background: ButtonFace; color: ButtonText; }
-  .lcc-sp-vbtn[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; border-color: ButtonText; outline: 2px solid HighlightText; outline-offset: -4px; font-weight: 800; }  /* out of the automatic adjustment so the label is not black on a black backplate (#998) */
-}

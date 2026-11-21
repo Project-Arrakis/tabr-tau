@@ -22,7 +22,7 @@ const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 const hexOf = (css_, name) => { const m = [...css_.matchAll(/--lcc-([a-z0-9-]+):\s*(#[0-9a-f]{6})/g)].find((x) => x[1] === name); return m ? m[2] : null; };
 async function openSpec(id) {
-  const ui = await boot({ get: { '/api/player/specs': SPECS(id), '/api/landsraad': synthetic() }, local: { tab: 'player', 'spec.view': 'cc' } });
+  const ui = await boot({ get: { '/api/player/specs': SPECS(id), '/api/landsraad': synthetic() }, local: { tab: 'player' } });
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
   return ui;
 }
@@ -93,9 +93,8 @@ test('the shield is a solid dark shield inside a gold edge with the gold cross, 
   assert.match(forced, /\.lcc-sp-hero-art::before \{ background: Canvas; box-shadow: none; \}/);
 });
 
-test('the Classic / Command Center switch is 40 px high, 44 px on a phone and with a coarse pointer', () => {
-  assert.match(spec, /\.lcc-sp-vbtn \{ min-height: 40px;/);
-  assert.match(spec, /@media \(pointer: coarse\), \(max-width: 760px\) \{ \.lcc-sp-vbtn \{ min-height: 44px; \} \}/);
+test('the retired Classic / Command Center switch has no rules left in the Specializations style (#1105)', () => {
+  assert.doesNotMatch(spec, /lcc-sp-vbtn|lcc-sp-viewsw|lcc-sp-vlbl/);
 });
 
 // ---- #902

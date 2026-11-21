@@ -79,7 +79,7 @@ test('text floor: nothing under 11 px; names, key labels, buttons and inputs 12 
   const z = sizes();
   const low = [...z].filter(([, px]) => px < 11);
   assert.deepEqual(low, [], 'selectors under 11 px: ' + low.map(([s, px]) => s + ' ' + px).join(' | '));
-  for (const s of ['.lcc-sp-lane-name', '.lcc-sp-lane-nums', '.lcc-sp-lane-badge', '.lcc-sp-lane-mm', '.lcc-sp-k', '.lcc-sp-stat small', '.lcc-sp-btn', '.lcc-sp-input', '.lcc-sp-hn strong', '.lcc-sp-mark', '.lcc-sp-line', '.lcc-sp-flag', '.lcc-sp-mastery', '.lcc-sp-sub', '.lcc-sp-lbl', '.lcc-sp-small', '.lcc-sp-hint', '.lcc-sp-note', '.lcc-sp-vbtn', '.lcc-sp-vlbl']) assert.ok(z.get(s) >= 12 || (s === '.lcc-sp-lane-name' && z.get(s) >= 12), s + ' ' + z.get(s));
+  for (const s of ['.lcc-sp-lane-name', '.lcc-sp-lane-nums', '.lcc-sp-lane-badge', '.lcc-sp-lane-mm', '.lcc-sp-k', '.lcc-sp-stat small', '.lcc-sp-btn', '.lcc-sp-input', '.lcc-sp-hn strong', '.lcc-sp-mark', '.lcc-sp-line', '.lcc-sp-flag', '.lcc-sp-mastery', '.lcc-sp-sub', '.lcc-sp-lbl', '.lcc-sp-small', '.lcc-sp-hint', '.lcc-sp-note']) assert.ok(z.get(s) >= 12 || (s === '.lcc-sp-lane-name' && z.get(s) >= 12), s + ' ' + z.get(s));
   for (const m of bare.matchAll(/clamp\((\d+(?:\.\d+)?)px/g)) assert.ok(Number(m[1]) >= 11, 'a clamp below 11 px: ' + m[0]);
   // a media query never lowers a font size: narrow windows reflow
   for (const r of rules.filter((x) => x.at.startsWith('@media (max-width'))) {

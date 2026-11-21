@@ -796,11 +796,12 @@ async function playerView() {
   if (sub.player == 'vehicles') return vehiclesView();
   return playerSection(sub.player);
 }
-// The Specialization tab has two views of the same save: the classic list (the default, and the fallback when the Command Center scripts are not there) and the Command Center view
-// (lcc/lcc-spec.js). The view only changes how the specializations are drawn: the buttons of both carry the same data-act and run the same handlers below, so the requests and the questions are the same.
-const SPV = { view: browserStore.get('spec.view') === 'cc' ? 'cc' : 'classic', vm: null, lv: null, stale: false }; // lv: the specialization answer as the last visit to the Specializations tab read it (either view), the one source of the levels the Landsraad board shows; stale: a Landsraad write gave specialization XP after it was read, so its levels are no longer the save's (#646)
-const specCCOn = () => SPV.view === 'cc' && !!(window.LCCS && window.LCC);
-const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc lcc-sp-viewsw" role="group" aria-label="View of the Specialization tab" title="Both views read and write the same save in the same way, with the same questions and checks."><span class="lcc-sp-vlbl">View</span><button type="button" class="lcc-sp-vbtn" data-spview="classic" aria-pressed="${specCCOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="lcc-sp-vbtn" data-spview="cc" aria-pressed="${specCCOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
+// The Command Center view (lcc/lcc-spec.js) is the only view of the Specialization tab (the Classic list was retired, #1105). Every write goes through the handlers below (spAddCC, spMax, spReset, spKeyAll, spKeyReset, spResetAll, spAssign, spAssignHand, specSet).
+// A view chosen in an earlier version of the editor (the browser kept it under spec.view) is dropped here: the Command Center view is the default and there is no other view to choose.
+browserStore.remove('spec.view');
+const SPV = { vm: null, lv: null, stale: false }; // lv: the specialization answer as the last visit to the Specializations tab read it, the one source of the levels the Landsraad board shows; stale: a Landsraad write gave specialization XP after it was read, so its levels are no longer the save's (#646)
+const specCCOn = () => !!(window.LCCS && window.LCC); // false only when the Command Center scripts did not load (specMissing)
+const specMissing = () => html`<section class="card d-panel" id="lcs-missing" aria-labelledby="lcs-missing-h"><h2 class="d-head" id="lcs-missing-h" tabindex="-1">Specializations</h2><p class="nodata" role="alert">The Specializations page could not be loaded, so the specializations cannot be shown. Reload the page (Ctrl+F5). If this stays, close the editor and start it again.</p></section>`;
 // Opening a House of a specialization on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
 function specGoHouse(id) {
   if (!Number.isInteger(id)) return;
@@ -816,7 +817,7 @@ function lbOpenHouseHere(id) {
 // And back: the specialization of a House opens that specialization in the Specialization tab's Command Center view. It only moves between pages (the chosen specialization is the view's own state) and writes nothing.
 function specGoPath(track) {
   if (!(window.LCCS && window.LCC) || !Array.isArray(window.LCCS.ORDER) || !window.LCCS.ORDER.includes(track)) return;
-  window.LCCS.state.sel = track; SPV.view = 'cc'; // shown for this visit only: the saved choice (spec.view) is not rewritten (#1060)
+  window.LCCS.state.sel = track;
   sub.player = 'specialization'; tab = 'player'; browserStore.set('tab', tab); askReveal(specReveal); render();
 }
 const SPV_HOST = { goHouse: specGoHouse };
@@ -826,7 +827,21 @@ function specMount() {
   const m = $('#lcs-mount');
   if (m && SPV.vm && window.LCCS) window.LCCS.mount(m, SPV.vm, SPV_HOST);
 }
-const NO_TRACK_NUMBER = 'The editor cannot match this specialization yet: see Advanced below.';
+// The cards the Specialization tab keeps under the Command Center view: the numbers the save stores for the tracks (Advanced: specialization numbers, drawn only when a track has no number or a number assigned by hand is not the game's own) and the raw row writer (Advanced: set a raw row). They send the requests they always sent (spAssign, spAssignHand, specSet).
+function specAdvanced(sp) {
+  const known = (r) => r.number != null;
+  // Every specialization has a number (the ones the game uses, or the ones assigned earlier): a person picks one by name and the numbers stay out of sight. Only a save whose numbers cannot be told gets the assignment card.
+  const allKnown = sp.rows.length > 0 && sp.rows.every(known);
+  const asMeasured = sp.rows.every((r) => !known(r) || MEASURED_TRACK_NUMBERS[r.track] === r.number); // a number assigned by hand that is not the game's own leaves no way back, so the card stays
+  const rawTracks = sp.rows.filter(known);
+  return html`${allKnown && asMeasured ? '' : html`<div class="card d-panel" data-advanced="true"><h3 class="d-head">Advanced: specialization numbers</h3>
+    ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
+      <select id="spa${u.number}" aria-label="Which specialization track is number ${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b d-btn primary" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
+    <div class="row"><span class="mut">Known a track's number already?</span><select id="spmt" aria-label="Specialization track">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select> number <input id="spmn" aria-label="Track number" type="number" min="0" max="255" class="w70"><button class="b sec d-btn" data-act="spAssignHand">Set</button></div>
+    <p class="mut">Assigned: ${sp.rows.filter(known).map((r) => `${r.track} = ${r.number}`).join(', ') || 'none yet'}.</p>
+    ${about('specialization.numbers', 'Specialization numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5), so this card is normally not on the page. It is here because a track has no number, or a number assigned earlier is not the game's own. If the XP of one track shows under another track's name, the other track holds its number: set that track again to its own number in the box above. If the game changes a number, earn a little XP in that track, save, reload this tab, and assign the new row. Keystones need no numbers.</p>`)}</div>`}
+  <div class="card d-panel" data-advanced="true"><details><summary>Advanced: set a raw row</summary>${rawTracks.length ? html`<p class="mut">Writes the XP and level you type for the track you pick as they are. Nothing checks that the two match.</p><div class="row"><span class="mut">Track</span><select id="st" aria-label="Specialization track of the row">${rawTracks.map((r) => html`<option value="${r.number}">${r.track}</option>`)}</select>XP<input id="sx" aria-label="XP of the track" type="number" value="0">Level<input id="sl" aria-label="Level of the track" type="number" step="0.1" value="1" class="w80"><button class="b sec d-btn" data-act="specSet">Set</button></div>` : html`<p class="mut">No track has a number in this save yet, so there is no row to pick. Assign a track under Advanced: track numbers first.</p>`}</details></div>`;
+}
 // The numbers the game uses for the five tracks (measuredTrackNumbers of internal/ops/landsraad_grant.go; a test compares the two). A track shown with another number was assigned by hand: the Track numbers card is drawn then, so it can be set right.
 const MEASURED_TRACK_NUMBERS = { Crafting: 1, Gathering: 2, Exploration: 3, Combat: 4, Sabotage: 5 };
 // The reset of the character's level and XP (#339): on Character > Overview, beside Give XP. The number it asks the person to confirm is the XP the summary above shows.
@@ -1000,42 +1015,14 @@ async function playerSection(s) {
   } else if (c == 'reputation') {
     const f = await api('/api/player/factions');
     h.push(html`<div class="card d-panel"><h3 class="d-head">Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}" title="0 to 12474">` }], f, { empty: 'This save has no factions.' })}</div>`);
-  } else if (s == 'specialization' && specCCOn()) {
-    const sp = await api('/api/player/specs');
-    let hs = null;
-    try { const ls = await api('/api/landsraad'); hs = !ls || !Array.isArray(ls.tasks) ? null : ls.tasks.map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it (or without a task list in the answer) they are "Not in the save"
-    SPV.vm = window.LCCS.readSpecs(sp, hs); SPV.lv = SPV.vm; SPV.stale = false;
-    h.push(html`${specViewSwitch()}<div id="lcs-mount"></div>`);
   } else if (s == 'specialization') {
-    const sp = await api('/api/player/specs');
-    SPV.lv = window.LCCS ? window.LCCS.readSpecs(sp, null) : null; SPV.stale = false; // the Landsraad board shows the levels of this answer (#646)
-    const known = (r) => r.number != null;
-    // Every specialization has a number (the ones the game uses, or the ones assigned earlier): a person picks one by name and the numbers stay out of sight. Only a save whose numbers cannot be told gets the assignment card.
-    const allKnown = sp.rows.length > 0 && sp.rows.every(known);
-    const asMeasured = sp.rows.every((r) => !known(r) || MEASURED_TRACK_NUMBERS[r.track] === r.number); // a number assigned by hand that is not the game's own leaves no way back, so the card stays
-    const rawTracks = sp.rows.filter(known);
-    const keystone = (r) => (r.granted ? html`<span class="ok" title="${r.keystoneOwned} of ${r.keystoneTotal} keystones">Granted</span>` : r.keystoneOwned > 0 ? html`<span title="${r.keystoneOwned} of ${r.keystoneTotal} keystones bought">${r.keystoneOwned}/${r.keystoneTotal}</span>` : html`<span class="mut">-</span>`);
-    h.push(specViewSwitch());
-    h.push(html`<div class="card d-panel"><h3 class="d-head">Specializations</h3>
-      <div class="row"><button class="b d-btn primary" data-act="spKeyAll">Grant all keystones</button><button class="b bad d-btn danger" data-act="spKeyReset">Reset all keystones</button></div>
-      <div class="row">${(() => {
-        const left = sp.unassigned.length ? html`<span class="mut" id="spresetleft">${nn(sp.unassigned.length, 'specialization', 'specializations')} the editor cannot match yet ${sp.unassigned.length === 1 ? 'is' : 'are'} left alone.</span>` : '';
-        const desc = (id) => (sp.unassigned.length ? id + ' spresetleft' : id);
-        if (!sp.resetCount) return html`<button class="b bad d-btn danger" data-act="spResetAll" data-n="0" data-left="${sp.unassigned.length}" aria-describedby="${desc('spresetnote')}" disabled>Reset XP of all known specializations (0)</button><span class="mut" id="spresetnote">Nothing to reset: none of the specializations the editor can match has XP.</span>${left}`;
-        return html`${tip('spresettip', 'Removes the XP of every specialization whose number is known (the rows the table below shows XP for), in one edit, after you type a confirmation. Keystones are not touched.', html`<button class="b bad d-btn danger" data-act="spResetAll" data-n="${sp.resetCount}" data-left="${sp.unassigned.length}" aria-describedby="${desc('spresettip')}">Reset XP of all known specializations (${sp.resetCount})</button>`)}${left}`;
-      })()}</div>
-      ${sp.rows.some(known) ? '' : html`<div class="info" id="spnone"><b>No specialization has a number in this save yet</b>, so the XP controls below are off. Earn a little XP in a specialization in the game, let it save, reload this tab and assign its number under Advanced below. Keystones work now.</div>`}
-      ${tbl([{ k: 'track', label: 'Specialization' }, { k: 'xp', label: 'XP', f: (r) => (known(r) ? Number(r.xp).toLocaleString() : html`<span class="mut" title="The editor cannot match this specialization in your save yet; see below">—</span>`) },
-        { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">—</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
-        { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" min="1" step="1" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'}><button class="b sm d-btn primary sm" data-act="spAdd" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>${known(r) ? '' : html` <span class="mut" id="spnum${r.track}">${NO_TRACK_NUMBER}</span>`}` }],
-        sp.rows, { empty: 'This save has no specializations.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="spMax" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a specialization holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm d-btn danger sm" data-act="spReset" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
-    ${allKnown && asMeasured ? '' : html`<div class="card d-panel" data-advanced="true"><h3 class="d-head">Advanced: specialization numbers</h3>
-      ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
-        <select id="spa${u.number}" aria-label="Which specialization track is number ${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b d-btn primary" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
-      <div class="row"><span class="mut">Known a track's number already?</span><select id="spmt" aria-label="Specialization track">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select> number <input id="spmn" aria-label="Track number" type="number" min="0" max="255" class="w70"><button class="b sec d-btn" data-act="spAssignHand">Set</button></div>
-      <p class="mut">Assigned: ${sp.rows.filter(known).map((r) => `${r.track} = ${r.number}`).join(', ') || 'none yet'}.</p>
-      ${about('specialization.numbers', 'Specialization numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5), so this card is normally not on the page. It is here because a track has no number, or a number assigned earlier is not the game's own. If the XP of one track shows under another track's name, the other track holds its number: set that track again to its own number in the box above. If the game changes a number, earn a little XP in that track, save, reload this tab, and assign the new row. Keystones need no numbers.</p>`)}</div>`}
-    <div class="card d-panel" data-advanced="true"><details><summary>Advanced: set a raw row</summary>${rawTracks.length ? html`<p class="mut">Writes the XP and level you type for the track you pick as they are. Nothing checks that the two match.</p><div class="row"><span class="mut">Track</span><select id="st" aria-label="Specialization track of the row">${rawTracks.map((r) => html`<option value="${r.number}">${r.track}</option>`)}</select>XP<input id="sx" aria-label="XP of the track" type="number" value="0">Level<input id="sl" aria-label="Level of the track" type="number" step="0.1" value="1" class="w80"><button class="b sec d-btn" data-act="specSet">Set</button></div>` : html`<p class="mut">No track has a number in this save yet, so there is no row to pick. Assign a track under Advanced: track numbers first.</p>`}</details></div>`);
+    if (!specCCOn()) { SPV.vm = null; SPV.lv = null; SPV.stale = false; h.push(specMissing()); } else {
+      const sp = await api('/api/player/specs');
+      let hs = null;
+      try { const ls = await api('/api/landsraad'); hs = !ls || !Array.isArray(ls.tasks) ? null : ls.tasks.map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it (or without a task list in the answer) they are "Not in the save"
+      SPV.vm = window.LCCS.readSpecs(sp, hs); SPV.lv = SPV.vm; SPV.stale = false; // the Landsraad board shows the levels of this answer (#646)
+      h.push(html`<div id="lcs-mount"></div>`, specAdvanced(sp));
+    }
   } else if (s == 'journey') {
     JB = await api('/api/player/journey/browse');
     const tg = await api('/api/player/tags');
@@ -3258,7 +3245,7 @@ async function baseInvCard(d) {
     <div class="row">${itemPicker("bt", cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveInv" data-id="${d.id}" data-name="${d.name || ''}">Add item</button></div>${clearRow(d.id, d.name || 'this container', it)}</div>`;
 }
 
-// the one request of Add XP; the handler spAdd checks the number first (#1032). Not a handler of the table: a button reaches it only through spAdd.
+// the one request of Add XP; the handler spAddCC checks the number first (#1032). Not a handler of the table: a button reaches it only through spAddCC.
 const specXpSend = (d) => act(async () => { const r = await api('/api/player/specs/xp', { track: d.t, amount: +val('spx' + d.t) }); toast(`${d.t}: ${Number(r.before).toLocaleString()} → ${Number(r.after).toLocaleString()} XP, level ${Math.floor(r.level)}` + NOT_SAVED); }, null);
 const A = {
   retry: () => render(true),
@@ -3417,8 +3404,7 @@ const A = {
   },
   spKeyAll: async () => (await ask({ title: 'Grant all keystones?', body: 'Every keystone of every specialization is bought. One edit.', ok: 'Grant all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/grant', {}); toast(r.granted ? `${r.granted} keystones granted` + NOT_SAVED : 'All keystones were already granted.'); }, null),
   spKeyReset: async () => (await ask({ title: 'Reset all keystones?', body: 'Every specialization keystone you have bought is removed. One edit.', ok: 'Reset all', danger: true })) && act(async () => { const r = await api('/api/player/specs/keystones/reset', {}); toast(r.removed ? `${r.removed} keystones reset` + NOT_SAVED : 'There were no keystones to reset.'); }, null),
-  spAddCC: (d) => A.spAdd(d), // the Command Center's Add XP: the same handler as the classic list, which stops a number the editor would refuse (#1032)
-  spAdd: (d) => { const bad = window.LCCS ? window.LCCS.amountProblem(val('spx' + d.t), SPV.vm ? SPV.vm.maxXp : 0) : ''; if (bad) { toast(bad, true); return; } return specXpSend(d); }, // XP is added only (#1032): a number the editor would refuse is not sent, in either view
+  spAddCC: (d) => { const bad = window.LCCS ? window.LCCS.amountProblem(val('spx' + d.t), SPV.vm ? SPV.vm.maxXp : 0) : ''; if (bad) { toast(bad, true); return; } return specXpSend(d); }, // the Command Center's Add XP: XP is added only (#1032), so a number the editor would refuse is not sent; the reason is shown instead
   spMax: async (d) => (await ask({ title: 'Grant max ' + d.t + '?', body: d.t + ' goes to the XP of its last level (level 100). One edit.', ok: 'Grant max', danger: true })) && act(async () => { await api('/api/player/specs/max', { track: d.t }); toast(d.t + ' set to max' + NOT_SAVED); }, null),
   spReset: async (d) => (await ask({ title: 'Reset ' + d.t + '?', body: d.t + " goes back to 0 XP. Its keystones are not changed. One edit.", ok: 'Reset', danger: true })) && act(async () => { const r = await api('/api/player/specs/reset', { track: d.t }); toast(r.removed ? d.t + ' reset' + NOT_SAVED : d.t + ' had no XP to reset; nothing changed.'); }, null),
   spAssign: (d) => act(async () => { const t = val('spa' + d.n); await api('/api/player/specs/assign', { track: t, number: +d.n }); toast(`Track number ${d.n} is ${t}`); }, null, false),
@@ -3686,8 +3672,6 @@ document.addEventListener('click', (e) => {
   if (bg) { bsGroup = bg.dataset.bsgrp; bsInvOpen = null; render('rows', false, bg); return; }
   const ig = e.target.closest('[data-invg]');
   if (ig) { invG = ig.dataset.invg; render('rows', false, ig); return; }
-  const sw = e.target.closest('[data-spview]');
-  if (sw) { SPV.view = sw.dataset.spview === 'cc' ? 'cc' : 'classic'; browserStore.set('spec.view', SPV.view); render(); return; }
   const s = e.target.closest('[data-sub]');
   if (s) { const [g, k] = s.dataset.sub.split(':'); if (GROUPS.includes(g)) { sub[g] = k; render(); } return; }
   const a = D(e);

@@ -1,7 +1,7 @@
 // #1060: the links between the Landsraad and the Specializations tabs, and the way back from the Saved map, do not rewrite the view the person chose.
 // "Open in Specializations" (House Inspector) and "Open House" (a House of a path) used to save the Command Center view for good (browser storage keys spec.view and lsb.view), so a Classic user was
-// switched for good. They show the other view for this visit only now; the saved Specializations choice is untouched and its view switch is still there. The Landsraad has one view now (#1028): the board,
-// whatever an old browser still stores under lsb.view (the page removes the key at load), so "Open House" and the Saved map's "Back to House" always land on the board. The Saved map's "Showing House X"
+// switched for good. Both Classic lists are retired (#1028, #1105): the Landsraad board and the Specializations Command Center view are the only views, whatever an old browser still stores under lsb.view
+// or spec.view (the page removes both keys at load), so "Open House" and the Saved map's "Back to House" always land on the board. The Saved map's "Showing House X"
 // line has a way back to that House. Display and navigation only: nothing is written.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +27,7 @@ const kenola = (a) => a.tasks.find((t) => t.house_name === 'DA_HouseKenola');
 
 test('#1060: Open House from the Specializations shows the board with that House chosen, and the old saved Classic choice is gone', async () => {
   const a = synthetic();
-  const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': a }, local: { tab: 'player', 'spec.view': 'cc', 'lsb.view': 'classic' } });
+  const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': a }, local: { tab: 'player', 'lsb.view': 'classic' } });
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
   const house = a.tasks.find((t) => t.line === 'Crafting');
   click(ui, '[data-lcs-go="' + house.id + '"]'); await ui.settle(); await ui.wait(20); await ui.settle();
@@ -39,7 +39,7 @@ test('#1060: Open House from the Specializations shows the board with that House
   assert.deepEqual(ui.posted, [], 'nothing is written');
 });
 
-test('#1060: Open in Specializations from the House Inspector shows the Command Center Specializations view for this visit and keeps the saved Classic Specializations choice', async () => {
+test('#1060: Open in Specializations from the House Inspector shows the Command Center Specializations view, the only view, and a view an earlier version saved is dropped (#1105)', async () => {
   const ui = await boot({ get: { '/api/player/specs': SPECS(), '/api/landsraad': synthetic() }, local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid', 'spec.view': 'classic' } });
   await ui.settle();
   let went = null;
@@ -47,11 +47,9 @@ test('#1060: Open in Specializations from the House Inspector shows the Command 
   assert.ok(went, 'a House with a path');
   click(ui, went); await ui.settle();
   assert.ok(ui.doc.querySelector('#lcs-mount .lcc-sp'), 'the Specializations view is drawn');
-  assert.equal(ui.w.localStorage.getItem('spec.view'), 'classic', 'the saved choice is not rewritten');
-  assert.equal(ui.doc.querySelector('[data-spview="cc"]').getAttribute('aria-pressed'), 'true');
-  click(ui, '[data-spview="classic"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('table'), 'the switch is the way back to the Classic list');
-  assert.equal(ui.w.localStorage.getItem('spec.view'), 'classic');
+  assert.equal(ui.w.localStorage.getItem('spec.view'), null, 'the old saved choice is removed at load and not written again');
+  assert.equal(ui.doc.querySelector('[data-spview]'), null, 'there is no View switch');
+  assert.equal(ui.doc.querySelector('table'), null, 'no Classic list');
   assert.deepEqual(ui.posted, [], 'nothing is written');
 });
 

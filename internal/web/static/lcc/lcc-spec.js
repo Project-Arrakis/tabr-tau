@@ -2,9 +2,9 @@
 //
 // What this file is: a reader and a renderer. readSpecs() turns the answer of the specialization read of the editor (and, for the Houses of each specialization, the Houses of the Landsraad read) into plain values;
 // mount() draws them with createElement and textContent (never a string of HTML), so a name from a save cannot become markup.
-// What this file is not: it holds no demo data, it fetches nothing and it writes nothing. Every button it draws carries the data-act of a control the editor already has (spAdd, spMax,
-// spReset, spKeyAll, spKeyReset, spResetAll), and the page's own handlers for those send the same requests with the same questions; the one new
-// name, spAddCC, only checks the number typed and then runs spAdd. The track-number mapping (the save's own numbers) and the raw-row writer are not drawn here any more (#986): they stay in the classic list. A value the save does not hold is shown as "Not in the save", never made up.
+// What this file is not: it holds no demo data, it fetches nothing and it writes nothing. Every button it draws carries the data-act of a control the editor already has (spAddCC, spMax,
+// spReset, spKeyAll, spKeyReset, spResetAll), and the page's own handlers for those send the same requests with the same questions; the Add XP
+// handler, spAddCC, checks the number typed and then sends the one request of Add XP (before #1105 it was a separate step in front of the Classic list's spAdd). The track-number mapping (the save's own numbers) and the raw-row writer are not drawn here any more (#986): they stay on the page, in the Advanced cards under this view (drawn by the page, not here). A value the save does not hold is shown as "Not in the save", never made up.
 (function (root) {
   'use strict';
 
@@ -46,7 +46,7 @@
 
   // What the editor refuses before it sends, said before it is sent: a whole number from 1 to the largest XP of a track. XP is added here and never removed (#1032): a minus sign, 0 and
   // anything that is not a whole number are refused, and so is a number past the largest XP. The Go write path refuses the same amounts (internal/ops specialization.go, AddSpecXP).
-  // It judges the number the page will send (the classic list sends +value, so 1e3 and 1.0 are 1000 and 1 there), not the spelling: any decimal spelling of a whole number passes (#899).
+  // It judges the number the page will send (the page sends +value, so 1e3 and 1.0 are 1000 and 1), not the spelling: any decimal spelling of a whole number passes (#899).
   function amountProblem(text, maxXp) {
     const lim = isInt(maxXp) && maxXp > 0 ? maxXp : LEVEL_XP[MAX_LEVEL];
     const msg = 'Type a whole number of XP from 1 to ' + fmt(lim) + '. XP is added here, never removed (use Reset to take it back). Nothing was sent.';

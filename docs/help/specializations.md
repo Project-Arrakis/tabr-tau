@@ -23,7 +23,7 @@ Every change asks first, is written after a backup, and says whether it was save
 
 ## Associated Houses
 
-The Houses listed under a specialization come from a public community tracker, not from the game or the save: treat them as a reference. Choosing a House opens it on the Landsraad board for this visit only: the view you chose on the Landsraad tab is not changed, and the View switch there takes you back. Nothing is written.
+The Houses listed under a specialization come from a public community tracker, not from the game or the save: treat them as a reference. Choosing a House opens it on the Landsraad board for this visit only: the Landsraad tab itself is not changed. Nothing is written.
 
 ## A specialization the save does not tie to its XP
 
@@ -33,4 +33,4 @@ If the save holds XP the editor cannot match to a specialization, the view says 
 
 ## Technical notes
 
-For support: the save keeps specialization XP by track number, not by name. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5). A track with another number is the one the page calls a specialization it cannot match; the Classic list has an Advanced card, Advanced: track numbers, for it.
+For support: the save keeps specialization XP by track number, not by name. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5). A track with another number is the one the page calls a specialization it cannot match; the page has an Advanced card, Advanced: specialization numbers, under the view for it, and an Advanced card, Advanced: set a raw row, that writes the XP and level you type for one specialization as they are.
