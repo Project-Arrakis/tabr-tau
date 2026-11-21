@@ -577,7 +577,7 @@
       for (const g of groups) {
         const tb = el('tbody', 'lcc-bd-group');
         const tr = el('tr', 'lcc-bd-grouprow'), td = el('th', '', '', { scope: 'rowgroup', colspan: cols });
-        td.textContent = (g.g ? (state.group === 'spec' ? trackWord(g.g) || g.g : g.g) : state.group === 'region' ? 'Region unknown' : W().noSpecialization) + ' · ' + g.rows.length;
+        td.textContent = (g.g ? (state.group === 'spec' ? trackWord(g.g) || g.g : g.g) : state.group === 'region' ? 'Place unknown' : W().noSpecialization) + ' · ' + g.rows.length;
         tr.appendChild(td); tb.appendChild(tr);
         for (const h of g.rows) tb.appendChild(row(h, host, editable, picks, cols));
         t.appendChild(tb);

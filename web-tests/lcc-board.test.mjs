@@ -330,7 +330,7 @@ test('the list: House name A to Z by default (#953), sortable by every column bo
   assert.equal(ui.doc.querySelector('th[aria-sort="descending"]').textContent.trim().startsWith('House'), true);
   click(ui, '[data-lk="fbtn"]'); click(ui, '[data-lk="cat"][data-cat="group"]'); click(ui, '[data-lk="gpick"][data-val="region"]'); // Group is in the Filter menu now (tau #974)
   const heads = [...ui.doc.querySelectorAll('.lcc-bd-grouprow th')].map((h) => text(h));
-  assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Region unknown · 22']);
+  assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Place unknown · 22']);
   assert.equal(ui.doc.querySelector('.lcc-bd-list').getAttribute('role'), null, 'a real table, not a pile of divs');
   assert.ok(ui.doc.querySelector('.lcc-bd-list caption'));
 });

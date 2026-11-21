@@ -1860,9 +1860,9 @@ const LP = { fac: null, pick: new Set(), say: '', bad: false, warn: false, busy:
 const LV = { view: browserStore.get('lsb.view') === 'board' ? 'board' : 'classic' };
 const lbBoardOn = () => LV.view === 'board' && !!(window.LCC && window.LCCM && window.LCCB);
 const LB_GLYPH = { new: '○', part: '◐', done: '✓' }, LB_WORD = { new: 'Not started', part: 'In progress', done: 'Top tier' };
-// the three states of a tier, in one pair of words in both views (#936): Not reached / Not collected / Collected. The longer explanation stays in the text for a screen reader.
-const LB_STW = { not_reached: 'Not reached', waiting: 'Not collected', delivered: 'Collected', no_row: 'Reached, no delivery recorded' };
-const LB_STL = { not_reached: 'not reached', waiting: 'reached, not collected (waiting at the house representative)', delivered: 'reached, collected', no_row: 'reached, no delivery recorded' };
+// the three states of a tier, in one pair of words in both views (#936, #1099): Not reached / Earned, not collected / Earned, collected (the Command Center board says the same). The longer explanation stays in the text for a screen reader.
+const LB_STW = { not_reached: 'Not reached', waiting: 'Not collected', delivered: 'Collected', no_row: 'Earned, no delivery recorded' };
+const LB_STL = { not_reached: 'not reached', waiting: 'earned, not collected (waiting at the house representative)', delivered: 'earned, collected', no_row: 'earned, no delivery recorded' };
 const lbF = (n) => Number(n).toLocaleString('en-US');
 const lbNameOf = (r) => String(r.house_name || '').replace(/^DA_House/, '');
 // House symbols (#645): the game's own picture of each house (64 px, shown at 32), one file per house in /houses. The file is looked up in this fixed list by the
@@ -1901,9 +1901,9 @@ const lbRText = (t) => lbF(t.amount) + ' ' + lbItemName(t.tmpl);
 function lbNextParts(h) {
   for (const t of h.tiers) if (h.mine < t.th) return ['next ' + lbF(t.th) + ' · ' + lbRText(t) + ',', lbF(t.th - h.mine) + ' more'];
   const top = h.tiers.length ? h.tiers[h.tiers.length - 1].th : 0;
-  return [h.mine > top ? 'above the top tier' : 'top tier reached'];
+  return [h.mine > top ? 'above the top tier' : 'top tier earned'];
 }
-function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier reached'; }
+function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier earned'; }
 // one reward per line (#666): each waiting reward is its own block, so a long item name wraps inside its own line and never runs into the next reward
 const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.map((r) => html`<span class="hrw">${r}</span>`) : 'nothing waiting'; };
 function lbLead(h, ids) { // the faction with the most progress, when it is one faction
@@ -2138,7 +2138,7 @@ function lbCardHead(h) {
   return html`<span class="hhead">${f ? html`<img class="hsym" src="${f}" alt="" width="64" height="64" loading="lazy" decoding="async">` : ''}<span class="hht"><h4>House ${h.name}</h4><span class="hreg">${region}</span></span></span>`;
 }
 function lbHouseCard(h, l, noLocs) {
-  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button>${lbCardHead(h)}<dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction standing</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? (h.win != null ? lbW().pledgedTo + ' ' + lbFacName(l, h.win) : lbW().pledged) : lbOpenWord(h, l)}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span>`;
+  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details"><button type="button" class="hcl" aria-label="Close the card">×</button>${lbCardHead(h)}<dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction standing</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? (h.win != null ? lbW().pledgedTo + ' ' + lbFacName(l, h.win) : lbW().pledged) : lbOpenWord(h, l)}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl>${noLocs ? '' : html`<span class="fine">${lbLocHint(h)}</span>`}</span>`;
 }
 // A built piece of the page as a DOM node, for the Command Center scripts (they draw with the DOM, the page with html``): the pins of a place peek are put where the save says, as the page does after a draw.
 function lbNode(safe) {
@@ -2196,7 +2196,7 @@ function lbLocModel(h) {
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
-  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
+  return html`${lbMiniMap(h)}<dl><dt>Place</dt><dd>${lbAreaFull(h)}${h.loc.place ? ' · ' + h.loc.place : ''}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
 }
 const LB_ICON = {
   fill: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -2242,7 +2242,7 @@ function lbRow(h, l, hue, noLocs, pos) {
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" autocomplete="off" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" autocomplete="off" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
-      <span class="c-house" role="rowheader"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction standing, place (experimental)">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
+      <span class="c-house" role="rowheader"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction standing, place">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
       <span class="c-loc" role="cell">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
       <span class="c-my" role="cell"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : '0'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs" role="cell"><span class="tag">${hs}</span></span>
@@ -2250,7 +2250,7 @@ function lbRow(h, l, hue, noLocs, pos) {
       <span class="chev" aria-hidden="true"></span>
     </label>
     <div class="more" role="cell" ${open ? '' : 'hidden'}>
-      <div><h4>Tiers and rewards</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected · ✓ reached</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
+      <div><h4>Tiers and rewards</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected · ✓ earned</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
       <div><h4>House status and faction progress</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
       ${noLocs ? '' : html`<div><h4>Place</h4>${lbPlaceDetails(h)}</div>`}
       <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" aria-describedby="lsg-${h.id}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
@@ -2265,7 +2265,7 @@ const lbCounts = (hs) => {
 const lbShowOf = (hs, k) => hs.filter((h) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k));
 function lbGlance(hs, l, c) {
   const n = hs.length || 1, mineF = l.character ? l.character.faction_id : null;
-  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) reached by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier reached' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier reached' : word}</div></a>`;
+  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) earned by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier earned' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier earned' : word}</div></a>`;
   const seg = (k, cls, n_, word) => html`<a class="${cls}" href="#lsb-board" data-lb="show" data-show="${k}" data-w="${n_ / n * 100}" data-tip="${n_} ${word.toLowerCase()}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"></a>`;
   // houses won by a faction the list does not offer are counted apart (#842), shown only when there are some, so they are in neither faction's count nor in "still open"
   const known = new Set((l.factions || []).map((f) => String(f.id))), other = Object.entries(c.byFac).reduce((s, [k, v]) => (known.has(k) ? s : s + v), 0);
@@ -2277,8 +2277,8 @@ function lbGlance(hs, l, c) {
   <div class="stack mt12" role="group" aria-label="${c.done} top tier, ${c.part} in progress, ${c.new} not started. Click a segment to list those houses">${seg('done', 'd', c.done, 'Top tier')}${seg('part', 'p', c.part, 'In progress')}${seg('new', 'u', c.new, 'Not started')}</div>
   <p class="sleg" aria-hidden="true"><span><i class="sw d"></i>Top tier</span><span><i class="sw p"></i>In progress</span><span><i class="sw u"></i>Not started</span></p>
   <p class="explain">Your contribution, <b>${nn(hs.length, 'house', 'houses')}</b> (${c.done} + ${c.part} + ${c.new}). Click a card or the bar to list them.<span class="back"><a href="#lsb-board" data-lb="show" data-show="all">Show all ${hs.length} houses again</a></span></p>
-  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier reached</b> = every tier reached by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Undecided” is used only for a house no faction has the favor of yet, in the “Houses pledged to each faction” line below.</p>`)}
-  <div class="facts grid"><span>Houses pledged to each faction: ${byFac}</span><span>Tiers reached: <b>${c.tiers}</b> of <b>${c.tierTotal}</b></span><span>Contributed in all: <b>${lbF(c.total)}</b></span></div></section>`;
+  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier earned</b> = every tier earned by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Undecided” is used only for a house no faction has the favor of yet, in the “Houses pledged to each faction” line below.</p>`)}
+  <div class="facts grid"><span>Houses pledged to each faction: ${byFac}</span><span>Tiers earned: <b>${c.tiers}</b> of <b>${c.tierTotal}</b></span><span>Contributed in all: <b>${lbF(c.total)}</b></span></div></section>`;
 }
 function lbHistory(l) {
   const e = l.earlier_terms || [], tm = l.terms || [];
@@ -2914,7 +2914,7 @@ function lbApply() {
       const g = document.createElement('li');
       g.className = 'grp';
       const t = document.createElement('h4');
-      t.textContent = (h.region || 'Region unknown') + ' ';
+      t.textContent = (h.region || 'Place unknown') + ' ';
       const n = document.createElement('em');
       n.textContent = String(count.get(h.region));
       t.appendChild(n);

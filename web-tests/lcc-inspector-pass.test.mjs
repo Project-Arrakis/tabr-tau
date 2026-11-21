@@ -201,7 +201,7 @@ test('#936: Not reached / Not collected / Collected on the cards, in the panel a
   assert.deepEqual([...r.querySelectorAll('.tc .pl')].map(text), ['Not collected', 'Not collected', 'Not collected', 'Not reached', 'Not reached']);
   const classicAll = text(classic.doc.querySelector('#lsb')) + ' ' + [...classic.doc.querySelectorAll('#lsb [aria-label], #lsb [title]')].map((e) => (e.getAttribute('aria-label') || '') + ' ' + (e.getAttribute('title') || '')).join(' ');
   assert.doesNotMatch(classicAll, /waiting to collect|Waiting to collect/);
-  assert.match(classicAll, /reached, not collected \(waiting at the house representative\)/, 'the longer explanation stays in the screen-reader text');
+  assert.match(classicAll, /earned, not collected \(waiting at the house representative\)/, 'the longer explanation stays in the screen-reader text');
 });
 
 // ---- #938: the Classic mouse-over on the cards -------------------------------------------------------------------------------------------------------------------------
