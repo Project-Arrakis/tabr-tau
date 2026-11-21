@@ -799,7 +799,19 @@ async function playerView() {
 // The Command Center view (lcc/lcc-spec.js) is the only view of the Specialization tab (the Classic list was retired, #1105). Every write goes through the handlers below (spAddCC, spMax, spReset, spKeyAll, spKeyReset, spResetAll, spAssign, spAssignHand, specSet).
 // A view chosen in an earlier version of the editor (the browser kept it under spec.view) is dropped here: the Command Center view is the default and there is no other view to choose.
 browserStore.remove('spec.view');
-const SPV = { vm: null, lv: null, stale: false }; // lv: the specialization answer as the last visit to the Specializations tab read it, the one source of the levels the Landsraad board shows; stale: a Landsraad write gave specialization XP after it was read, so its levels are no longer the save's (#646)
+const SPV = { vm: null, lv: null, stale: false, ls: null, n: 0, lvAt: 0, lsAt: 0, wrAt: 0 }; // lv: the specialization answer as the last visit to the Specializations tab read it, the one source of the levels the Landsraad board shows; stale: a Landsraad write gave specialization XP after it was read, so its levels are no longer the save's (#646); ls: the levels the Landsraad answer itself carries (#1108); lvAt, lsAt, wrAt: when each was read or written, so the newest read after the last write wins
+// The levels the board shows come from the newest read that is not older than the last write that gave specialization XP: the Landsraad answer's own specialization_levels (whole numbers by line, read only,
+// #1108) or the Specializations tab's answer (#646). A save that holds no track row for a line leaves it out of the Landsraad answer, and the board then shows a dash for that line, never a made-up number.
+function spvNoteBoardRead(l) {
+  const sl = l && l.specialization_levels, o = {};
+  if (sl && typeof sl === 'object') for (const k of Object.keys(sl)) if (Number.isInteger(sl[k]) && sl[k] >= 0) o[k.trim().toLowerCase()] = sl[k];
+  SPV.ls = Object.keys(o).length ? o : null; SPV.lsAt = ++SPV.n; if (SPV.ls) SPV.stale = false; // levels after the write are the save's again
+}
+function spvLevels() {
+  const fromTab = SPV.lv && SPV.lv.ok && SPV.lvAt > SPV.wrAt, fromBoard = SPV.ls && SPV.lsAt > SPV.wrAt;
+  if (fromTab && (!fromBoard || SPV.lvAt > SPV.lsAt)) { const o = {}; for (const r of SPV.lv.rows) if (r.known && Number.isInteger(r.level)) o[r.key] = r.level; return o; }
+  return fromBoard ? { ...SPV.ls } : null;
+}
 const specCCOn = () => !!(window.LCCS && window.LCC); // false only when the Command Center scripts did not load (specMissing)
 const specMissing = () => html`<section class="card d-panel" id="lcs-missing" aria-labelledby="lcs-missing-h"><h2 class="d-head" id="lcs-missing-h" tabindex="-1">Specializations</h2><p class="nodata" role="alert">The Specializations page could not be loaded, so the specializations cannot be shown. Reload the page (Ctrl+F5). If this stays, close the editor and start it again.</p></section>`;
 // Opening a House of a specialization on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
@@ -1016,11 +1028,11 @@ async function playerSection(s) {
     const f = await api('/api/player/factions');
     h.push(html`<div class="card d-panel"><h3 class="d-head">Faction reputation</h3>${tbl([{ k: 'name', label: 'Faction' }, { k: 'reputation', label: 'Reputation', f: (r) => html`<input type="number" min="0" max="12474" value="${r.reputation}" data-faction="${r.faction_id}" data-name="${r.name}" class="w100" aria-label="Reputation with ${r.name}" title="0 to 12474">` }], f, { empty: 'This save has no factions.' })}</div>`);
   } else if (s == 'specialization') {
-    if (!specCCOn()) { SPV.vm = null; SPV.lv = null; SPV.stale = false; h.push(specMissing()); } else {
+    if (!specCCOn()) { SPV.vm = null; SPV.lv = null; SPV.stale = false; SPV.lvAt = ++SPV.n; h.push(specMissing()); } else {
       const sp = await api('/api/player/specs');
       let hs = null;
       try { const ls = await api('/api/landsraad'); hs = !ls || !Array.isArray(ls.tasks) ? null : ls.tasks.map((t) => ({ id: t.id, name: lbNameOf(t), line: t.line || '' })); } catch (e) { hs = null; } // the Houses of a path come from the Landsraad read; without it (or without a task list in the answer) they are "Not in the save"
-      SPV.vm = window.LCCS.readSpecs(sp, hs); SPV.lv = SPV.vm; SPV.stale = false; // the Landsraad board shows the levels of this answer (#646)
+      SPV.vm = window.LCCS.readSpecs(sp, hs); SPV.lv = SPV.vm; SPV.stale = false; SPV.lvAt = ++SPV.n; // the Landsraad board shows the levels of this answer (#646)
       h.push(html`<div id="lcs-mount"></div>`, specAdvanced(sp));
     }
   } else if (s == 'journey') {
@@ -2520,7 +2532,7 @@ async function lbSend(b, items, label, hs, focusFk) {
     // what the missions of a raise write (landsraad_grant.go), and the warning when rewards were left out because the character's own events already crossed them (#656)
     // an unfill sets the contribution to 0 on every House it changes: it says so, not "a tier removed" (#932)
     const lowered = (n_) => (label === LB_BULK.unfill[0] ? 'your contribution set to 0 on ' + nn(n_, 'house', 'houses') + ' (every tier removed)' : 'lowered on ' + nn(n_, 'house', 'houses') + ' (a tier removed)');
-    if (r.specialization_xp && Object.keys(r.specialization_xp).length) SPV.stale = true; // the levels the board shows came from before this write (#646)
+    if (r.specialization_xp && Object.keys(r.specialization_xp).length) { SPV.stale = true; SPV.wrAt = ++SPV.n; } // the levels the board shows came from before this write (#646); the Landsraad read that follows brings the new ones (#1108)
     const grant = lbGrantText(r, queued), left = r.rewards_already_given, back = r.contribution_lowered ? lbBackText(r, queued) : '';
     const warn = left ? 'Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '. Nothing to do' : '';
     const tail = (r.contribution_lowered ? ' ' + LB_REMOVE_NOTE : '') + (r.missions ? ' ' + GRANT_UNCHECKED : '');
@@ -2801,7 +2813,7 @@ window.LCC_HOST = {
   tips: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbListTips(lbHouse(r, LD)) : null; },
   loc: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbLocModel(lbHouse(r, LD)) : null; }, say: (m) => lbTell(m), decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
   // the character's level in each specialization, from the answer the Specializations tab read (no request of its own, #646): null until that tab has been opened, and again after a write that gave specialization XP
-  specLevels: () => { const vm = SPV.lv; if (!vm || !vm.ok || SPV.stale) return null; const o = {}; for (const r of vm.rows) if (r.known && Number.isInteger(r.level)) o[r.key] = r.level; return o; },
+  specLevels: () => spvLevels(),
   unseat: lbUnseat, seat: lbSeat, // presentation only: where the parts of the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return false; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); return true; }, // true when the board's own faction box took it (#882)
@@ -2937,6 +2949,7 @@ async function landsraadView() {
   await loadCatalog(l.tasks.flatMap((x) => (x.rewards || []).flatMap((y) => [y.template_id, y.shown_template_id])));
   const onBoard = new Set(l.tasks.map((x) => x.id));
   LD = l;
+  spvNoteBoardRead(l);
   for (const id of [...LP.pick]) if (!onBoard.has(id)) LP.pick.delete(id);
   // a re-read draws the page again, which takes the focus from Yes or Cancel of an open question; if the board then closes that question (a house it named is hidden now, #818), the focus
   // goes back to the bulk button that asked it, not to the top of the page (#832)

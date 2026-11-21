@@ -467,3 +467,29 @@ func (o *Ops) SpecRoom(g GrantSettings) map[string]int64 {
 	}
 	return room
 }
+
+// SpecLevels is, for each specialization line the save holds a track row for, the level the character stands on (a whole number, from the same XP table the Specializations answer
+// shows: specLevel), so the board can say "Level N" without the Specializations tab being opened first (#1108). The line's track is the one the write uses (g.track), so the board
+// and the write agree on which row a line is. A line with no track row in the save is left out of the map, and the page shows a dash for it, never an invented 0; a save with no
+// character or no track table gives no map at all (nil). Read only.
+func (o *Ops) SpecLevels(g GrantSettings) map[string]int64 {
+	p, err := o.player()
+	if err != nil {
+		return nil
+	}
+	levels := map[string]int64{}
+	for _, line := range specializationLines {
+		r, err := o.S.One(`select xp_amount xp from specialization_tracks where player_id=? and track_type=?`, p.Controller, g.track(line))
+		if err != nil {
+			return nil
+		}
+		if r == nil {
+			continue
+		}
+		levels[line] = int64(specLevel(asInt(r["xp"])))
+	}
+	if len(levels) == 0 {
+		return nil
+	}
+	return levels
+}

@@ -81,3 +81,17 @@ func TestTheBoardReadCarriesTheRoomOfEachTrack(t *testing.T) {
 		t.Errorf("the board read has no room: %s", body)
 	}
 }
+
+// The board read carries the level of each line the save holds a track row for, so the board shows Level N without the Specializations tab; a save with no track rows has no such field (#1108).
+func TestTheBoardReadCarriesTheSpecializationLevels(t *testing.T) {
+	cfg := t.TempDir()
+	s := New(testsave.PlayerWithSQL(t, landsraadChosenWorld+`insert into specialization_tracks(player_id, track_type, xp_amount, level) values (1, 2, 205, 0), (1, 5, 44182, 0);`), config.Dir{Path: cfg})
+	body := postEditGet(t, s, "/api/landsraad")
+	if !strings.Contains(body, `"specialization_levels":{`) || !strings.Contains(body, `"Gathering":2`) || !strings.Contains(body, `"Sabotage":100`) || strings.Contains(body, `"Crafting":0`) {
+		t.Errorf("the board read has no levels, or an invented one: %s", body)
+	}
+	bare := New(testsave.PlayerWithSQL(t, landsraadChosenWorld), config.Dir{Path: t.TempDir()})
+	if body := postEditGet(t, bare, "/api/landsraad"); strings.Contains(body, "specialization_levels") {
+		t.Errorf("a save with no track rows must carry no levels: %s", body)
+	}
+}
