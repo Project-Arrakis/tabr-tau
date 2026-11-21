@@ -365,3 +365,42 @@ func TestGrantSpecRoomIsWhatEachTrackStillHasRoomFor(t *testing.T) {
 		t.Fatalf("room with a learned number: %v", room)
 	}
 }
+
+// the board read carries the level of each line the save holds a track row for, from the same table as the Specializations answer, and leaves the other lines out (#1108)
+func TestSpecLevelsAreWholeLevelsOfTheTracksTheSaveHolds(t *testing.T) {
+	o := rewardOps(t, `insert into specialization_tracks(player_id, track_type, xp_amount, level) values (1, 2, 205, 0), (1, 5, 99999999, 0), (1, 3, 204, 7), (1, 4, 0, 5);`)
+	lv := o.SpecLevels(DefaultGrantSettings())
+	want := map[string]int64{"Gathering": 2, "Sabotage": 100, "Exploration": 1, "Combat": 0}
+	if len(lv) != len(want) {
+		t.Fatalf("levels: %v, want %v (Crafting has no row, so it is left out, never a made-up 0)", lv, want)
+	}
+	for k, v := range want {
+		if lv[k] != v {
+			t.Errorf("%s: %d, want %d (all: %v)", k, lv[k], v, lv)
+		}
+	}
+	// the number is the one the Specializations answer shows for the same XP, and it does not use the level column the game stores
+	sp, err := o.Specs(EffectiveTrackNumbers(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range sp.(map[string]any)["rows"].([]SpecRow) {
+		if got, ok := lv[r.Track]; ok && int64(specLevel(r.XP)) != got {
+			t.Errorf("%s: board %d, Specializations answer XP %d gives %d", r.Track, got, r.XP, int64(specLevel(r.XP)))
+		}
+	}
+	// a learned number moves the line to its track, as in the write
+	g := DefaultGrantSettings()
+	g.TrackNumbers = map[string]int64{"Gathering": 9}
+	if lv = o.SpecLevels(g); len(lv) != 3 || func() bool { _, has := lv["Gathering"]; return has }() {
+		t.Errorf("levels with a learned number the save has no row for: %v", lv)
+	}
+}
+
+// an old save with no track rows at all gives no map, so the page keeps showing its dash (#1108)
+func TestSpecLevelsAreNilWhenTheSaveHoldsNoTrackRows(t *testing.T) {
+	o := rewardOps(t, ``)
+	if lv := o.SpecLevels(DefaultGrantSettings()); lv != nil {
+		t.Errorf("levels for a save with no track rows: %v", lv)
+	}
+}

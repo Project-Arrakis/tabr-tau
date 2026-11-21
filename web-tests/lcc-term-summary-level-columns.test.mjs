@@ -150,3 +150,67 @@ test('the summary line, the level and the list cells ask for nothing: the board 
   assert.deepEqual(reads, ['/api/landsraad']);
   assert.equal(ui.posted.length, 0);
 });
+
+// #1108: the Landsraad answer carries the level of each line, so the board says Level N at once; read only, no request of its own, no write path
+const LEVELS = { Gathering: 12, Sabotage: 40 };
+const levelText = (ui) => text(ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-lvl'));
+
+test('#1108: the House panel and the tile say Level N from the Landsraad answer at once, without the Specializations tab and without a request of its own', async () => {
+  const a = synthetic();
+  a.specialization_levels = { ...LEVELS };
+  const ui = await open(a);
+  click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  assert.equal(levelText(ui), 'Level 12', 'a Gathering House, no visit to the Specializations tab');
+  const lv = ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-lvl');
+  assert.equal(lv.getAttribute('title'), null, 'a known level needs no explanation');
+  const card = tileOf(ui, 'Kenola');
+  assert.equal(card.querySelector('.lcc-hc-spec').getAttribute('title'), 'Gathering specialization, Level 12');
+  assert.deepEqual(JSON.parse(JSON.stringify(ui.w.eval('window.LCC_HOST.specLevels()'))), { gathering: 12, sabotage: 40 });
+  // the level belongs to the line; a line the answer holds no level for stays a dash, never a number
+  click(ui, tileOf(ui, 'Vernius').querySelector('.lcc-hc-select'));
+  assert.equal(levelText(ui), 'Level 40');
+  const crafting = [...ui.doc.querySelectorAll('.lcc-bd-cell')].find((c) => /crafting/i.test(c.querySelector('.lcc-hc-spec') ? c.querySelector('.lcc-hc-spec').getAttribute('title') || '' : ''));
+  if (crafting) { click(ui, crafting.querySelector('.lcc-hc-select')); assert.equal(levelText(ui), 'Level —'); }
+  assert.equal(ui.fetched.filter((p) => p === '/api/player/specs').length, 0, 'no request of the Specializations tab was needed');
+  assert.equal(ui.posted.length, 0, 'nothing is written');
+});
+
+test('#1108: an old save whose answer has no levels (no track rows) shows the same dash as before, and so does a malformed field', async () => {
+  for (const bad of [undefined, null, {}, { Gathering: -1, Sabotage: 2.5, Combat: '9' }, 'x']) {
+    const a = synthetic();
+    if (bad !== undefined) a.specialization_levels = bad;
+    const ui = await open(a);
+    click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+    assert.equal(levelText(ui), 'Level —', 'no number is made up for ' + JSON.stringify(bad));
+    assert.equal(ui.w.eval('window.LCC_HOST.specLevels()'), null);
+    await closeAll();
+  }
+});
+
+test('#1108: a write that gave specialization XP drops the old level, and the re-read answer brings the new one; without levels in it the dash stays', async () => {
+  const a = synthetic();
+  a.specialization_levels = { ...LEVELS };
+  const ui = await open(a);
+  click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  assert.equal(levelText(ui), 'Level 12');
+  a.specialization_levels = { Gathering: 15, Sabotage: 40 }; // what the save holds after the write, read again by the page
+  click(ui, '.lcc-bd-insp .lcc-bd-tier[data-t="3"]'); await ui.settle();
+  assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/apply').length, 1, 'the raise was sent');
+  if (!ui.doc.querySelector('.lcc-bd-insp-title')) click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  assert.equal(levelText(ui), 'Level 15', 'the new level of the re-read answer, never the old 12');
+  assert.deepEqual(JSON.parse(JSON.stringify(ui.w.eval('window.LCC_HOST.specLevels()'))), { gathering: 15, sabotage: 40 });
+});
+
+test('#1108: after a write, an answer without levels leaves the dash, and a later visit to the Specializations tab is the newest read', async () => {
+  const a = synthetic();
+  a.specialization_levels = { ...LEVELS };
+  const ui = await open(a);
+  delete a.specialization_levels;
+  click(ui, tileOf(ui, 'Kenola').querySelector('.lcc-hc-select'));
+  click(ui, '.lcc-bd-insp .lcc-bd-tier[data-t="3"]'); await ui.settle();
+  assert.equal(ui.w.eval('window.LCC_HOST.specLevels()'), null, 'the 12 from before the write is not shown');
+  click(ui, 'button[data-tab="player"]'); await ui.settle();
+  click(ui, '[data-sub="player:specialization"]'); await ui.settle();
+  const tab = ui.w.eval('window.LCC_HOST.specLevels()');
+  assert.ok(tab && Number.isInteger(tab.gathering), 'the Specializations tab read is the newest and is used');
+});
