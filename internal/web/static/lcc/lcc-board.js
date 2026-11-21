@@ -136,7 +136,7 @@
     const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, win });
     for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
       const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');
-      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress that the save records without a contributor is not named here. ' + contribRank(cs[k]) + unnamedNote(cs[k], 3) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
+      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' this term. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress with no contributor recorded is not named here. ' + contribRank(cs[k]) + unnamedNote(cs[k], 3) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
     }
     return node;
   }
@@ -459,7 +459,7 @@
       // the collected and not collected counts are the hover of the figure, not a second line on every card (#1078); the accessible name of the card says them in words
       const said = h.reached > 0 ? ' Collected: ' + h.collected + '. Not collected (waiting at the representative): ' + h.waiting + '.' + (h.unknownDelivery ? ' With no delivery record, so in neither count: ' + h.unknownDelivery + '.' : '') : '';
       count.appendChild(el('b', '', h.reached + '/' + h.tierCount + ' EARNED', { title: 'Reward tiers of yours earned in this House: ' + h.reached + ' of ' + h.tierCount + '. Earned is not collected.' + said }));
-    } else count.appendChild(el('b', '', 'NO TIERS IN THE SAVE'));
+    } else count.appendChild(el('b', '', 'NO TIERS', { title: 'No reward tiers are recorded for this House.' }));
     card.appendChild(count);
     if (editable) card.appendChild(pickBox(h, picks, dim));
     return card;
@@ -577,7 +577,7 @@
       for (const g of groups) {
         const tb = el('tbody', 'lcc-bd-group');
         const tr = el('tr', 'lcc-bd-grouprow'), td = el('th', '', '', { scope: 'rowgroup', colspan: cols });
-        td.textContent = (g.g ? (state.group === 'spec' ? trackWord(g.g) || g.g : g.g) : state.group === 'region' ? 'Region unknown' : W().noSpecialization) + ' · ' + g.rows.length;
+        td.textContent = (g.g ? (state.group === 'spec' ? trackWord(g.g) || g.g : g.g) : state.group === 'region' ? 'Place unknown' : W().noSpecialization) + ' · ' + g.rows.length;
         tr.appendChild(td); tb.appendChild(tr);
         for (const h of g.rows) tb.appendChild(row(h, host, editable, picks, cols));
         t.appendChild(tb);
@@ -797,7 +797,7 @@
     s2.appendChild(secHead('YOUR CONTRIBUTION', 'lcc-bd-s2'));
     const nums = el('div', 'lcc-bd-pc');
     nums.appendChild(el('strong', '', h.mine > 0 || top !== null ? fmt(h.mine) + (top !== null ? ' / ' + fmt(top) : '') : '0'));
-    nums.appendChild(el('small', '', h.next ? fmt(h.next.remaining) + ' to T' + h.next.n : h.tierCount ? W().topPersonalTierEarned.toUpperCase() : 'no tiers in the save'));
+    nums.appendChild(el('small', '', h.next ? fmt(h.next.remaining) + ' to T' + h.next.n : h.tierCount ? W().topPersonalTierEarned.toUpperCase() : '—', h.next || h.tierCount ? undefined : { title: 'No reward tiers are recorded for this House.' }));
     s2.appendChild(nums);
     const mineSaid = 'Your contribution: ' + (h.mine > 0 ? fmt(h.mine) : '0 (none recorded in the save)') + (top !== null ? ' of ' + fmt(top) : '') + (h.next ? ' · next tier ' + fmt(h.next.threshold) + ', ' + fmt(h.next.remaining) + ' more' : h.tierCount ? ' · ' + W().topTierEarned : '') + '.';
     const pt = el('div', 'lcc-bd-track lcc-bd-track-me', '', { role: 'img', 'aria-label': mineSaid, title: mineSaid });
@@ -854,7 +854,7 @@
       } else li.appendChild(mk('div').b);
       ol.appendChild(li);
     });
-    if (!h.tiers.length) s3.appendChild(el('p', 'lcc-bd-none', 'This House has no tiers in the save.'));
+    if (!h.tiers.length) s3.appendChild(el('p', 'lcc-bd-none', 'This House has no reward tiers.'));
     s3.appendChild(ol);
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the earned count is taken as the save states it.'));
     side.appendChild(s3); // no caption, mark legend or note under the ledger (#980): every tier row names its own state, and the Help tab explains the marks, Fill and the three separate states
@@ -867,7 +867,7 @@
       s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));
       if (h.loc.unconfirmed) s5.appendChild(el('p', 'lcc-bd-cap', 'This place is from public guides and is not confirmed in the game.'));
       const lm = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
-      if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.'));
+      if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.', lm.fromWhy ? { title: lm.fromWhy } : undefined));
       if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lw:' + h.id }));
       else s5.appendChild(el('p', 'lcc-bd-cap', M().noPictureSays(h.loc)));
     }

@@ -139,7 +139,7 @@ test('Expand all and Collapse all open and close every row, and a row keeps its 
   assert.equal(ui.doc.querySelector('#lsx-902').checked, true);
 });
 
-test('a tier says what it gives, by the game’s name, and where it stands: not reached, waiting, delivered, or reached with no delivery recorded', async () => {
+test('a tier says what it gives, by the game’s name, and where it stands: not reached, waiting, delivered, or earned with no delivery recorded', async () => {
   const ui = await open();
   const wayku = ui.doc.querySelector('#lsrow-903');
   const t = [...wayku.querySelectorAll('.tiers .tc')];
@@ -153,7 +153,7 @@ test('a tier says what it gives, by the game’s name, and where it stands: not 
   assert.ok(text(t[4].querySelector('.rw')).includes('Placeables Swatch'), 'the top tier shows the swatch while it is not held');
   assert.ok(wayku.querySelector('.swl').textContent.includes('Swatch not held yet'));
   const thor = [...ui.doc.querySelectorAll('#lsrow-901 .tiers .tc .pl')].map(text);
-  assert.deepEqual(thor, ['Reached, no delivery recorded', 'Reached, no delivery recorded', 'Reached, no delivery recorded', 'Not reached', 'Not reached']);
+  assert.deepEqual(thor, ['Earned, no delivery recorded', 'Earned, no delivery recorded', 'Earned, no delivery recorded', 'Not reached', 'Not reached']);
   assert.ok(t[0].getAttribute('aria-label').includes('Tier 1, 1,200, reward 10,000'), t[0].getAttribute('aria-label'));
   // once the swatch is held the top tier is the task's own item
   const held = board({ tasks: [house(900, 'Alexin', 6500, { swatch_held: true }).rewards ? { ...house(900, 'Alexin', 6500, { swatch_held: true }), rewards: house(900, 'Alexin', 6500).rewards.map((r, i) => (i === 4 ? { ...r, shown_template_id: 'T6DiamodineBladeParts', shown_amount: 75, swatch: false } : r)) } : null] });
@@ -187,7 +187,7 @@ test('the house name card names the next reward, what waits, the faction standin
   const hw = ui.doc.querySelector('#lsrow-903 .hw');
   const card = text(hw.querySelector('.hcard'));
   assert.ok(card.includes('Not collected') && card.includes('Faction standing') && card.includes('Atreides 4,000 of 4,000') && card.includes('Pledged to Atreides'), card);
-  assert.ok(text(hw.querySelector('.hcard')).includes('top tier reached'));
+  assert.ok(text(hw.querySelector('.hcard')).includes('top tier earned'));
   click(ui, '#lsrow-903 .hn');
   assert.ok(hw.classList.contains('open'));
   assert.equal(hw.querySelector('.hn').getAttribute('aria-expanded'), 'true');
@@ -318,7 +318,8 @@ test('the peek and the opened row give the distance from you in plain words; a c
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc > .pop')).includes('From youabout 2.8 km'), text(ui.doc.querySelector('#lsrow-900 .loc > .pop')));
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .more')).includes('From youabout 2.8 km'));
   const far1 = text(ui.doc.querySelector('#lsrow-901 .more'));
-  assert.ok(far1.includes('From younot known (your character is on another map, or has no saved position)'), 'another map: no invented distance, in plain words: ' + far1);
+  assert.ok(far1.includes('From younot known') && !far1.includes('another map'), 'another map: no invented distance, and no long reason standing on the line: ' + far1);
+  assert.ok(ui.doc.querySelector('#lsrow-901 .more .mut[title*="another map"]'), 'the reason is the hover text of the figure');
   assert.ok(!/not worked out/.test(ui.doc.body.textContent), 'the old wording is gone');
   assert.ok(!text(ui.doc.querySelector('#lsrow-902 .more')).includes('From you'), 'a hub has no From you line');
   const calls = spyMap(ui);

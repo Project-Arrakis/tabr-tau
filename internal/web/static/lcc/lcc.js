@@ -219,8 +219,8 @@
     return w;
   }
   // A label that says what the data is. kind: 'demo' (fixture values on a preview page), 'readonly' (shown, never written here) or 'ref' (a reference value, not the save's).
-  // 'save' and 'derived' (M3) say where a live figure comes from: read from the save, or worked out by the page from what the save holds; 'unverified' marks a result the game has not been seen to confirm.
-  const BADGE = Object.freeze({ demo: 'FIXTURE · DEMO DATA', readonly: 'READ-ONLY', ref: 'REFERENCE', save: 'FROM THE SAVE', derived: 'WORKED OUT HERE', unverified: 'NOT CHECKED IN THE GAME' });
+  // 'unverified' marks a result the game has not been seen to confirm. Where a live figure comes from is said once, in Help, not on a label (#1057).
+  const BADGE = Object.freeze({ demo: 'FIXTURE · DEMO DATA', readonly: 'READ-ONLY', ref: 'REFERENCE', unverified: 'NOT CHECKED IN THE GAME' });
   const badge = (kind, text) => el('span', 'lcc-badge lcc-badge-' + (BADGE[kind] ? kind : 'readonly'), text || BADGE[kind] || BADGE.readonly);
   // A reachable tooltip: the trigger carries aria-describedby, the tip is real text beside it (shown on hover and on focus by the stylesheet; the module's own tooltip rules do the rest).
   function richTip(triggerText, tipText) {

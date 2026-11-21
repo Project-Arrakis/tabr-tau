@@ -430,7 +430,7 @@
     favorUnreadable: 'Favor unreadable', unreadable: 'Unreadable', // a House the save cannot settle
     square: 'Square', specialization: 'Specialization', bySpecialization: 'By specialization', noSpecialization: 'No specialization',
     // The reward tiers of the character: a tier is earned (the contribution reaches its threshold) and then collected (the reward is taken at the house representative); #962. "Not reached" is the state word
-    // of a tier that is not earned yet and stays as it is (it changes Classic too: an open question). Classic keeps its own words.
+    // of a tier that is not earned yet and stays as it is in both views. Classic says the same words (#1099): earned, not collected, collected.
     earned: 'earned', tiersEarned: 'tiers earned', tiersEarnedHead: 'Tiers earned', topTierEarned: 'top tier earned', topPersonalTierEarned: 'top personal tier earned',
   });
   const TIER_WORD = Object.freeze({ not_reached: 'Not reached', waiting: 'Earned, not collected', delivered: 'Earned, collected', no_row: 'Earned, delivery unknown', unknown: 'Earned, delivery unknown' });

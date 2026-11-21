@@ -1030,12 +1030,12 @@ async function playerSection(s) {
         { k: 'level', label: 'Level', f: (r) => (known(r) ? Math.floor(r.level) : html`<span class="mut">—</span>`) }, { k: 'keystoneOwned', label: 'Keystone', f: keystone },
         { k: 'add', label: 'Add XP', f: (r) => html`<input id="spx${r.track}" type="number" min="1" step="1" value="1000" class="w90" aria-label="XP to add to ${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'}><button class="b sm d-btn primary sm" data-act="spAdd" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Add XP</button>${known(r) ? '' : html` <span class="mut" id="spnum${r.track}">${NO_TRACK_NUMBER}</span>`}` }],
         sp.rows, { empty: 'This save has no specializations.', actions: (r) => html`<button class="b sec sm d-btn sm" data-act="spMax" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? 'The most XP a specialization holds is ' + Number(sp.maxXp).toLocaleString() : NO_TRACK_NUMBER}">Grant max</button><button class="b bad sm d-btn danger sm" data-act="spReset" data-t="${r.track}" ${describedBy(known(r) ? '' : 'spnum' + r.track)} ${known(r) ? '' : 'disabled'} title="${known(r) ? '' : NO_TRACK_NUMBER}">Reset</button>` })}</div>
-    ${allKnown && asMeasured ? '' : html`<div class="card d-panel" data-advanced="true"><h3 class="d-head">Advanced: track numbers</h3>
+    ${allKnown && asMeasured ? '' : html`<div class="card d-panel" data-advanced="true"><h3 class="d-head">Advanced: specialization numbers</h3>
       ${sp.unassigned.length ? html`${sp.unassigned.map((u) => html`<div class="row"><span>Track number <b>${u.number}</b>: ${Number(u.xp).toLocaleString()} XP, level ${Math.floor(u.level)}</span> is
         <select id="spa${u.number}" aria-label="Which specialization track is number ${u.number}">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select><button class="b d-btn primary" data-act="spAssign" data-n="${u.number}">Assign</button></div>`)}` : html`<p class="mut">No specialization XP in your save is waiting to be assigned.</p>`}
       <div class="row"><span class="mut">Known a track's number already?</span><select id="spmt" aria-label="Specialization track">${sp.tracks.map((t) => html`<option>${t}</option>`)}</select> number <input id="spmn" aria-label="Track number" type="number" min="0" max="255" class="w70"><button class="b sec d-btn" data-act="spAssignHand">Set</button></div>
       <p class="mut">Assigned: ${sp.rows.filter(known).map((r) => `${r.track} = ${r.number}`).join(', ') || 'none yet'}.</p>
-      ${about('specialization.numbers', 'Track numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5), so this card is normally not on the page. It is here because a track has no number, or a number assigned earlier is not the game's own. If the XP of one track shows under another track's name, the other track holds its number: set that track again to its own number in the box above. If the game changes a number, earn a little XP in that track, save, reload this tab, and assign the new row. Keystones need no numbers.</p>`)}</div>`}
+      ${about('specialization.numbers', 'Specialization numbers', html`<p class="mut">Your save stores only a number for each specialization track and does not say which number is which. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5), so this card is normally not on the page. It is here because a track has no number, or a number assigned earlier is not the game's own. If the XP of one track shows under another track's name, the other track holds its number: set that track again to its own number in the box above. If the game changes a number, earn a little XP in that track, save, reload this tab, and assign the new row. Keystones need no numbers.</p>`)}</div>`}
     <div class="card d-panel" data-advanced="true"><details><summary>Advanced: set a raw row</summary>${rawTracks.length ? html`<p class="mut">Writes the XP and level you type for the track you pick as they are. Nothing checks that the two match.</p><div class="row"><span class="mut">Track</span><select id="st" aria-label="Specialization track of the row">${rawTracks.map((r) => html`<option value="${r.number}">${r.track}</option>`)}</select>XP<input id="sx" aria-label="XP of the track" type="number" value="0">Level<input id="sl" aria-label="Level of the track" type="number" step="0.1" value="1" class="w80"><button class="b sec d-btn" data-act="specSet">Set</button></div>` : html`<p class="mut">No track has a number in this save yet, so there is no row to pick. Assign a track under Advanced: track numbers first.</p>`}</details></div>`);
   } else if (s == 'journey') {
     JB = await api('/api/player/journey/browse');
@@ -1860,9 +1860,9 @@ const LP = { fac: null, pick: new Set(), say: '', bad: false, warn: false, busy:
 const LV = { view: browserStore.get('lsb.view') === 'board' ? 'board' : 'classic' };
 const lbBoardOn = () => LV.view === 'board' && !!(window.LCC && window.LCCM && window.LCCB);
 const LB_GLYPH = { new: '○', part: '◐', done: '✓' }, LB_WORD = { new: 'Not started', part: 'In progress', done: 'Top tier' };
-// the three states of a tier, in one pair of words in both views (#936): Not reached / Not collected / Collected. The longer explanation stays in the text for a screen reader.
-const LB_STW = { not_reached: 'Not reached', waiting: 'Not collected', delivered: 'Collected', no_row: 'Reached, no delivery recorded' };
-const LB_STL = { not_reached: 'not reached', waiting: 'reached, not collected (waiting at the house representative)', delivered: 'reached, collected', no_row: 'reached, no delivery recorded' };
+// the three states of a tier, in one pair of words in both views (#936, #1099): Not reached / Earned, not collected / Earned, collected (the Command Center board says the same). The longer explanation stays in the text for a screen reader.
+const LB_STW = { not_reached: 'Not reached', waiting: 'Not collected', delivered: 'Collected', no_row: 'Earned, no delivery recorded' };
+const LB_STL = { not_reached: 'not reached', waiting: 'earned, not collected (waiting at the house representative)', delivered: 'earned, collected', no_row: 'earned, no delivery recorded' };
 const lbF = (n) => Number(n).toLocaleString('en-US');
 const lbNameOf = (r) => String(r.house_name || '').replace(/^DA_House/, '');
 // House symbols (#645): the game's own picture of each house (64 px, shown at 32), one file per house in /houses. The file is looked up in this fixed list by the
@@ -1901,9 +1901,9 @@ const lbRText = (t) => lbF(t.amount) + ' ' + lbItemName(t.tmpl);
 function lbNextParts(h) {
   for (const t of h.tiers) if (h.mine < t.th) return ['next ' + lbF(t.th) + ' · ' + lbRText(t) + ',', lbF(t.th - h.mine) + ' more'];
   const top = h.tiers.length ? h.tiers[h.tiers.length - 1].th : 0;
-  return [h.mine > top ? 'above the top tier' : 'top tier reached'];
+  return [h.mine > top ? 'above the top tier' : 'top tier earned'];
 }
-function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier reached'; }
+function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier earned'; }
 // one reward per line (#666): each waiting reward is its own block, so a long item name wraps inside its own line and never runs into the next reward
 const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.map((r) => html`<span class="hrw">${r}</span>`) : 'nothing waiting'; };
 function lbLead(h, ids) { // the faction with the most progress, when it is one faction
@@ -2138,7 +2138,7 @@ function lbCardHead(h) {
   return html`<span class="hhead">${f ? html`<img class="hsym" src="${f}" alt="" width="64" height="64" loading="lazy" decoding="async">` : ''}<span class="hht"><h4>House ${h.name}</h4><span class="hreg">${region}</span></span></span>`;
 }
 function lbHouseCard(h, l, noLocs) {
-  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details (experimental)"><button type="button" class="hcl" aria-label="Close the card">×</button>${lbCardHead(h)}<dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction standing</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? (h.win != null ? lbW().pledgedTo + ' ' + lbFacName(l, h.win) : lbW().pledged) : lbOpenWord(h, l)}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl><span class="fine">Experimental card.${noLocs ? '' : ' ' + lbLocHint(h)}</span></span>`;
+  return html`<span class="hcard" role="group" aria-label="House ${h.name}, details"><button type="button" class="hcl" aria-label="Close the card">×</button>${lbCardHead(h)}<dl><dt>Next reward</dt><dd>${lbNextReward(h)}</dd><dt>Not collected</dt><dd>${lbWaiting(h)}</dd><dt>Faction standing</dt><dd>${(l.factions || []).map((f) => html`${f.name} ${lbF(h.prog[f.id] || 0)} of ${lbF(h.goal)}<br>`)}${h.taken ? (h.win != null ? lbW().pledgedTo + ' ' + lbFacName(l, h.win) : lbW().pledged) : lbOpenWord(h, l)}</dd>${noLocs ? '' : html`<dt>Place</dt><dd>${lbPlaceLine(h)}</dd>`}</dl>${noLocs ? '' : html`<span class="fine">${lbLocHint(h)}</span>`}</span>`;
 }
 // A built piece of the page as a DOM node, for the Command Center scripts (they draw with the DOM, the page with html``): the pins of a place peek are put where the save says, as the page does after a draw.
 function lbNode(safe) {
@@ -2166,8 +2166,8 @@ function lbRewardRow(h, t, i) {
 function lbListTips(h) {
   const n = h.tiers.length;
   return {
-    progress: (h.mine > 0 ? 'Your contribution: ' + lbF(h.mine) + '. ' : 'No contribution of yours recorded. ') + h.reached + ' of ' + n + ' tiers reached.',
-    tiers: n ? h.tiers.map((t, k) => 'Tier ' + (k + 1) + ', ' + lbF(t.th) + ': ' + lbRText(t) + ' (' + lbTierWord(t) + ')').join('\n') : 'No tiers in the save.',
+    progress: (h.mine > 0 ? 'Your contribution: ' + lbF(h.mine) + '. ' : 'No contribution of yours recorded. ') + h.reached + ' of ' + n + ' tiers earned.',
+    tiers: n ? h.tiers.map((t, k) => 'Tier ' + (k + 1) + ', ' + lbF(t.th) + ': ' + lbRText(t) + ' (' + lbTierWord(t) + ')').join('\n') : 'No reward tiers.',
     next: 'Next reward: ' + lbNextReward(h) + (h.tiers.some((t) => h.mine < t.th) ? ', ' + lbNextParts(h)[1] : '') + '.',
     waiting: h.tiers.some((t) => t.state === 'waiting') ? 'Not collected: ' + h.tiers.filter((t) => t.state === 'waiting').map(lbRText).join('; ') : 'Nothing waiting at the house representative.',
     // the same mouse-overs with the item pictures (#977): the rows of the reward mouse-over of the Command Center list, one per tier; a cell with no rows keeps its sentence
@@ -2181,21 +2181,22 @@ function lbListTips(h) {
 // the distance from the character to the house representative: the save holds the character's place in centimetres, and the house representative's marker its place, as a fraction of its map
 function lbFromYouText(h) {
   const c = h.loc.from_you_cm;
-  if (c == null) return 'not known (your character is on another map, or has no saved position)';
+  if (c == null) return 'not known';
   const m = Math.round(Number(c) / 100);
   return m >= 1000 ? `about ${(m / 1000).toFixed(1)} km` : `about ${m} m`;
 }
-const lbFromYou = (h) => (h.loc.from_you_cm == null ? html`<span class="mut">${lbFromYouText(h)}</span>` : lbFromYouText(h));
+const LB_FROM_YOU_WHY = 'Your character is on another map, or has no saved position.'; // the reason the distance is not known: the hover text, not the standing line
+const lbFromYou = (h) => (h.loc.from_you_cm == null ? html`<span class="mut" title="${LB_FROM_YOU_WHY}">${lbFromYouText(h)}</span>` : lbFromYouText(h));
 // The place line of a house as the Classic list says it and as the board's House Intelligence says it, one builder (#939): the words of the link, its accessible name and its mouse-over. hint is the mouse-over:
 // "Click the place to open the Saved map." or the reason the place cannot be opened.
 const lbLocAria = (h) => 'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbOnMap(h) ? 'Open in the Saved map' : lbLocWhy(h)) : 'not mapped yet. ' + lbNoMark);
 function lbLocModel(h) {
   if (!h.loc.known) return { known: false, onMap: false, area: 'Representative place not mapped yet', sub: '', hub: false, hint: lbNoMark, why: lbNoMark, aria: lbLocAria(h), from: '' };
-  return { known: true, onMap: lbOnMap(h), area: h.loc.area, sub: lbSub(h), hub: lbHub(h), hint: lbLocHint(h), why: lbLocWhy(h), aria: lbLocAria(h), from: lbHub(h) ? '' : lbFromYouText(h) };
+  return { known: true, onMap: lbOnMap(h), area: h.loc.area, sub: lbSub(h), hub: lbHub(h), hint: lbLocHint(h), why: lbLocWhy(h), aria: lbLocAria(h), from: lbHub(h) ? '' : lbFromYouText(h), fromWhy: !lbHub(h) && h.loc.from_you_cm == null ? LB_FROM_YOU_WHY : '' };
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
-  return html`${lbMiniMap(h)}<dl><dt>Region</dt><dd>${lbAreaFull(h)}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${h.loc.place ? html`<dt>Place</dt><dd>${h.loc.place}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
+  return html`${lbMiniMap(h)}<dl><dt>Place</dt><dd>${lbAreaFull(h)}${h.loc.place ? ' · ' + h.loc.place : ''}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
 }
 const LB_ICON = {
   fill: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
@@ -2241,7 +2242,7 @@ function lbRow(h, l, hue, noLocs, pos) {
     <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" autocomplete="off" ${LP.pick.has(h.id) ? 'checked' : ''}>
     <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" autocomplete="off" ${open ? 'checked' : ''}>
     <label for="lsx-${h.id}" class="sum">
-      <span class="c-house" role="rowheader"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction standing, place (experimental)">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
+      <span class="c-house" role="rowheader"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction standing, place">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
       <span class="c-loc" role="cell">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
       <span class="c-my" role="cell"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : '0'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
       <span class="c-hs" role="cell"><span class="tag">${hs}</span></span>
@@ -2249,7 +2250,7 @@ function lbRow(h, l, hue, noLocs, pos) {
       <span class="chev" aria-hidden="true"></span>
     </label>
     <div class="more" role="cell" ${open ? '' : 'hidden'}>
-      <div><h4>Tiers and rewards</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected · ✓ reached</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
+      <div><h4>Tiers and rewards</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected · ✓ earned</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
       <div><h4>House status and faction progress</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
       ${noLocs ? '' : html`<div><h4>Place</h4>${lbPlaceDetails(h)}</div>`}
       <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" aria-describedby="lsg-${h.id}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
@@ -2264,7 +2265,7 @@ const lbCounts = (hs) => {
 const lbShowOf = (hs, k) => hs.filter((h) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k));
 function lbGlance(hs, l, c) {
   const n = hs.length || 1, mineF = l.character ? l.character.faction_id : null;
-  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) reached by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier reached' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier reached' : word}</div></a>`;
+  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) earned by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier earned' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier earned' : word}</div></a>`;
   const seg = (k, cls, n_, word) => html`<a class="${cls}" href="#lsb-board" data-lb="show" data-show="${k}" data-w="${n_ / n * 100}" data-tip="${n_} ${word.toLowerCase()}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"></a>`;
   // houses won by a faction the list does not offer are counted apart (#842), shown only when there are some, so they are in neither faction's count nor in "still open"
   const known = new Set((l.factions || []).map((f) => String(f.id))), other = Object.entries(c.byFac).reduce((s, [k, v]) => (known.has(k) ? s : s + v), 0);
@@ -2276,8 +2277,8 @@ function lbGlance(hs, l, c) {
   <div class="stack mt12" role="group" aria-label="${c.done} top tier, ${c.part} in progress, ${c.new} not started. Click a segment to list those houses">${seg('done', 'd', c.done, 'Top tier')}${seg('part', 'p', c.part, 'In progress')}${seg('new', 'u', c.new, 'Not started')}</div>
   <p class="sleg" aria-hidden="true"><span><i class="sw d"></i>Top tier</span><span><i class="sw p"></i>In progress</span><span><i class="sw u"></i>Not started</span></p>
   <p class="explain">Your contribution, <b>${nn(hs.length, 'house', 'houses')}</b> (${c.done} + ${c.part} + ${c.new}). Click a card or the bar to list them.<span class="back"><a href="#lsb-board" data-lb="show" data-show="all">Show all ${hs.length} houses again</a></span></p>
-  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier reached</b> = every tier reached by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Undecided” is used only for a house no faction has the favor of yet, in the “Houses pledged to each faction” line below.</p>`)}
-  <div class="facts grid"><span>Houses pledged to each faction: ${byFac}</span><span>Tiers reached: <b>${c.tiers}</b> of <b>${c.tierTotal}</b></span><span>Contributed in all: <b>${lbF(c.total)}</b></span></div></section>`;
+  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier earned</b> = every tier earned by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Undecided” is used only for a house no faction has the favor of yet, in the “Houses pledged to each faction” line below.</p>`)}
+  <div class="facts grid"><span>Houses pledged to each faction: ${byFac}</span><span>Tiers earned: <b>${c.tiers}</b> of <b>${c.tierTotal}</b></span><span>Contributed in all: <b>${lbF(c.total)}</b></span></div></section>`;
 }
 function lbHistory(l) {
   const e = l.earlier_terms || [], tm = l.terms || [];
@@ -2373,7 +2374,7 @@ function lbTerm(l) {
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
-  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b></div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b></div><div><span class="mut">Reigning faction</span><b>${rfName}</b></div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn" data-next="${nx.kind}" title="${nx.tip}">${nx.text}</span>`}${decreeUnsure(e)}</div></div>
+  <div class="tkv"><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b></div><div><span class="mut">Reigning faction</span><b>${rfName}</b></div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn" data-next="${nx.kind}" title="${nx.tip}">${nx.text}</span>`}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
     <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${lbDecreeOptions(l, sel).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf" title="Any faction can be chosen.">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select></label>
@@ -2494,7 +2495,7 @@ function lbInner(l) {
     <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: no place is known for any house"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">Group by region is off: it needs a place for the houses.</span>` : ''}</span>
     <span><span class="lbl">Rows</span><button type="button" class="btnr" data-lb="expand">Expand all</button> <button type="button" class="btnr" data-lb="collapse">Collapse all</button></span>
     <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
-    <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
+    <span class="shown vh" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
   </div>
   ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place in the editor yet, so the Place column says “not mapped yet” and the houses cannot be grouped by region.</p>` : ''}
   ${lbActbar(hs, l)}
@@ -2913,7 +2914,7 @@ function lbApply() {
       const g = document.createElement('li');
       g.className = 'grp';
       const t = document.createElement('h4');
-      t.textContent = (h.region || 'Region unknown') + ' ';
+      t.textContent = (h.region || 'Place unknown') + ' ';
       const n = document.createElement('em');
       n.textContent = String(count.get(h.region));
       t.appendChild(n);

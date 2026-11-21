@@ -43,7 +43,8 @@ test('the panel is closed, its heading line names the term, the reigning faction
   assert.ok(d && !d.open, 'closed by default');
   assert.equal(text(d.querySelector('summary')), 'Term and decrees Term 10 · Harkonnen · Exclusive Vehicle Import Rights');
   const kv = text(d.querySelector('.tkv'));
-  assert.ok(kv.includes('Term10') && kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeExclusive Vehicle Import Rights') && kv.includes(`Next term's decreeThe Right of Salvage`), kv);
+  assert.ok(!kv.includes('Term10') && !kv.startsWith('Term'), 'no Term tile: the heading line of the panel says the term (#1100)');
+  assert.ok(kv.includes('Reigning factionHarkonnen') && kv.includes('Active decreeExclusive Vehicle Import Rights') && kv.includes(`Next term's decreeThe Right of Salvage`), kv);
   assert.ok(!kv.includes('SpecialVendorActive') && !kv.includes('DropInventoryOnDefeatActive'), 'the facts show no game id (#1040)');
   assert.ok(!ui.doc.querySelector('.lsb-prev'), 'the old section of previous controls is gone');
   // the term's time is one value, Ends in, never seconds (#981); with no play clock in this answer it is not known

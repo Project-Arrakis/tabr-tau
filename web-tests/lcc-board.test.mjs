@@ -330,7 +330,7 @@ test('the list: House name A to Z by default (#953), sortable by every column bo
   assert.equal(ui.doc.querySelector('th[aria-sort="descending"]').textContent.trim().startsWith('House'), true);
   click(ui, '[data-lk="fbtn"]'); click(ui, '[data-lk="cat"][data-cat="group"]'); click(ui, '[data-lk="gpick"][data-val="region"]'); // Group is in the Filter menu now (tau #974)
   const heads = [...ui.doc.querySelectorAll('.lcc-bd-grouprow th')].map((h) => text(h));
-  assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Region unknown · 22']);
+  assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Place unknown · 22']);
   assert.equal(ui.doc.querySelector('.lcc-bd-list').getAttribute('role'), null, 'a real table, not a pile of divs');
   assert.ok(ui.doc.querySelector('.lcc-bd-list caption'));
 });
@@ -420,7 +420,7 @@ test('the card count reads N/5 EARNED with a tooltip, and no card or board count
   assert.match(b.getAttribute('title'), /^Reward tiers of yours earned in this House: 3 of 5\./);
   for (const c of ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')) { // #1078: every card's line is the one figure, never a count line under it
     assert.equal(c.querySelectorAll('.lcc-hc-q').length, 0, 'no count line under the figure');
-    assert.match(text(c.querySelector('.lcc-hc-count')), /^(\d\/\d EARNED|NO TIERS IN THE SAVE|Pledged - no tier record in the save)$/);
+    assert.match(text(c.querySelector('.lcc-hc-count')), /^(\d\/\d EARNED|NO TIERS|Pledged - no tier record in the save)$/);
   }
   for (const c of ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')) {
     assert.doesNotMatch(text(c.querySelector('.lcc-hc-count')), /REACHED/i, 'card count');

@@ -1,4 +1,4 @@
-// The Specialization tab picks a track by its name (#708, slice 1). When every track has a number, the page has no Track numbers section and no box asking for a number, and the
+// The Specialization tab picks a track by its name (#708, slice 1). When every track has a number, the page has no Specialization numbers section and no box asking for a number, and the
 // raw-row form is a dropdown of names that sends the number behind the chosen name. A save whose numbers cannot be told keeps the assignment card as a small fallback.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,13 +21,13 @@ async function open(ui) {
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
 }
 
-test('all five numbers known: no Track numbers section, no box asking for a number, no note about missing numbers', async () => {
+test('all five numbers known: no Specialization numbers section, no box asking for a number, no note about missing numbers', async () => {
   const ui = await boot({ get: { '/api/player/specs': specs() } });
   await open(ui);
   const page = ui.doc.querySelector('#main');
   assert.ok(page.textContent.includes('Specializations'), 'the tab itself is drawn');
   const heads = [...page.querySelectorAll('h3')].map((h) => h.textContent.trim());
-  assert.ok(!heads.includes('Advanced: track numbers'), 'no Track numbers heading: ' + heads);
+  assert.ok(!heads.includes('Advanced: specialization numbers'), 'no Specialization numbers heading: ' + heads);
   assert.equal(page.querySelector('#spmt'), null);
   assert.equal(page.querySelector('#spmn'), null);
   assert.equal(page.querySelector('[data-act="spAssignHand"]'), null);
@@ -65,7 +65,7 @@ test('a save whose numbers cannot be told keeps the assignment card, and the raw
   await open(ui);
   const page = ui.doc.querySelector('#main');
   const heads = [...page.querySelectorAll('h3')].map((h) => h.textContent.trim());
-  assert.ok(heads.includes('Advanced: track numbers'), 'the fallback is drawn: ' + heads);
+  assert.ok(heads.includes('Advanced: specialization numbers'), 'the fallback is drawn: ' + heads);
   assert.ok(page.querySelector('#spmt') && page.querySelector('#spmn') && page.querySelector('[data-act="spAssignHand"]'));
   assert.ok(page.textContent.includes("Known a track's number already?"));
   assert.deepEqual([...ui.doc.querySelector('#st').options].map((o) => o.textContent.trim()), ['Combat', 'Crafting']);
@@ -76,7 +76,7 @@ test('no track has a number: the dead-end note and the assignment card are drawn
   await open(ui);
   const page = ui.doc.querySelector('#main');
   assert.ok(page.querySelector('#spnone'));
-  assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: track numbers'));
+  assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'));
   assert.equal(page.querySelector('#st'), null);
   assert.equal(page.querySelector('[data-act="specSet"]'), null);
 });
@@ -84,19 +84,19 @@ test('no track has a number: the dead-end note and the assignment card are drawn
 // ---- #853: a number assigned by hand that is not the game's own must stay correctable ----
 const withNumbers = (nums, unassigned = []) => ({ ...specs(), rows: TRACKS.map((track) => ({ track, number: nums[track], xp: 500, level: 3, keystoneOwned: 0, keystoneTotal: 2, granted: false })), unassigned });
 
-test('every track has a number and every number is the game\'s own: no Track numbers card, even when the save holds a row no track has', async () => {
+test('every track has a number and every number is the game\'s own: no Specialization numbers card, even when the save holds a row no track has', async () => {
   const ui = await boot({ get: { '/api/player/specs': withNumbers(NUMBERS, [{ number: 9, xp: 750, level: 6 }]) } });
   await open(ui);
   const page = ui.doc.querySelector('#main');
-  assert.ok(![...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: track numbers'));
+  assert.ok(![...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'));
   assert.equal(page.querySelector('#spmt'), null);
 });
 
-test('a number assigned by hand that is not the game\'s own (Combat = 9) brings the Track numbers card back, with the hand box and the assigned list', async () => {
+test('a number assigned by hand that is not the game\'s own (Combat = 9) brings the Specialization numbers card back, with the hand box and the assigned list', async () => {
   const ui = await boot({ get: { '/api/player/specs': withNumbers({ ...NUMBERS, Combat: 9 }, [{ number: 4, xp: 750, level: 6 }]) }, post: { '/api/player/specs/assign': { ok: true } } });
   await open(ui);
   const page = ui.doc.querySelector('#main');
-  assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: track numbers'), 'the card is drawn');
+  assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'), 'the card is drawn');
   assert.ok(page.textContent.includes('Combat = 9'), 'the list of assigned numbers shows the wrong one');
   ui.doc.querySelector('#spmt').value = 'Combat'; ui.doc.querySelector('#spmn').value = '4';
   ui.click('[data-act="spAssignHand"]'); await ui.settle();
@@ -106,7 +106,7 @@ test('a number assigned by hand that is not the game\'s own (Combat = 9) brings 
 test('a full swap of two numbers (Combat = 1, Crafting = 4) shows the card too', async () => {
   const ui = await boot({ get: { '/api/player/specs': withNumbers({ ...NUMBERS, Combat: 1, Crafting: 4 }) } });
   await open(ui);
-  assert.ok([...ui.doc.querySelectorAll('#main h3')].some((h) => h.textContent.trim() === 'Advanced: track numbers'));
+  assert.ok([...ui.doc.querySelectorAll('#main h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'));
 });
 
 test('the numbers the page counts as the game\'s own are the measured numbers of the Go code, and the card says how to clear a clash', async () => {

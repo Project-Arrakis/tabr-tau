@@ -66,7 +66,7 @@ test('Classic: the Advanced cards are marked, and are the only places that still
   const ui = await openSpec({ 'spec.view': 'classic' }, SPECS('conflicting-learned-number-leaves-combat-unresolved'));
   const adv = [...ui.doc.querySelectorAll('#main [data-advanced]')];
   assert.equal(adv.length, 2, 'the track-number card and the raw row card');
-  assert.deepEqual(adv.map((a) => text(a.querySelector('h3, summary'))), ['Advanced: track numbers', 'Advanced: set a raw row']);
+  assert.deepEqual(adv.map((a) => text(a.querySelector('h3, summary'))), ['Advanced: specialization numbers', 'Advanced: set a raw row']);
   const all = text(ui.doc.querySelector('#main'));
   assert.match(all, /cannot match this specialization yet: see Advanced below/, 'the pointer to the numbers does not say "track"');
 });
