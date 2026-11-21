@@ -859,6 +859,9 @@ func (s *Server) routes() {
 				pv["room"] = room // the experience each track still has room for, so the line before the click does not overstate near the last level (#762)
 			}
 			m["grant"] = pv
+			if lv := o.SpecLevels(g); lv != nil {
+				m["specialization_levels"] = lv // the character's level on each specialization line, read only, so the board shows Level N without the Specializations tab (#1108)
+			}
 		}
 		return v, err
 	})

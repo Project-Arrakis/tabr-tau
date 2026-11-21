@@ -39,7 +39,7 @@ The write wrapper `postMaxAfter` (lines 515-545; `outcomeWritten` and `outcomeQu
 
 | Method and path | Registered at | Handler | Reads / writes |
 |---|---|---|---|
-| GET `/api/landsraad` | `server.go` 843-855 | `Ops.Landsraad`, then `grant` (`GrantSettings.Preview`, with `room` from `Ops.SpecRoom`) is added | read |
+| GET `/api/landsraad` | `server.go` 843-855 | `Ops.Landsraad`, then `grant` (`GrantSettings.Preview`, with `room` from `Ops.SpecRoom`) is added, then `specialization_levels` (`Ops.SpecLevels`, read only, #1108) | read |
 | POST `/api/landsraad/apply` | 857 | `Ops.LandsraadApplyWith(grantSettings(), a)` | save write |
 | POST `/api/landsraad/decree` | 858 | `Ops.SetDecree` | save write |
 | POST `/api/landsraad/term` | 859 | `Ops.SetTerm` | save write |
