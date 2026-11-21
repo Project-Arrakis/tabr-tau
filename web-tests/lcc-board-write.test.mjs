@@ -4,7 +4,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
-import { synthetic } from './lcc-fixture.mjs';
+import { synthetic, questionText } from './lcc-fixture.mjs';
 
 afterEach(closeAll);
 
@@ -209,7 +209,7 @@ test('Complete on a House another faction took asks first, names the faction who
   assert.equal(writes(ui).length, 0, 'nothing is written before the answer');
   const q = ui.doc.querySelector('#lsb-confirm');
   assert.ok(q, 'the question is asked');
-  assert.match(text(q.querySelector('b')), /^Complete House Vernius for Atreides\? Replaces the win of Harkonnen on House Vernius\. Written at once, with a backup first\.$/);
+  assert.match(questionText(ui.doc), /^Complete House Vernius for Atreides\? Replaces the win of Harkonnen on House Vernius\. Written at once, with a backup first\.$/);
   assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'c-no', 'the safe answer has the focus');
   click(ui, '[data-fk="c-no"]');
   await ui.settle();
@@ -242,7 +242,7 @@ test('several Houses: the question names them, the faction and how many change, 
   await ui.settle();
   const q = ui.doc.querySelector('#lsb-confirm');
   assert.ok(q);
-  const t = text(q.querySelector('b'));
+  const t = questionText(ui.doc);
   assert.match(t, /^Complete 3 houses for Atreides\?/);
   for (const n of names) assert.ok(t.includes(n), n + ' is named in: ' + t);
   assert.match(t, /Written at once, with a backup first\.$/);
@@ -260,7 +260,7 @@ test('several Houses: Houses that would not change are left out and the question
   // Vernius is taken by Harkonnen (Complete replaces that win), Tseida is already Atreides's (nothing to change)
   for (const n of ['Vernius', 'Tseida', 'Sor']) { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
   click(ui, '[data-fk="b-complete"]');
-  const t = text(ui.doc.querySelector('#lsb-confirm b'));
+  const t = questionText(ui.doc);
   assert.match(t, /^Complete 2 houses for Atreides\?/);
   assert.match(t, /Replaces the win of Harkonnen on House Vernius\./);
   assert.match(t, /1 other chosen house is left alone: nothing to change for it\./);
@@ -420,7 +420,7 @@ test('a House in the choice that the board no longer shows is dropped when a bul
   ui.w.LCC_HOST.picks().add(ver); // a stale choice: the filter below does not tell the page's choice list
   ui.w.LCCB.state.hs = 'open';
   click(ui, '[data-fk="b-fill"]');
-  const q = text(ui.doc.querySelector('#lsb-confirm b'));
+  const q = questionText(ui.doc);
   assert.match(q, /^Fill 2 houses?/);
   assert.ok(q.includes('Sor') && q.includes('Kenola') && !q.includes('Vernius'), q);
   click(ui, '[data-fk="c-yes"]');
@@ -447,7 +447,7 @@ test('Yes does not write a House that the board stopped showing after the questi
   const sor = idOf(a, 'Sor'), ver = idOf(a, 'Vernius');
   tick(ui, sor); tick(ui, ver);
   click(ui, '[data-fk="b-complete"]');
-  assert.match(text(ui.doc.querySelector('#lsb-confirm b')), /^Complete 2 houses/);
+  assert.match(questionText(ui.doc), /^Complete 2 houses/);
   ui.w.LCCB.state.hs = 'open'; // the filter changed without the page being told: Vernius is not shown now
   click(ui, '[data-fk="c-yes"]');
   await ui.settle();
@@ -456,14 +456,14 @@ test('Yes does not write a House that the board stopped showing after the questi
   // #1019: not a pass by sending nothing: the first Yes only asks again (count as it is now) and writes nothing; the second Yes writes the House that is shown
   assert.equal(sent.length, 0, 'the first Yes writes nothing: ' + sent);
   assert.match(toastText(ui), /The houses changed since the question was asked/);
-  assert.match(text(ui.doc.querySelector('#lsb-confirm b')), /^Complete 1 house/);
+  assert.match(questionText(ui.doc), /^Complete 1 house/);
   click(ui, '[data-fk="c-yes"]');
   await ui.settle();
   const sent2 = writes(ui).flatMap((w) => w.body.houses.map((h) => h.task_id));
   assert.deepEqual(sent2, [sor], 'the second Yes writes the House that is shown, and only it');
 });
 
-// #1019: after a write and the re-read the choice is pruned against what the board shows, so "N chosen" and the phone bar never count a dimmed House.
+// #1019: after a write and the re-read the choice is pruned against what the board shows, so "N chosen" and the action bar never count a dimmed House.
 test('after a re-read the choice drops a House the board does not show, and the count follows (#1019)', async () => {
   const ui = await open('board');
   const a = synthetic();
@@ -473,5 +473,5 @@ test('after a re-read the choice drops a House the board does not show, and the 
   ui.w.LCCB.state.hs = 'open'; // the filter changed without the page being told (what a write that takes Vernius out of the open Houses amounts to)
   await ui.w.landsraadView(); await ui.settle();
   assert.deepEqual([...ui.w.LCC_HOST.picks()], [sor], 'Vernius is not shown now, so it is not chosen');
-  assert.match(text(ui.doc.querySelector('#lsb-phonebar .pn')), /^1 chosen/);
+  assert.equal(text(ui.doc.querySelector('.lcc-k-cmd [data-lk="n"]')), '1', 'the count of the action bar follows (the old phone bar is gone, tau #974)');
 });

@@ -3003,8 +3003,9 @@ function lbRevealHouse(id) {
 }
 // After a filter of the board changes: a house the filter leaves out is no longer chosen for the actions on several houses (what is not shown is never written), and a question that named it closes.
 function lbBoardFiltered(ids) {
-  // a House the filters hide stays in the choice (the strip says how many are not shown) but is never counted and never written: lbDropHidden takes it out at the write (#881). A question that names a House now hidden is closed as stale.
-  if (LP.confirm && !LP.confirm.one && LP.confirm.ids.some((id) => !ids.has(id))) lbCloseStale();
+  let dropped = false;
+  for (const id of [...LP.pick]) if (!ids.has(id)) { LP.pick.delete(id); if (LP.confirm && !LP.confirm.one && LP.confirm.ids.includes(id)) dropped = true; }
+  if (dropped) lbCloseStale();
   lbSumNow();
 }
 // What the Inspector of the board shows and says for one house: the same words and the same on/off as the opened row of the classic list (lbQa, lbTierTip, lbGrantOf), for the faction chosen.

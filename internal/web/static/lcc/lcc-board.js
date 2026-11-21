@@ -1231,7 +1231,10 @@
       container.addEventListener('keydown', (e) => { if (e.key === 'Escape') tipHide(); ctlKey(e); });
       container.addEventListener('input', ctlInput); container.addEventListener('focusout', leaving);
       container.addEventListener('focusin', (e) => { const b = e.target; if (b && b.classList && b.classList.contains('lcc-bd-pick')) { ui.rove = b.getAttribute('data-id'); rove(); } });
-      root.document.addEventListener('click', outside); root.addEventListener('scroll', () => { stuckSync(); if (ui.menu || ui.find) placeAll(); }, { passive: true }); let wasPhone = phone(); root.addEventListener('resize', () => { if (phone() !== wasPhone) { wasPhone = phone(); redraw(); return; } layersSync(); placeAll(); });
+      if (!root.__lccBdGlobals) { // the page and the window get these listeners once, not once per container: a tab switch builds a new container, and the handlers read the board that is mounted now (last)
+        root.__lccBdGlobals = true;
+        root.document.addEventListener('click', outside); root.addEventListener('scroll', () => { stuckSync(); if (ui.menu || ui.find) placeAll(); }, { passive: true }); let wasPhone = phone(); root.addEventListener('resize', () => { if (phone() !== wasPhone) { wasPhone = phone(); redraw(); return; } layersSync(); placeAll(); });
+      }
       container.addEventListener('click', tipHide, true);
       container.addEventListener('click', onClick); container.addEventListener('change', onChange);
       container.addEventListener('scroll', onScroll, true); container.addEventListener('toggle', onToggle, true); // neither event bubbles

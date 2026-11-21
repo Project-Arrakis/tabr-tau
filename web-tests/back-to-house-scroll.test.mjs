@@ -106,14 +106,16 @@ test('#1072: a visit by the tabs is not scrolled to the House again, and starts 
   assert.ok(log.some((e) => e[0] === 'top'), 'and is moved to the top');
 });
 
-test('#1072: the Jump to House box still scrolls, and the place link of a House still opens the Saved map without scrolling to a card', async () => {
+test('#1072: Find House (the jump of the control area, tau #974) still scrolls to the card once, and the place link of a House still opens the Saved map without scrolling to a card', async () => {
   const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' });
-  const sel = ui.doc.querySelector('[data-lcb="jump"]');
-  assert.ok(sel, 'the Jump to House box');
+  assert.ok(ui.doc.querySelector('[data-lk="findbtn"]'), 'the Find House key');
   log.length = 0;
-  sel.value = String(id); sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  assert.equal(log.filter((e) => e[0] === 'into').length, 1, 'Jump to House scrolls to the card once');
+  click(ui, '[data-lk="findbtn"]');
+  click(ui, '[data-lk="fpick"][data-id="' + id + '"]');
+  assert.equal(log.filter((e) => e[0] === 'into').length, 1, 'Find House scrolls to the card once');
+  assert.equal(where(log.find((e) => e[0] === 'into')[1]), 'board-card', 'the card is what is scrolled to');
+  click(ui, '[data-fk="ht:' + id + '"]'); await ui.settle(); // Find House opens no panel and ticks nothing: the House is chosen as before, by its card
   click(ui, '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#lmhouse'), 'the Saved map shows the House');
-  assert.equal(log.filter((e) => e[0] === 'into' && e[1].closest && e[1].closest('.lcc-bd-cell, .hr')).length, 1, 'only the jump scrolled to a card; the link to the map did not');
+  assert.equal(log.filter((e) => e[0] === 'into' && e[1].closest && e[1].closest('.lcc-bd-cell, .hr')).length, 1, 'only Find House scrolled to a card; the link to the map did not');
 });

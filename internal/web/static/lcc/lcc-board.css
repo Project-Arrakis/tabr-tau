@@ -1013,6 +1013,11 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-k-e6 .lcc-k-qbtn { flex: 1 1 100%; }
   .lcc-k-e6 .lcc-k-qbtn .lcc-k-btn { flex: 1 1 0; }
 }
+/* the narrowest phones (320 px): the filter row was 12 px wider than the window, so the label of Choose shown takes two short lines there */
+@media (max-width: 380px) {
+  .lcc-k-e6 .lcc-k-lens > .lcc-k-cg { flex: 0 1 auto; min-width: 0; }
+  .lcc-k-e6 .lcc-k-cg .lcc-k-link { white-space: normal; text-align: right; line-height: 1.15; max-width: 6.5em; min-width: 0; }
+}
 
 /* ---- the control area as built in the app (tau #974): what the mock did with its own page frame is done here for the board's panel ---- */
 .lcc-bd-panel.lcc-k-page { container-name: kA; }

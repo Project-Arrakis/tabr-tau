@@ -148,19 +148,28 @@ test('the outline of Find House is an outline only (no motion) and goes after 1.
   assert.doesNotMatch(CSS.match(/\.lcc-bd-cell\.lcc-k-flash[^{]*\{[^}]*\}/g).join(''), /animation|transition/);
 });
 
-test('the count says how many chosen Houses are not shown, and they are not acted on', async () => {
+test('a filter picked in the menu drops the chosen Houses it hides (the rule of #881 and #1019); a stale choice the page was not told about is counted as not shown and is not acted on', async () => {
   const ui = await open();
   tick(ui, 3);
   const p = panel(ui);
   assert.equal(text(p.querySelector('.lcc-k-cmd [data-lk="n"]')), '3');
-  // a filter that hides some of the chosen Houses: the chosen and shown count drops, the rest is said as not shown
+  // a filter picked in the Filter menu: the Houses it hides leave the choice, so the count is the Houses that are chosen and shown
   click(ui, '[data-lk="fbtn"]');
   click(ui, '[data-lcb="filter"][data-key="hs"][data-val="taken"]');
+  const left = [...ui.doc.querySelectorAll('.lcc-bd-pick:checked:not(:disabled)')].length;
+  assert.ok(left < 3, 'the filter hid none of the chosen Houses; the test needs a filter that does');
+  assert.equal(ui.w.LCC_HOST.picks().size, left, 'a hidden House is out of the choice');
   done(ui);
-  const label = text(p.querySelector('.lcc-k-strip'));
-  const hidden = 3 - [...ui.doc.querySelectorAll('.lcc-bd-pick:checked:not(:disabled)')].length;
-  assert.ok(hidden > 0, 'the filter hid none of the chosen Houses; the test needs a filter that does');
-  assert.match(label + ' ' + text(ui.doc.querySelector('.lcc-k-cmd')), new RegExp(hidden + ' (chosen, )?not shown'));
+  // a choice the page was not told about (the filter changed behind its back): the strip says how many are not shown and the count holds only the shown ones
+  const ui2 = await open();
+  tick(ui2, 3);
+  ui2.w.LCCB.state.hs = 'taken';
+  ui2.w.LCCB.redraw();
+  const shown = [...ui2.doc.querySelectorAll('.lcc-bd-pick:checked:not(:disabled)')].length;
+  const hidden = ui2.w.LCC_HOST.picks().size - shown;
+  assert.ok(hidden > 0, 'the filter hid none of the stale choice');
+  assert.equal(text(panel(ui2).querySelector('.lcc-k-cmd [data-lk="n"]')), String(shown), 'only the Houses that are chosen and shown are counted');
+  assert.match(text(panel(ui2).querySelector('.lcc-k-strip')), new RegExp(hidden + ' (chosen, )?not shown'));
 });
 
 test('25 squares are one tab stop; the arrow keys move it', async () => {
@@ -205,4 +214,8 @@ test('style: the phone has a sticky filter row of about 56 px and an action bar 
   assert.match(CSS, /a phone: the sticky part is one 56 px row/);
   assert.match(CSS, /\.lcc-k-e6 \.lcc-k-tray-out \{[^}]*margin-top/);
   assert.match(CSS, /\.lcc-k-e6 \.lcc-k-strip \{ top: calc\(var\(--hdr-h, 56px\)/);
+});
+
+test('style: at 320 px the filter row fits the window (the label of Choose shown takes two short lines under 380 px)', () => {
+  assert.match(CSS, /@media \(max-width: 380px\) \{\s*\.lcc-k-e6 \.lcc-k-lens > \.lcc-k-cg \{ flex: 0 1 auto; min-width: 0; \}\s*\.lcc-k-e6 \.lcc-k-cg \.lcc-k-link \{ white-space: normal;/);
 });

@@ -294,7 +294,7 @@ test('fifty tab switches and fifty House jumps leave no new timer, no new listen
   });
   await ui.settle();
   const nodes = () => ui.doc.getElementsByTagName('*').length;
-  const jump = async (i) => { const s = ui.doc.querySelector('[data-lcb="jump"]'); const opts = [...s.options].filter((o) => o.value !== ''); s.value = opts[i % opts.length].value; s.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle(); };
+  const jump = async (i) => { click(ui, '[data-lk="findbtn"]'); const opts = [...ui.doc.querySelectorAll('[data-lk="fpick"]')]; click(ui, opts[i % opts.length]); await ui.settle(); }; // Find House (tau #974) is the jump of the board now
   const cycle = async (i) => {
     click(ui, '[data-tab="player"]'); await ui.settle();
     click(ui, '[data-sub="player:specialization"]'); await ui.settle();
