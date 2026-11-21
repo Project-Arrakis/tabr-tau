@@ -23,7 +23,7 @@ Every change asks first, is written after a backup, and says whether it was save
 
 ## Associated Houses
 
-The Houses listed under a specialization come from a public community tracker, not from the game or the save: treat them as a reference. Choosing a House opens it on the Landsraad board for this visit only: the view you chose on the Landsraad tab is not changed, and the View switch there takes you back. Nothing is written.
+The Houses listed under a specialization come from a public community tracker, not from the game or the save: treat them as a reference. Choosing a House opens it on the Landsraad board for this visit only: the Landsraad tab itself is not changed. Nothing is written.
 
 ## A specialization the save does not tie to its XP
 
