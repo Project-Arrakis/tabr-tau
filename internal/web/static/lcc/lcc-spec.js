@@ -306,7 +306,7 @@
     const s = el('section', 'lcc-sp-houses lcc-sp-surface', '', { 'aria-labelledby': 'lcs-hs-h' });
     add(s, el('p', 'lcc-sp-eyebrow', 'LANDSRAAD INTELLIGENCE'), el('h3', 'lcc-sp-h3', 'Associated Houses · ' + r.label, { id: 'lcs-hs-h', title: 'The Houses of this specialization, from a public community tracker, not from the game or the save: treat it as a reference. Choosing a House opens it on the Landsraad board; nothing is written.' }));
     const list = el('ul', 'lcc-sp-hlist', '', { role: 'list' });
-    if (r.houses === null) add(s, el('p', 'lcc-sp-note', 'The Landsraad of this save could not be read, so the Houses of this specialization are ' + NOT_IN_SAVE.toLowerCase() + '.'));
+    if (r.houses === null) add(s, el('p', 'lcc-sp-note', 'The Landsraad of this save could not be read, so the Houses of this specialization are not shown.'));
     else if (!r.houses.length) add(s, el('p', 'lcc-sp-note', 'No House of this term is listed under this specialization.'));
     else {
       for (const h of r.houses) {

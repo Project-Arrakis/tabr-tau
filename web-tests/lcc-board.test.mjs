@@ -420,7 +420,7 @@ test('the card count reads N/5 EARNED with a tooltip, and no card or board count
   assert.match(b.getAttribute('title'), /^Reward tiers of yours earned in this House: 3 of 5\./);
   for (const c of ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')) { // #1078: every card's line is the one figure, never a count line under it
     assert.equal(c.querySelectorAll('.lcc-hc-q').length, 0, 'no count line under the figure');
-    assert.match(text(c.querySelector('.lcc-hc-count')), /^(\d\/\d EARNED|NO TIERS IN THE SAVE|Pledged - no tier record in the save)$/);
+    assert.match(text(c.querySelector('.lcc-hc-count')), /^(\d\/\d EARNED|NO TIERS|Pledged - no tier record in the save)$/);
   }
   for (const c of ui.doc.querySelectorAll('.lcc-bd-cell .lcc-hc')) {
     assert.doesNotMatch(text(c.querySelector('.lcc-hc-count')), /REACHED/i, 'card count');

@@ -2166,8 +2166,8 @@ function lbRewardRow(h, t, i) {
 function lbListTips(h) {
   const n = h.tiers.length;
   return {
-    progress: (h.mine > 0 ? 'Your contribution: ' + lbF(h.mine) + '. ' : 'No contribution of yours recorded. ') + h.reached + ' of ' + n + ' tiers reached.',
-    tiers: n ? h.tiers.map((t, k) => 'Tier ' + (k + 1) + ', ' + lbF(t.th) + ': ' + lbRText(t) + ' (' + lbTierWord(t) + ')').join('\n') : 'No tiers in the save.',
+    progress: (h.mine > 0 ? 'Your contribution: ' + lbF(h.mine) + '. ' : 'No contribution of yours recorded. ') + h.reached + ' of ' + n + ' tiers earned.',
+    tiers: n ? h.tiers.map((t, k) => 'Tier ' + (k + 1) + ', ' + lbF(t.th) + ': ' + lbRText(t) + ' (' + lbTierWord(t) + ')').join('\n') : 'No reward tiers.',
     next: 'Next reward: ' + lbNextReward(h) + (h.tiers.some((t) => h.mine < t.th) ? ', ' + lbNextParts(h)[1] : '') + '.',
     waiting: h.tiers.some((t) => t.state === 'waiting') ? 'Not collected: ' + h.tiers.filter((t) => t.state === 'waiting').map(lbRText).join('; ') : 'Nothing waiting at the house representative.',
     // the same mouse-overs with the item pictures (#977): the rows of the reward mouse-over of the Command Center list, one per tier; a cell with no rows keeps its sentence
@@ -2181,17 +2181,18 @@ function lbListTips(h) {
 // the distance from the character to the house representative: the save holds the character's place in centimetres, and the house representative's marker its place, as a fraction of its map
 function lbFromYouText(h) {
   const c = h.loc.from_you_cm;
-  if (c == null) return 'not known (your character is on another map, or has no saved position)';
+  if (c == null) return 'not known';
   const m = Math.round(Number(c) / 100);
   return m >= 1000 ? `about ${(m / 1000).toFixed(1)} km` : `about ${m} m`;
 }
-const lbFromYou = (h) => (h.loc.from_you_cm == null ? html`<span class="mut">${lbFromYouText(h)}</span>` : lbFromYouText(h));
+const LB_FROM_YOU_WHY = 'Your character is on another map, or has no saved position.'; // the reason the distance is not known: the hover text, not the standing line
+const lbFromYou = (h) => (h.loc.from_you_cm == null ? html`<span class="mut" title="${LB_FROM_YOU_WHY}">${lbFromYouText(h)}</span>` : lbFromYouText(h));
 // The place line of a house as the Classic list says it and as the board's House Intelligence says it, one builder (#939): the words of the link, its accessible name and its mouse-over. hint is the mouse-over:
 // "Click the place to open the Saved map." or the reason the place cannot be opened.
 const lbLocAria = (h) => 'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbOnMap(h) ? 'Open in the Saved map' : lbLocWhy(h)) : 'not mapped yet. ' + lbNoMark);
 function lbLocModel(h) {
   if (!h.loc.known) return { known: false, onMap: false, area: 'Representative place not mapped yet', sub: '', hub: false, hint: lbNoMark, why: lbNoMark, aria: lbLocAria(h), from: '' };
-  return { known: true, onMap: lbOnMap(h), area: h.loc.area, sub: lbSub(h), hub: lbHub(h), hint: lbLocHint(h), why: lbLocWhy(h), aria: lbLocAria(h), from: lbHub(h) ? '' : lbFromYouText(h) };
+  return { known: true, onMap: lbOnMap(h), area: h.loc.area, sub: lbSub(h), hub: lbHub(h), hint: lbLocHint(h), why: lbLocWhy(h), aria: lbLocAria(h), from: lbHub(h) ? '' : lbFromYouText(h), fromWhy: !lbHub(h) && h.loc.from_you_cm == null ? LB_FROM_YOU_WHY : '' };
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;

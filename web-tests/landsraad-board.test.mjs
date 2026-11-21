@@ -318,7 +318,8 @@ test('the peek and the opened row give the distance from you in plain words; a c
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .loc > .pop')).includes('From youabout 2.8 km'), text(ui.doc.querySelector('#lsrow-900 .loc > .pop')));
   assert.ok(text(ui.doc.querySelector('#lsrow-900 .more')).includes('From youabout 2.8 km'));
   const far1 = text(ui.doc.querySelector('#lsrow-901 .more'));
-  assert.ok(far1.includes('From younot known (your character is on another map, or has no saved position)'), 'another map: no invented distance, in plain words: ' + far1);
+  assert.ok(far1.includes('From younot known') && !far1.includes('another map'), 'another map: no invented distance, and no long reason standing on the line: ' + far1);
+  assert.ok(ui.doc.querySelector('#lsrow-901 .more .mut[title*="another map"]'), 'the reason is the hover text of the figure');
   assert.ok(!/not worked out/.test(ui.doc.body.textContent), 'the old wording is gone');
   assert.ok(!text(ui.doc.querySelector('#lsrow-902 .more')).includes('From you'), 'a hub has no From you line');
   const calls = spyMap(ui);

@@ -225,7 +225,7 @@ test('the Houses of a path are buttons that open the House on the Landsraad boar
 
 test('with no Landsraad read the Houses are "Not in the save", and a path with no House says so', () => {
   const d = draw(byId('mixed-five-tracks'), null);
-  assert.match(txt(q(d, '.lcc-sp-houses')), /could not be read, so the Houses of this specialization are not in the save/);
+  assert.match(txt(q(d, '.lcc-sp-houses')), /could not be read, so the Houses of this specialization are not shown/);
   assert.equal(qa(d, '.lcc-sp-house').length, 0);
   assert.equal(qa(d, '.lcc-sp-fact').length, 0, 'no row of three fact tiles (#1053)');
   const e = draw(byId('mixed-five-tracks'), HOUSES, {}, 'sabotage');
