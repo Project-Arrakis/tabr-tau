@@ -44,7 +44,9 @@ export function assertClean(doc, label) {
       if (n === 'style' && tag === 'html' && /^(--(?:hdr|warn)-h:\s*\d+(\.\d+)?px;?\s*)+$/.test(a.value)) continue; // the header height the sticky banner sits below, and the room of the warning bars under it (#910), set by the page itself
       if (n === 'style' && /^(width:\s*\d+(\.\d+)?%;|--h:\s*\d+;|left:\s*\d+(\.\d+)?%;\s*top:\s*\d+(\.\d+)?%;)$/.test(a.value)) continue; // the Landsraad board's measured values (a bar's width, a house symbol's hue, a pin), set through the style object from numbers
       if (n === "style" && /^(--lcc-k-crest-[ah]:\s*url\("\/lcc\/art\/factions\/[a-z]+\.webp"\);?\s*)+$/.test(a.value)) continue; // the Command Center crest of a faction: a fixed same-origin picture, set through the style object (#1028)
-      if (tag === "img" && n === "src" && !/^\/lcc\/art\//.test(a.value)) bad.push(`img with a source outside the bundled art: ${a.value.slice(0, 60)}`);
+      const art = (v) => /^\/lcc\/art\/[A-Za-z0-9_\/.-]+$/.test(v) && !v.includes("//") && !v.includes(".."); // a bundled picture on the same origin: no host form, no climbing out of the folder
+      if (tag === "img" && n === "src" && !art(a.value)) bad.push(`img with a source outside the bundled art: ${a.value.slice(0, 60)}`);
+      if (tag === "image" && (n === "href" || n === "xlink:href") && !art(a.value)) bad.push(`svg image with a source outside the bundled art: ${a.value.slice(0, 60)}`);
       if (!(ATTRS.has(n) || n.startsWith('data-'))) bad.push(`unexpected attribute ${n} on <${tag}>`);
       if (/[<>"'=\s]/.test(n)) bad.push(`malformed attribute name ${JSON.stringify(n)}`);
     }
