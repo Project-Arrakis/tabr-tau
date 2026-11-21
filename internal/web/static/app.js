@@ -1862,7 +1862,7 @@ const LB_STL = { not_reached: 'not reached', waiting: 'earned, not collected (wa
 const lbF = (n) => Number(n).toLocaleString('en-US');
 const lbNameOf = (r) => String(r.house_name || '').replace(/^DA_House/, '');
 const LB_WAIT = 'A write is still running. Wait for it to finish, then click again.';
-const LB_REOPEN_TIP = 'Reopen this house: clears the completion and the faction that holds its favor. Progress and your contribution stay as they are, so the faction’s progress stays at the goal and a house that was taken by another faction is not given back to it.';
+const LB_REOPEN_TIP = 'Reopen this house: clears the completion and the faction that holds its favor. Progress and your contribution stay as they are, so the faction’s progress stays at the goal and a house that was taken by another faction is not given back to it. Reopen writes or removes no reward.';
 const crTipC = (fn) => `Complete for ${fn}: taken by ${fn}, progress to the goal`;
 // The small marks (save, derived) beside the headings of the Landsraad pages, and the table and field names in their tooltips, are gone (#1057): Help (The Landsraad board) says where the figures come from, once.
 function lbAbout(id, title, content) { return html`<details class="about" data-about="${id}" ${browserStore.get(aboutKey(id)) === '1' ? 'open' : ''}><summary>About ${title}</summary><div class="abt">${content}</div></details>`; }
