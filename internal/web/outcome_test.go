@@ -219,3 +219,79 @@ func TestEditRequestsAskForALongerWriteWindowThanTheServersDefault(t *testing.T)
 		t.Fatal("a read keeps the server's timeout")
 	}
 }
+
+// #826: a request that saw pending edits and then found them gone by the time of its flush (a repeat of a request that is still being written) gets the empty flush. That is
+// not a queue. It says "written" only when a write took the edits (the writes went up since the request began, no queue was thrown away), and nothing otherwise.
+func TestAnEmptyFlushIsWrittenOnlyWhenAWriteTookTheEdits(t *testing.T) {
+	queued := save.Flush{At: time.Now(), Queued: 1, Why: "the game is open"}
+	for _, c := range []struct {
+		name          string
+		f             save.Flush
+		before, after save.Marks
+		want          string
+	}{
+		{"a flush that left the edit waiting", queued, save.Marks{}, save.Marks{}, outcomeQueued},
+		{"a flush that wrote it", save.Flush{At: time.Now(), Saved: true}, save.Marks{}, save.Marks{Writes: 1}, outcomeWritten},
+		{"empty, and a write happened meanwhile", save.Flush{}, save.Marks{Writes: 3, Drops: 1}, save.Marks{Writes: 4, Drops: 1}, outcomeWritten},
+		{"empty, and no write happened", save.Flush{}, save.Marks{Writes: 3}, save.Marks{Writes: 3}, ""},
+		{"empty, and a queue was thrown away", save.Flush{}, save.Marks{Writes: 3}, save.Marks{Writes: 3, Drops: 1}, ""},
+		{"empty, a write and a discard both", save.Flush{}, save.Marks{Writes: 3}, save.Marks{Writes: 4, Drops: 1}, ""},
+	} {
+		if got := outcomeOfFlush(c.f, c.before, c.after); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// The reviewer's probe: an edit was written (so the last flush is a saved one), a second edit is pending, a discard drops it, and the flush that follows is empty. The old
+// reading took the earlier write for the second edit's.
+func TestADiscardedEditIsNotAnsweredWritten(t *testing.T) {
+	s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+	if _, err := s.Ops.AddSolari(map[string]any{"amount": 100.0}); err != nil {
+		t.Fatal(err)
+	}
+	if f := s.Save.Flush(); !f.Saved {
+		t.Fatalf("the first edit is written: %+v", f)
+	}
+	before := s.Save.Marks() // the start of the second request
+	if _, err := s.Ops.AddSolari(map[string]any{"amount": 200.0}); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Save.Dirty() {
+		t.Fatal("the second edit is pending")
+	}
+	if dropped, err := s.Save.DiscardReport(); err != nil || !dropped {
+		t.Fatalf("discard: %v %v", dropped, err)
+	}
+	f := s.Save.Flush()
+	if !f.At.IsZero() {
+		t.Fatalf("nothing is pending, so the flush is empty: %+v", f)
+	}
+	if got := outcomeOfFlush(f, before, s.Save.Marks()); got != "" {
+		t.Fatalf("a discarded edit is answered %q, want no outcome", got)
+	}
+}
+
+// The handler itself (#826): the edit is pending when the request looks, and another request writes it (or a discard takes it) before the request's own flush.
+func TestARouteWhoseEditWasWrittenOrDiscardedBeforeItsFlushAnswersAccordingly(t *testing.T) {
+	defer func() { afterDirtyCheck = nil }()
+	for _, c := range []struct {
+		name    string
+		between func(s *Server)
+		want    any
+	}{
+		{"written by another request", func(s *Server) { s.Save.Flush() }, "written"},
+		{"discarded by another request", func(s *Server) { _, _ = s.Save.DiscardReport() }, nil},
+	} {
+		s := New(testsave.Player(t), config.Dir{Path: t.TempDir()})
+		if _, err := s.Ops.AddSolari(map[string]any{"amount": 250.0}); err != nil { // the edit the other request made
+			t.Fatal(err)
+		}
+		afterDirtyCheck = func() { c.between(s) }
+		w := postEdit(t, s, "/api/save/restored/dismiss", `{}`) // a request that makes no edit of its own
+		afterDirtyCheck = nil
+		if m := decodeBody(t, w); w.Code != 200 || m["outcome"] != c.want {
+			t.Fatalf("%s: %d %s", c.name, w.Code, w.Body.String())
+		}
+	}
+}
