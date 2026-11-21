@@ -136,7 +136,7 @@
     const node = L().renderPlaque({ a, h, decree: shownDecree(host), holder: board.term ? board.term.reigning : null, contributors: { a: lines('a'), h: lines('h') }, win });
     for (const st of node.querySelectorAll ? node.querySelectorAll('.lcc-standard') : []) {
       const k = st.classList.contains('lcc-f-h') ? 'h' : 'a', hd = st.querySelector('.lcc-standard-h');
-      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' in the contribution rows of this term in the save, worked out here: the save holds amounts, not a ranking. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress that the save records without a contributor is not named here. ' + contribRank(cs[k]) + unnamedNote(cs[k], 3) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
+      if (hd) hd.setAttribute('title', cs[k].length ? 'The biggest contributors under ' + FACTION_WORD[k] + ' this term. The amounts are added up over all the Houses of the term, and equal amounts are listed by name, A to Z. Progress with no contributor recorded is not named here. ' + contribRank(cs[k]) + unnamedNote(cs[k], 3) : 'The save holds no contribution rows under ' + FACTION_WORD[k] + ' for the Houses of this term.');
     }
     return node;
   }

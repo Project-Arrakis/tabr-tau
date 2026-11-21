@@ -155,7 +155,8 @@ test('wording: the heading says how the ranking is made, gives the three whole, 
   const titles = [...ui.doc.querySelectorAll('.lcc-plaque .lcc-standard-h')].map((h) => h.getAttribute('title'));
   assert.equal(titles.length, 2);
   for (const t of titles) {
-    assert.match(t, /worked out here: the save holds amounts, not a ranking/);
+    assert.match(t, /^The biggest contributors under [A-Za-z]+ this term[.]/);
+    assert.doesNotMatch(t, /in the save|worked out here|rows/, 'plain words: no save or table talk (#1095)');
     assert.match(t, /added up over all the Houses of the term/);
     assert.match(t, /equal amounts are listed by name, A to Z/);
     assert.match(t, /Progress that the save records without a contributor is not named here/);
