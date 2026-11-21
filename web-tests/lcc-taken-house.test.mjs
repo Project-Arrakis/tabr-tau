@@ -5,6 +5,7 @@ import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import fs from 'node:fs';
 import { boot, closeAll } from './boot.mjs';
 import { synthetic } from './lcc-fixture.mjs';
 import { lccDir } from './lcc-load.mjs';
@@ -112,6 +113,14 @@ test('a taken House with no tier rows: the inspector says no tier record', async
   const i = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(text(i.querySelector('.lcc-bd-ledger-n')), 'PLEDGED · NO TIER RECORD');
   assert.match(text(i.querySelector('.lcc-bd-taken-note')), /is pledged to a faction, and the save holds no reward tiers for it/);
+});
+
+test('#1097: the tag of a House with no tier record stays on one line and goes under the heading when it does not fit beside it', () => {
+  const css = fs.readFileSync(path.join(lccDir, 'lcc-board.css'), 'utf8');
+  const rule = (sel) => { const at = css.split(/\r?\n/).find((l) => l.startsWith(sel + ' {')) || ''; return at.slice(at.indexOf('{'), at.indexOf('}') + 1); }; // the one line of the rule, found without building a pattern from text
+  assert.match(rule('.lcc-bd-ledger-n'), /white-space: nowrap/, 'the tag does not wrap inside itself');
+  assert.doesNotMatch(rule('.lcc-bd-ledger-n'), /overflow-wrap: anywhere/, 'and is not broken in the middle of a word');
+  assert.match(rule('.lcc-bd-ledger-head'), /flex-wrap: wrap/, 'the head lets the tag drop under the heading');
 });
 
 test('the contributors the save records are shown: on the banners and for the House, with a guild by its name', async () => {

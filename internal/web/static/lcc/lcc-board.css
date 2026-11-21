@@ -260,9 +260,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-pc strong { font: 700 22px/1.2 var(--lcc-serif); font-variant-numeric: tabular-nums; color: var(--lcc-text); }
 .lcc-bd-pc small { font: 700 10px/1.3 var(--lcc-sans); color: var(--lcc-dim); text-align: right; }
 .lcc-bd-ledger { margin-top: 22px; padding-top: 15px; border-top: 1px solid var(--lcc-stroke-faint); }
-.lcc-bd-ledger-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.lcc-bd-ledger-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 2px 8px; } /* the tag of a House with no tier record goes under the heading when it does not fit beside it, never wraps inside itself (#1097) */
 .lcc-bd-ledger-head .lcc-bd-sec-h { margin: 0; }
-.lcc-bd-ledger-n { font: 800 10px/1.3 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); white-space: normal; text-align: right; overflow-wrap: anywhere; }
+.lcc-bd-ledger-n { font: 800 10px/1.3 var(--lcc-sans); letter-spacing: .04em; color: var(--lcc-gold-text); white-space: nowrap; text-align: right; margin-left: auto; }
 /* The four counts are read-only figures, not controls and not tabs (#942): no box of their own, a hairline between them, the number larger than its caption, the caption with room on every side. Nothing here takes a click or a tab stop. */
 .lcc-bd-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin-top: 12px; border-top: 1px solid var(--lcc-stroke-faint); border-bottom: 1px solid var(--lcc-stroke-faint); }
 .lcc-bd-stat { min-height: 67px; box-sizing: border-box; border: 0; border-left: 1px solid var(--lcc-stroke-faint); background: none; padding: 10px 8px; text-align: center; display: flex; flex-direction: column; gap: 4px; justify-content: center; cursor: default; overflow-wrap: anywhere; }
