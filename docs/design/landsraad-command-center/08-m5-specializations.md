@@ -1,5 +1,7 @@
 # Command Center M5: the Specializations tab against the design reference
 
+> Note (2026-11-21, #1105): the Classic Specializations list and the view switch described below were retired. The Command Center view is now the only Specializations view and the default (see DECISIONS.md, section N). The two Advanced cards (specialization numbers, raw row) stay on the page under the view. Mentions of the classic list or its switch are the record of that milestone, not the current page.
+
 This note records what was built for milestone M5 and lists every visible element and behaviour of the approved Specializations view, where the editor stands now, and why anything is still different. Nothing was dropped without a row. The design reference is a visual mock-up kept outside this repository; the rows quote what it shows, so they can be read without it.
 
 Method: the design reference and the editor page were drawn side by side in a headless browser at 1600, 1280, 1024, 768, 390 and 320 px, dark and Dayside (light), with the same five tracks in both (Crafting at the XP cap with every keystone, Gathering with every keystone and no XP, Exploration at 100 XP, Combat at 12,345 XP with 7 of 41 keystones, Sabotage at 44,181 XP with 20 of 41). The editor page was fed the synthetic answers of M1 (`fixtures/api-player-specs.cases.json` and `fixtures/api-landsraad.synthetic.json`); no game save was used and nothing was checked in the game. The design reference is a layout reference only: its numbers are demonstration data, ours come from the save.

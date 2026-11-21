@@ -2,6 +2,8 @@
 
 > Note (2026-11-20, #1028): the Classic Landsraad list described below was retired. The Command Center board is now the only Landsraad view and the default (see DECISIONS.md, section M). Mentions of the classic list, its result line or its switch are the record of that milestone, not the current page.
 
+> Note (2026-11-21, #1105): the Classic Specializations list and the view switch described below were retired. The Command Center view is now the only Specializations view and the default (see DECISIONS.md, section N). The two Advanced cards (specialization numbers, raw row) stay on the page under the view. Mentions of the classic list or its switch are the record of that milestone, not the current page.
+
 
 This note is the acceptance document for the Landsraad and Specialization Command Center (issue #768, milestones M1 to M7). It says what was verified and how, what was not, which issues are open, and what the operator still has to check by hand. Nothing in it was checked in the game, on a real save or on a real phone.
 

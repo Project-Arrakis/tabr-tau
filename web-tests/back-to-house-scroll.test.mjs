@@ -86,7 +86,7 @@ test('#1072: and from the place cell of a row of the list layout', async () => {
 });
 
 test('#1072: Open House of a path on the Specializations page scrolls to the House on the board too (the same mechanism)', async () => {
-  const { ui, log, a } = await open({ tab: 'player', 'spec.view': 'cc', 'lsb.view': 'classic' }, { '/api/player/specs': SPECS() });
+  const { ui, log, a } = await open({ tab: 'player', 'lsb.view': 'classic' }, { '/api/player/specs': SPECS() });
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
   const house = a.tasks.find((t) => t.line === 'Crafting');
   log.length = 0;

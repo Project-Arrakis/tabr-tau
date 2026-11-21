@@ -1,6 +1,6 @@
-// #1061: one word for the thing on the Specialization page: "specialization". A player never reads "path" or "track" for it, in the Command Center view, in the Classic list, in the Landsraad
-// Inspector's link or in the Help. "Track" stays only in the Advanced cards of the Classic list (the track-number editor and the raw row), which name the save's own XP track numbers
-// (marked data-advanced). The Classic list and the Command Center say the same words where both have the thing. Real app.js and lcc scripts over the synthetic answers; no game save.
+// #1061: one word for the thing on the Specialization page: "specialization". A player never reads "path" or "track" for it, in the Command Center view, in the Landsraad
+// Inspector's link or in the Help. "Track" stays only in the Advanced cards under the view (the track-number editor and the raw row), which name the save's own XP track numbers
+// (marked data-advanced). The Classic list these words were first pinned against was retired (#1105). Real app.js and lcc scripts over the synthetic answers; no game save.
 //
 // The words of the confirmation questions and of the result lines are recorded in web-tests/lcc-spec-requests.golden.json (asked / said). The reset-all question, its typed sentence and its result line
 // say "specialization" (the golden file was re-recorded for them, #1061); the results of the two Advanced track-number editors still say "track number" (that card names the save's own numbers).
@@ -41,7 +41,7 @@ async function openSpec(local, specs) {
 
 test('Command Center Specializations: no "path" and no "track" in any text, tooltip or screen-reader label, for every lane chosen, in every state of the save', async () => {
   for (const id of ids.concat('no-numbers')) {
-    const ui = await openSpec({ 'spec.view': 'cc' }, id === 'no-numbers' ? noNumbers() : SPECS(id));
+    const ui = await openSpec({}, id === 'no-numbers' ? noNumbers() : SPECS(id));
     const root = ui.doc.querySelector('#lcs-root');
     assert.ok(root, id + ': the view is drawn');
     for (const lane of [...ui.doc.querySelectorAll('[data-lcs-lane]')].map((l) => l.getAttribute('data-lcs-lane'))) {
@@ -52,55 +52,40 @@ test('Command Center Specializations: no "path" and no "track" in any text, tool
   }
 });
 
-test('Classic Specializations: no "path" and no "track" outside the Advanced cards, with every number known, with a number missing, with a row of the save that no specialization owns, and with none known', async () => {
+test('The whole Specializations page: no "path" and no "track" outside the Advanced cards, with every number known, with a number missing, with a row of the save that no specialization owns, and with none known', async () => {
   for (const id of ['mixed-five-tracks', 'conflicting-learned-number-leaves-combat-unresolved', 'unassigned-row-number-9', 'no-numbers']) {
-    const ui = await openSpec({ 'spec.view': 'classic' }, id === 'no-numbers' ? noNumbers() : SPECS(id));
+    const ui = await openSpec({}, id === 'no-numbers' ? noNumbers() : SPECS(id));
     const page = ui.doc.querySelector('#main');
-    assert.ok(page.querySelector('table'), id + ': the Classic table is drawn');
+    assert.ok(page.querySelector('#lcs-root'), id + ': the Command Center view is drawn');
+    assert.equal(page.querySelector('table'), null, id + ': no Classic table');
     assert.deepEqual(offences(page), [], id);
     closeAll();
   }
 });
 
-test('Classic: the Advanced cards are marked, and are the only places that still say "track" (the track-number editor and the raw row)', async () => {
-  const ui = await openSpec({ 'spec.view': 'classic' }, SPECS('conflicting-learned-number-leaves-combat-unresolved'));
+test('The Advanced cards are marked, and are the only places that still say "track" (the track-number editor and the raw row)', async () => {
+  const ui = await openSpec({}, SPECS('conflicting-learned-number-leaves-combat-unresolved'));
   const adv = [...ui.doc.querySelectorAll('#main [data-advanced]')];
   assert.equal(adv.length, 2, 'the track-number card and the raw row card');
   assert.deepEqual(adv.map((a) => text(a.querySelector('h3, summary'))), ['Advanced: specialization numbers', 'Advanced: set a raw row']);
-  const all = text(ui.doc.querySelector('#main'));
-  assert.match(all, /cannot match this specialization yet: see Advanced below/, 'the pointer to the numbers does not say "track"');
 });
 
-test('Classic and Command Center say the same words for the same things', async () => {
-  const classic = await openSpec({ 'spec.view': 'classic' }, SPECS('unassigned-row-number-9'));
-  const cl = classic.doc.querySelector('#main');
-  const classicNames = [...cl.querySelectorAll('table tbody tr')].map((r) => text(r.cells[0]));
-  const classicHead = [...cl.querySelectorAll('table thead th')].map((h) => text(h));
-  assert.equal(classicHead[0], 'Specialization', 'the first column of the list');
-  const classicReset = text(cl.querySelector('[data-act="spResetAll"]'));
-  const classicLeft = text(cl.querySelector('#spresetleft'));
-  const classicSpecH = [...cl.querySelectorAll('h3.d-head')].map((h) => text(h)).find((t) => t === 'Specializations');
-  closeAll();
-  const cc = await openSpec({ 'spec.view': 'cc' }, SPECS('unassigned-row-number-9'));
+test('the Command Center says the words the Classic list said, where both had the thing', async () => {
+  const cc = await openSpec({}, SPECS('unassigned-row-number-9'));
   const root = cc.doc.querySelector('#lcs-root');
   const ccNames = [...root.querySelectorAll('.lcc-sp-lane-name')].map((n) => text(n).toLowerCase());
-  assert.deepEqual(classicNames.map((n) => n.toLowerCase()).sort(), ccNames.sort(), 'the same five names');
-  assert.equal(classicReset.toLowerCase(), text(root.querySelector('[data-act="spResetAll"]')).toLowerCase(), 'Reset XP of all known specializations (N)');
-  assert.match(classicReset, /^Reset XP of all known specializations \(\d+\)$/);
-  assert.ok(classicLeft && text(root).includes(classicLeft), 'the line about a specialization the editor cannot match yet is the same: ' + classicLeft);
-  assert.match(classicSpecH, /^Specializations$/);
-  assert.equal(text(root.querySelector('[data-act="spKeyAll"]')).toLowerCase(), text(cl.querySelector('[data-act="spKeyAll"]')).toLowerCase(), 'Grant all keystones');
+  assert.deepEqual(ccNames.sort(), ['combat', 'crafting', 'exploration', 'gathering', 'sabotage'], 'the same five names');
+  assert.match(text(root.querySelector('[data-act="spResetAll"]')), /^Reset XP of All Known Specializations \(\d+\)$/i);
+  assert.match(text(root), /the editor cannot match yet (is|are) left alone\./);
+  assert.match(text(root.querySelector('[data-act="spKeyAll"]')), /^Grant All Keystones$/i);
   closeAll();
-  const none = await openSpec({ 'spec.view': 'cc' }, noNumbers());
-  const noneC = await (async () => { const u = await boot({ get: { '/api/player/specs': noNumbers(), '/api/landsraad': synthetic() }, local: { tab: 'player', 'spec.view': 'classic' } }); u.click('[data-sub="player:specialization"]'); await u.settle(); return u; })();
+  const none = await openSpec({}, noNumbers());
   const off = text(none.doc.querySelector('#lcs-root .lcc-sp-hint, #lcs-root #lcs-resetnote'));
-  const offClassic = text(noneC.doc.querySelector('#spresetnote'));
-  assert.match(off, /^Nothing to reset: none of the specializations the editor can match has XP\./);
-  assert.match(offClassic, /^Nothing to reset: none of the specializations the editor can match has XP\.$/);
+  assert.match(off, /^Nothing to reset: none of the specializations the editor can match has XP./);
 });
 
 test('the fixed words of the Command Center page: the five specializations, choose a specialization, selected specialization, reset XP for this specialization, all specializations, complete', async () => {
-  const ui = await openSpec({ 'spec.view': 'cc' }, SPECS('both-complete'));
+  const ui = await openSpec({}, SPECS('both-complete'));
   const root = ui.doc.querySelector('#lcs-root');
   const all = text(root);
   for (const s of ['THE FIVE SPECIALIZATIONS OF ARRAKIS', 'CHOOSE A SPECIALIZATION', 'SELECTED SPECIALIZATION', 'THIS SPECIALIZATION', 'All Specializations', 'Reset XP of All Known Specializations', 'COMPLETE']) assert.ok(all.includes(s), s + ' in ' + all.slice(0, 400));

@@ -192,7 +192,7 @@ const STATES = {
   'board-list': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'list' }, root: '#lsb-lcc' },
   'board-inspector': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lsb-lcc', pre: '#lsb-lcc [data-fk^="ht:"]', after: `document.querySelector('#lsb-lcc [data-fk^="ht:"]').click()` },
   'term-section': { local: { tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' }, root: '#lcc-term', pre: '#lcc-tm-all', after: `document.querySelector('#lcc-tm-all').open = true` }, // on a phone the section is a closed disclosure (#933): the sweep opens it, so its text and controls are measured
-  'spec-cc': { local: { tab: 'player', 'spec.view': 'cc' }, root: '#lcs-root', pre: '[data-sub="player:specialization"]', after: `document.querySelector('[data-sub="player:specialization"]').click()` },
+  'spec-cc': { local: { tab: 'player' }, root: '#lcs-root', pre: '[data-sub="player:specialization"]', after: `document.querySelector('[data-sub="player:specialization"]').click()` },
 };
 const WIDTHS = [320, 390, 640, 768, 1024, 1280, 1600];
 const plan = [];

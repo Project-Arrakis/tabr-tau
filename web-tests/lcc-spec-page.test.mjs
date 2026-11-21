@@ -1,4 +1,4 @@
-// The Command Center view inside the page (M5): the switch between the two views, what each draws, the chosen path surviving a write and the redraw after it, the focus coming back, the House
+// The Command Center view inside the page (M5): the chosen path surviving a write and the redraw after it, the focus coming back, the House
 // links, and a Landsraad that cannot be read. Real page code with the synthetic answers of M1; no game save.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,56 +17,40 @@ async function open(local = {}, get = {}) {
   return ui;
 }
 
-test('the classic list is the default: its table and buttons are there, with a switch that offers the Command Center', async () => {
+test('the Command Center is the default and the only view: its lanes are drawn, with no Classic table, no Add XP row of a table and no view switch', async () => {
   const ui = await open();
-  assert.equal(ui.doc.querySelector('#lcs-root'), null);
-  assert.ok(ui.doc.querySelector('table'), 'the classic table');
-  assert.equal(ui.doc.querySelectorAll('[data-act="spAdd"]').length, 5);
-  const sw = ui.doc.querySelector('.lcc-sp-viewsw');
-  assert.ok(sw);
-  assert.equal(sw.getAttribute('role'), 'group');
-  assert.equal(sw.querySelector('[data-spview="classic"]').getAttribute('aria-pressed'), 'true');
-  assert.equal(sw.querySelector('[data-spview="cc"]').getAttribute('aria-pressed'), 'false');
-});
-
-test('the switch moves between the two views, remembers the choice, and the classic list comes back whole', async () => {
-  const ui = await open();
-  ui.click('[data-spview="cc"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#lcs-root'));
-  assert.equal(ui.doc.querySelector('[data-spview="cc"]').getAttribute('aria-pressed'), 'true');
-  assert.equal(ui.w.localStorage.getItem('spec.view'), 'cc');
   assert.equal(ui.doc.querySelectorAll('[data-lcs-lane]').length, 5);
-  assert.equal(ui.doc.querySelector('table'), null, 'the classic table is not drawn beside it');
-  ui.click('[data-spview="classic"]'); await ui.settle();
-  assert.equal(ui.doc.querySelector('#lcs-root'), null);
-  assert.equal(ui.doc.querySelectorAll('[data-act="spAdd"]').length, 5);
-  assert.equal(ui.w.localStorage.getItem('spec.view'), 'classic');
+  assert.equal(ui.doc.querySelector('table'), null, 'no Classic table');
+  assert.equal(ui.doc.querySelector('.lcc-sp-viewsw'), null);
+  assert.equal(ui.doc.querySelector('[data-spview]'), null);
+  assert.equal(ui.doc.querySelectorAll('[data-act="spAdd"]').length, 0, 'the Classic Add XP buttons are gone: the view draws spAddCC');
 });
 
-test('a stored choice of the Command Center opens it, and an unknown stored word opens the classic list', async () => {
-  const a = await open({ 'spec.view': 'cc' });
-  assert.ok(a.doc.querySelector('#lcs-root'));
-  closeAll();
-  const b = await open({ 'spec.view': '<script>' });
-  assert.equal(b.doc.querySelector('#lcs-root'), null);
+test('a view saved by an earlier version (spec.view) is dropped, whatever it held, and the Command Center opens without error', async () => {
+  for (const v of ['classic', 'cc', '<script>']) {
+    const ui = await open({ 'spec.view': v });
+    assert.ok(ui.doc.querySelector('#lcs-root'), 'the view for ' + v);
+    assert.equal(ui.w.localStorage.getItem('spec.view'), null, 'the stored view is removed');
+    assert.equal(ui.doc.querySelector('table'), null);
+    closeAll();
+  }
 });
 
-// the track mapping and the raw-row writer are classic-list only since #986 (the endpoints and the classic list are unchanged)
-const CLASSIC_ONLY = new Set(['spAssign', 'spAssignHand', 'specSet']);
-test('both views offer the same operations of the editor, except the three the Command Center view dropped (#986): every other data-act of the classic list is reachable in it', async () => {
-  const classic = await open({ 'spec.view': 'classic' }, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
-  const want = new Set([...classic.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act).filter((a) => /^(sp|spec)/.test(a)));
-  closeAll();
-  const cc = await open({ 'spec.view': 'cc' }, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
-  const have = new Set([...cc.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act));
-  have.delete('spAddCC'); have.add('spAdd'); // the Command Center's Add XP checks the number and then runs spAdd
-  for (const a of want) if (!CLASSIC_ONLY.has(a)) assert.ok(have.has(a), a + ' is reachable in the Command Center view');
-  for (const a of CLASSIC_ONLY) { assert.ok(want.has(a), a + ' is still in the classic list'); assert.equal(cc.doc.querySelector('[data-act="' + a + '"]'), null, a + ' is not drawn in the Command Center view'); }
-  for (const a of ['spKeyAll', 'spKeyReset', 'spResetAll', 'spMax', 'spReset']) assert.ok(cc.doc.querySelector('[data-act="' + a + '"]'), a);
+// every operation the Specialization tab has is reachable: the lanes and totals carry the six of the Command Center, the Advanced cards under it carry the track mapping and the raw row (#986 left them on the page)
+test('every operation of the editor is reachable on the page: six in the Command Center view, three in the Advanced cards under it', async () => {
+  const ui = await open({}, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
+  const have = new Set([...ui.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act));
+  for (const a of ['spAddCC', 'spKeyAll', 'spKeyReset', 'spResetAll', 'spMax', 'spReset']) assert.ok(ui.doc.querySelector('#lcs-root [data-act="' + a + '"]'), a + ' is in the Command Center view');
+  for (const a of ['spAssign', 'spAssignHand', 'specSet']) {
+    assert.ok(have.has(a), a + ' is on the page');
+    assert.equal(ui.doc.querySelector('#lcs-root [data-act="' + a + '"]'), null, a + ' is not inside the view');
+    assert.ok(ui.doc.querySelector('[data-advanced] [data-act="' + a + '"]'), a + ' is in an Advanced card');
+  }
 });
 
 test('the path chosen survives a write and the redraw after it, and the focus goes back to the button pressed', async () => {
-  const ui = await open({ 'spec.view': 'cc' });
+  const ui = await open({});
   ui.click('[data-lcs-lane="exploration"]');
   assert.equal(text(ui.doc.querySelector('#lcs-dos-h')), 'EXPLORATION');
   const before = ui.fetched.filter((p) => p === '/api/player/specs').length;
@@ -85,7 +69,7 @@ test('the path chosen survives a write and the redraw after it, and the focus go
 
 test('the numbers on the page are the ones the answer after the write holds, not a count kept by the page', async () => {
   let level = 3;
-  const ui = await open({ 'spec.view': 'cc' });
+  const ui = await open({});
   const first = text(ui.doc.querySelector('[data-lcs-lane="crafting"] .lcc-sp-lane-nums'));
   const next = SPECS(); next.rows.find((r) => r.track === 'Crafting').xp = 12345; next.rows.find((r) => r.track === 'Crafting').level = level;
   ui.w.fetch = ((orig) => async (p, o) => { if (String(p).endsWith('/api/player/specs') && (!o || !o.method || o.method === 'GET')) return { ok: true, status: 200, json: async () => next }; return orig(p, o); })(ui.w.fetch);
@@ -97,7 +81,7 @@ test('the numbers on the page are the ones the answer after the write holds, not
 
 test('a House of a path opens the Landsraad board with that House chosen; nothing is written', async () => {
   const a = synthetic();
-  const ui = await open({ 'spec.view': 'cc' });
+  const ui = await open({});
   const house = a.tasks.find((t) => t.line === 'Crafting');
   const btn = ui.doc.querySelector('[data-lcs-go="' + house.id + '"]');
   assert.ok(btn, 'a House with the line of the chosen path is listed');
@@ -114,7 +98,7 @@ test('a House of a path opens the Landsraad board with that House chosen; nothin
 });
 
 test('a Landsraad that cannot be read leaves the Houses "Not in the save" and the rest of the page working', async () => {
-  const ui = await open({ 'spec.view': 'cc' }, { '/api/landsraad': { __fail: 'no term', __status: 400 } });
+  const ui = await open({}, { '/api/landsraad': { __fail: 'no term', __status: 400 } });
   assert.ok(ui.doc.querySelector('#lcs-root'));
   assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this specialization are not shown/);
   assert.equal(ui.doc.querySelectorAll('[data-lcs-lane]').length, 5);
@@ -123,17 +107,17 @@ test('a Landsraad that cannot be read leaves the Houses "Not in the save" and th
 
 test('a Landsraad that answers without a task list leaves the Houses "Not in the save", not "no House is listed" (#899)', async () => {
   for (const answer of [{}, { tasks: null }, { tasks: 'x' }, { term: 3 }]) {
-    const ui = await open({ 'spec.view': 'cc' }, { '/api/landsraad': answer });
+    const ui = await open({}, { '/api/landsraad': answer });
     assert.match(text(ui.doc.querySelector('.lcc-sp-houses')), /could not be read, so the Houses of this specialization are not shown/, JSON.stringify(answer));
     assert.doesNotMatch(text(ui.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed/);
     closeAll();
   }
-  const empty = await open({ 'spec.view': 'cc' }, { '/api/landsraad': { tasks: [] } });
+  const empty = await open({}, { '/api/landsraad': { tasks: [] } });
   assert.match(text(empty.doc.querySelector('.lcc-sp-houses')), /No House of this term is listed under this specialization/, 'a list that is there and empty is still "none listed"');
 });
 
 test('choosing another lane keeps what was typed in the XP fields, and drawing the view again does too (#899)', async () => {
-  const ui = await open({ 'spec.view': 'cc' });
+  const ui = await open({});
   const field = (t) => ui.doc.querySelector('#spx' + t);
   const type = (t, v) => { field(t).value = v; field(t).dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
   type('Crafting', '2500');
@@ -148,16 +132,18 @@ test('choosing another lane keeps what was typed in the XP fields, and drawing t
 });
 
 test('a save with no specializations shows one message and no control', async () => {
-  const ui = await open({ 'spec.view': 'cc' }, { '/api/player/specs': { rows: [], unassigned: [], maxXp: 44182, tracks: [], resetCount: 0 } });
+  const ui = await open({}, { '/api/player/specs': { rows: [], unassigned: [], maxXp: 44182, tracks: [], resetCount: 0 } });
   assert.match(text(ui.doc.querySelector('.lcc-sp-empty')), /This save has no specializations\./);
   assert.equal(ui.doc.querySelectorAll('#lcs-root [data-act]').length, 0);
 });
 
-test('without the Command Center scripts the page shows the classic list and no switch', async () => {
-  const ui = await boot({ get: { '/api/player/specs': SPECS() }, post: POSTS, local: { tab: 'player', 'spec.view': 'cc' }, pre: (w) => { Object.defineProperty(w, 'LCCS', { value: undefined, writable: true, configurable: true }); } });
+test('without the Command Center scripts the page says so, draws no list and sends nothing', async () => {
+  const ui = await boot({ get: { '/api/player/specs': SPECS() }, post: POSTS, local: { tab: 'player' }, pre: (w) => { Object.defineProperty(w, 'LCCS', { value: undefined, writable: true, configurable: true }); } });
   ui.w.LCCS = undefined;
   ui.click('[data-sub="player:specialization"]'); await ui.settle();
-  assert.equal(ui.doc.querySelector('.lcc-sp-viewsw'), null);
   assert.equal(ui.doc.querySelector('#lcs-root'), null);
-  assert.ok(ui.doc.querySelector('table'));
+  assert.equal(ui.doc.querySelector('table'), null);
+  assert.equal(ui.doc.querySelector('[data-act^="sp"]'), null, 'no write control');
+  assert.match(text(ui.doc.querySelector('#lcs-missing')), /Specializations page could not be loaded.*Reload the page \(Ctrl\+F5\)/);
+  assert.equal(ui.posted.length, 0);
 });

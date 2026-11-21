@@ -57,7 +57,7 @@ for (const track of TRACKS) {
 }
 
 test('opening the Specialization page from the tabs scrolls to its top and nowhere else, and a redraw does not scroll to the path again', async () => {
-  const { ui, log } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid', 'spec.view': 'cc' });
+  const { ui, log } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' });
   log.length = 0;
   click(ui, ui.doc.querySelector('[data-tab="player"]'));
   await ui.settle();
