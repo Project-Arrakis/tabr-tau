@@ -86,7 +86,7 @@ test('the legend, the House filter and the list column use the same words (#1073
   assert.match(legend, /PLEDGED TO ATREIDES/);
   assert.match(legend, /PLEDGED TO HARKONNEN/);
   assert.match(legend, /UNDECIDED/);
-  const opts = [...ui.doc.querySelectorAll('.lcc-bd-seg[aria-label="House"] .lcc-bd-chip')].map((o) => text(o));
+  const opts = [...ui.doc.querySelectorAll('#lcc-bd-menu [role="radiogroup"][aria-label="House"] .lcc-k-tab')].map((o) => o.firstChild.textContent); // the pledge row of the Filter menu (tau #974)
   assert.ok(opts.includes('Undecided') && opts.includes('Pledged'), 'the filter values: ' + opts.join(' | '));
   const list = await open(null, { 'lsb.layout': 'list' });
   assert.match(text(list.ui.doc.querySelector('.lcc-bd-list, .lcc-bd-listhead, [role="table"], .lcc-bd-board')), /Pledged to/);

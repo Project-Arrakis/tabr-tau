@@ -224,32 +224,39 @@ test('names and paths from a save are only text on the board, the list and the I
 
 test('Show, House and Path dim the Houses they leave out and keep the board fixed; the count says how many are shown', async () => {
   const ui = await open();
-  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '', 'with no filter the count is not said (#1044)');
+  const said = () => text(ui.doc.querySelector('[data-lk="shownsr"]'));
+  assert.equal(said(), '25 of 25 Houses shown', 'the strip always says the count (tau #974); the live region stays');
   assert.equal(ui.doc.querySelector('#lcc-bd-shown').getAttribute('role'), 'status', 'the live region stays');
+  click(ui, '[data-lk="fbtn"]');
   click(ui, '[data-fk="bf:hs:open"]');
-  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown')), '9 of 25 Houses shown');
+  assert.equal(said(), '9 of 25 Houses shown');
   const dim = tiles(ui).filter((c) => c.querySelector('.lcc-hc').dataset.dim === 'true');
   assert.equal(dim.length, 16);
   assert.equal(tiles(ui).length, 25, 'the board never loses a tile');
   assert.deepEqual(tiles(ui).map((c) => Number(c.dataset.index)), [...Array(25).keys()], 'and never moves one');
   assert.match(dim[0].querySelector('button').getAttribute('aria-label'), /not in the current filter/);
-  assert.equal(ui.doc.querySelector('[data-fk="bf:hs:open"]').getAttribute('aria-pressed'), 'true');
-  assert.equal(ui.doc.querySelector('[data-fk="bf:hs:any"]').getAttribute('aria-pressed'), 'false');
-  const sel = ui.doc.querySelector('#lcc-bd-spec'); sel.value = 'combat'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  assert.match(text(ui.doc.querySelector('#lcc-bd-shown')), /^\d of 25 Houses shown$/);
+  assert.equal(ui.doc.querySelector('[data-fk="bf:hs:open"]').getAttribute('aria-checked'), 'true');
+  assert.equal(ui.doc.querySelector('[data-fk="bf:hs:any"]').getAttribute('aria-checked'), 'false');
+  click(ui, '[data-lk="cat"][data-cat="spec"]'); click(ui, '[data-lk="spick"][data-val="combat"]');
+  assert.match(said(), /^\d of 25 Houses shown$/);
   for (const c of tiles(ui)) if (c.querySelector('.lcc-hc').dataset.dim !== 'true') assert.match(c.querySelector('.lcc-hc-track').textContent, /Combat/);
 });
 
-test('Jump to House selects it, shows it whatever the filters were, and puts the focus on its tile', async () => {
+test('Find House (the jump of the control area, tau #974) finds a House the filters dim: it outlines it, keeps the filters as they were, ticks nothing and opens no panel', async () => {
   const ui = await open();
-  click(ui, '[data-fk="bf:hs:taken"]');
-  const j = ui.doc.querySelector('#lcc-bd-jump');
-  const sor = [...j.options].find((o) => o.textContent === 'Sor');
+  let scrolled = 0;
+  ui.w.HTMLElement.prototype.scrollIntoView = function () { scrolled++; };
+  click(ui, '[data-fk="bf:hs:taken"]'); // the House filter is Pledged
+  click(ui, '[data-lk="findbtn"]');
+  const sor = [...ui.doc.querySelectorAll('[data-lk="fpick"]')].find((o) => text(o) === 'Sor');
   assert.ok(sor, 'the entry is the House name only, without the square number (#979)');
-  j.value = sor.value; j.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  assert.equal(text(ui.doc.querySelector('.lcc-bd-insp-name')), 'House Sor');
-  assert.equal(ui.doc.querySelector('[data-fk="bf:hs:any"]').getAttribute('aria-pressed'), 'true', 'the filter that would have hidden it is cleared');
-  assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'ht:' + sor.value);
+  click(ui, sor);
+  const cell = tileOf(ui, 'Sor');
+  assert.ok(scrolled >= 1, 'the board scrolled to the House');
+  assert.ok(cell.classList.contains('lcc-k-flash'), 'the House is outlined whatever the filters were');
+  assert.equal(ui.doc.querySelector('[data-fk="bf:hs:taken"]').getAttribute('aria-checked'), 'true', 'the filter is as it was: Find House filters nothing');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 0, 'it ticks nothing');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp-name'), null, 'it chooses no House for the panel (the card does that)');
 });
 
 test('choosing a House opens the Inspector: both scales apart, the contributors and missions as "Not in the save", no sysselraad', async () => {
@@ -321,7 +328,7 @@ test('the list: House name A to Z by default (#953), sortable by every column bo
   click(ui, '[data-fk="bs:house"]');
   assert.deepEqual(names(), [...names()].sort((x, y) => y.localeCompare(x)));
   assert.equal(ui.doc.querySelector('th[aria-sort="descending"]').textContent.trim().startsWith('House'), true);
-  const g = ui.doc.querySelector('#lcc-bd-group'); g.value = 'region'; g.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
+  click(ui, '[data-lk="fbtn"]'); click(ui, '[data-lk="cat"][data-cat="group"]'); click(ui, '[data-lk="gpick"][data-val="region"]'); // Group is in the Filter menu now (tau #974)
   const heads = [...ui.doc.querySelectorAll('.lcc-bd-grouprow th')].map((h) => text(h));
   assert.deepEqual(heads, ['Arrakeen · 1', 'Deep Desert · 1', 'Hagga Basin · 1', 'Region unknown · 22']);
   assert.equal(ui.doc.querySelector('.lcc-bd-list').getAttribute('role'), null, 'a real table, not a pile of divs');
@@ -362,9 +369,9 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.doesNotMatch(text(head), /Fixed 5 × 5|board_index/);
   assert.deepEqual([...head.querySelectorAll('.lcc-bd-layout button')].map((x) => text(x)), ['Grid', 'List']);
   assert.ok(![...head.querySelectorAll('button')].some((x) => /Clear highlight|Strategy/.test(text(x))), 'no Clear highlight and no Sysselraad Strategy button (#958)');
-  assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-spec option')].map((o) => text(o)), ['All specializations', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage']);
+  assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-menu [data-lk="spick"]')].map((o) => text(o)), ['All', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage'], 'the Specialization choices moved from the panel head into the Filter menu');
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['PLEDGED TO ATREIDES', 'PLEDGED TO HARKONNEN', 'UNDECIDED', 'WINNING HOUSES · SYSSELRAAD SECURED']);
-  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => text(x)), ['Any', 'Undecided', 'Pledged']);
+  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => x.firstChild.textContent), ['Any', 'Undecided', 'Pledged']);
   assert.equal(b.querySelector('.lcc-bd-totals'), null, 'no standing line under the board (#1062)');
   assert.equal(b.querySelector('.lcc-bd-foot'), null);
   assert.match(b.querySelector('#lcc-bd-h').getAttribute('title'), /Your rewards on this board: 26 of 120 tiers earned/, 'the sentence is the hover text of the heading');

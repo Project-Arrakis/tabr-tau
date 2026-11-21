@@ -6,7 +6,7 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, closeAll } from './boot.mjs';
-import { synthetic } from './lcc-fixture.mjs';
+import { synthetic, questionText } from './lcc-fixture.mjs';
 
 afterEach(closeAll);
 
@@ -33,7 +33,7 @@ const pick = (ui, a, view, names) => {
     c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
   }
 };
-const ask = (ui) => text(ui.doc.querySelector('#lsb-confirm b'));
+const ask = (ui) => questionText(ui.doc);
 const said = (ui, view) => (view === 'board' ? toasts(ui).join(' | ') : text(ui.doc.querySelector('#lsb-result')));
 
 for (const view of ['board', 'classic']) {
@@ -180,18 +180,20 @@ for (const view of ['board', 'classic']) {
   });
 }
 
-test('the bar of the chosen Houses for a phone has the two buttons, presses the action bar\'s own, and shows them off with the same rule', async () => {
+test('the action bar of the chosen Houses (one bar on every width, tau #974) has Fill, Complete and Reopen and under More Complete and fill and Unfill, presses the same buttons, and shows them off with the same rule', async () => {
   const { ui, a } = await open('board');
-  const bar = ui.doc.querySelector('#lsb-phonebar');
-  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => [text(b), b.dataset.pb]), [['Fill chosen', 'fill'], ['Complete chosen', 'complete'], ['Complete and fill chosen', 'cfill'], ['Reopen chosen', 'reopen'], ['Unfill chosen', 'unfill']]);
+  const bar = ui.doc.querySelector('.lcc-k-cmd');
+  assert.ok(ui.doc.querySelector('#lsb-phonebar') === null, 'the old phone bar is gone');
+  assert.deepEqual([...bar.querySelectorAll('[data-lb="bulk"]')].map((b) => b.dataset.do), ['fill', 'complete', 'reopen', 'cfill', 'unfill']);
+  assert.deepEqual([...bar.querySelectorAll('.lcc-k-moremenu [data-lb="bulk"]')].map((b) => b.firstChild.textContent), ['Complete and fill chosen', 'Unfill chosen']);
   pick(ui, a, 'board', ['Alexin']);
-  click(ui, '[data-pb="unfill"]'); await ui.settle();
+  click(ui, '.lcc-k-cmd [data-do="unfill"]'); await ui.settle();
   assert.match(ask(ui), /^Unfill 1 house\?/);
   assert.equal(writes(ui).length, 0);
   click(ui, '[data-fk="c-no"]'); await ui.settle();
   select(ui, '#lsb-fac', 2); await ui.settle();
-  for (const k of ['cfill', 'unfill']) assert.equal(ui.doc.querySelector('[data-pb="' + k + '"]').getAttribute('aria-disabled'), 'true', k + ' is off on the phone bar too');
-  for (const k of ['fill', 'complete', 'reopen']) assert.equal(ui.doc.querySelector('[data-pb="' + k + '"]').getAttribute('aria-disabled'), null);
+  for (const k of ['cfill', 'unfill']) assert.equal(ui.doc.querySelector('.lcc-k-cmd [data-do="' + k + '"]').getAttribute('aria-disabled'), 'true', k + ' is off in the action bar too');
+  for (const k of ['fill', 'complete', 'reopen']) assert.equal(ui.doc.querySelector('.lcc-k-cmd [data-do="' + k + '"]').getAttribute('aria-disabled'), null);
 });
 
 test('the count line says how many Houses each button changes, the new ones included', async () => {

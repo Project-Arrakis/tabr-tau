@@ -461,9 +461,12 @@
   const houseMatch = (h, k) => (k === 'any' ? true : (k === 'taken') === h.taken);
   const trackMatch = (h, k) => (k === 'all' || k === '' ? true : h.track === k);
   // matches(h, f): f = { show, hs, spec }. Anything outside the fixed lists matches nothing but "all" / "any", never throws.
+  // The board's Filter menu may also give f.specs, a list of specializations: a House matches when its specialization is one of them, and an empty list is all (tau #974).
   function matches(h, f) {
     f = f || {};
-    return showMatch(h, SHOWS.some((s) => s[0] === f.show) ? f.show : 'all') && houseMatch(h, HOUSE_FILTERS.some((s) => s[0] === f.hs) ? f.hs : 'any') && trackMatch(h, f.spec === 'all' || TRACKS.includes(f.spec) ? f.spec : 'all');
+    const specs = Array.isArray(f.specs) ? f.specs.filter((t) => TRACKS.includes(t)) : [];
+    const trackOk = specs.length ? specs.includes(h.track) : trackMatch(h, f.spec === 'all' || TRACKS.includes(f.spec) ? f.spec : 'all');
+    return showMatch(h, SHOWS.some((s) => s[0] === f.show) ? f.show : 'all') && houseMatch(h, HOUSE_FILTERS.some((s) => s[0] === f.hs) ? f.hs : 'any') && trackOk;
   }
 
   const SORTS = Object.freeze(['house', 'location', 'position', 'state', 'tiers', 'next', 'status']);

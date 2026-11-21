@@ -1,7 +1,7 @@
 // The board's mouse-overs and two wording fixes (tau #975, #977, #979, #978), in the page's own code (jsdom), with the synthetic answer of M1 and no game save.
 // #975: a House square of the 5x5 board shows the same House hover card as the list rows (one builder, LCC_HOST.card), on the pointer and on the keyboard focus; its tier boxes keep their own mouse-over.
 // #977: the reward mouse-over shows the item picture and the display name, never the internal name; pictures are local files from a fixed list; a reward with no picture shows the name only.
-// #979: Jump to House lists House names only, A to Z. #978: the WON tag of the victory panel takes the one win outline of lcc.css (solid, never dashed).
+// #979: Find House (was Jump to House) lists House names only, A to Z. #978: the WON tag of the victory panel takes the one win outline of lcc.css (solid, never dashed).
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -214,19 +214,23 @@ test('#977: the source says the internal name is nowhere in the mouse-overs: no 
 });
 
 // ---- #979 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-test('#979: Jump to House lists the House names only, A to Z, with no square number, and the jump still works', async () => {
+test('#979: Find House (the jump of the control area, tau #974) lists the House names only, A to Z, with no square number, and the jump still works', async () => {
   const a = answer();
   const ui = await open('grid');
-  const j = ui.doc.querySelector('#lcc-bd-jump');
-  const names = [...j.options].slice(1).map((o) => o.textContent);
+  let scrolled = 0;
+  ui.w.HTMLElement.prototype.scrollIntoView = function () { scrolled++; };
+  click(ui, '[data-lk="findbtn"]');
+  const opts = [...ui.doc.querySelectorAll('#lcc-bd-find [data-lk="fpick"]')];
+  const names = opts.map((o) => text(o));
   assert.equal(names.length, 25);
   assert.deepEqual(names, [...names].sort((x, y) => x.localeCompare(y, 'en')), 'A to Z');
   for (const n of names) assert.doesNotMatch(n, /\d|·/, 'no square number: ' + n);
-  assert.equal([...j.options][0].textContent, 'Choose a House…');
-  const opt = [...j.options].find((o) => o.textContent === 'Wallach');
-  assert.equal(opt.value, String(idOf(a, 'Wallach')), 'the value is still the House');
-  j.value = opt.value; j.dispatchEvent(new ui.w.Event('change', { bubbles: true }));
-  assert.equal(text(ui.doc.querySelector('.lcc-bd-insp-name')), 'House Wallach');
+  const opt = opts.find((o) => text(o) === 'Wallach');
+  assert.ok(opt, 'Wallach is in the list');
+  assert.equal(opt.getAttribute('data-id'), String(idOf(a, 'Wallach')), 'the value is still the House');
+  click(ui, opt);
+  assert.ok(scrolled >= 1, 'the board scrolled to the House');
+  assert.ok(cellOf(ui, a, 'Wallach').classList.contains('lcc-k-flash'), 'the House is outlined');
   // the square stays in the aria text of the card and in the list's Square column
   assert.match(cellOf(ui, a, 'Wallach').querySelector('.lcc-hc-select').getAttribute('aria-label'), /^Square 08, Wallach/);
 });

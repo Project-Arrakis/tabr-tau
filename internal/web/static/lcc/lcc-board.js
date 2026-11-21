@@ -39,7 +39,7 @@
   const tierKind = (t) => (t.reached ? (TIER_CLASS[t.state] ? t.state : 'unknown') : 'not_reached');
 
   // The view state. It lives here, not in the answer, so a redraw after a write keeps the filter, the layout and the House that was looked at.
-  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'house', dir: 'asc', group: '', sel: null };
+  const state = { layout: 'grid', show: 'all', hs: 'any', spec: 'all', sort: 'house', dir: 'asc', group: '', sel: null, specs: [] }; // specs: the specializations the Filter menu has on (none is all)
   let last = null; // { container, answer, host } of the latest mount, so a change of the view can draw again without the page's help
   let inited = false;
   // What a redraw keeps for the person (display only): where the House Intelligence panel was scrolled to (for the House it was on) and which disclosures were opened.
@@ -157,12 +157,6 @@
     if (subline) t.appendChild(el('p', 'lcc-bd-subline', subline));
     head.appendChild(t);
     const act = el('div', 'lcc-bd-panel-actions');
-    const w = el('label', 'lcc-bd-sel');
-    w.appendChild(el('span', 'lcc-bd-sr', 'Specialization filter'));
-    const s = el('select', 'lcc-bd-select', '', { id: 'lcc-bd-spec', 'data-lcb': 'spec', 'data-fk': 'bf:spec' });
-    for (const [v, tx] of [['all', 'All specializations'], ['crafting', 'Crafting'], ['gathering', 'Gathering'], ['exploration', 'Exploration'], ['combat', 'Combat'], ['sabotage', 'Sabotage']]) { const o = el('option', '', tx, { value: v }); if (v === state.spec) o.selected = true; s.appendChild(o); }
-    w.appendChild(s);
-    act.appendChild(w);
     const gridOk = board.ready;
     const lay = el('div', 'lcc-bd-layout', '', { role: 'group', 'aria-label': 'Board layout' });
     lay.appendChild(btn('', 'Grid', { 'aria-pressed': state.layout === 'grid' && gridOk ? 'true' : 'false', 'aria-disabled': gridOk ? null : 'true', title: gridOk ? null : 'The board cannot be drawn as 5 by 5: ' + board.problems[0], 'data-lcb': 'layout', 'data-val': 'grid', 'data-fk': 'bf:layout:grid' }));
@@ -171,39 +165,207 @@
     head.appendChild(act);
     return head;
   }
-  function filters(board, matchIds) {
-    const bar = el('div', 'lcc-bd-filters', '', { role: 'group', 'aria-label': 'Filter and look at the board' });
-    const seg = (key, label, list, cur) => {
-      const g = el('span', 'lcc-bd-seg', '', { role: 'group', 'aria-label': label });
-      g.appendChild(el('span', 'lcc-bd-lbl', label.toUpperCase()));
-      for (const [k, t] of list) g.appendChild(btn('lcc-bd-chip', t, { 'aria-pressed': cur === k ? 'true' : 'false', 'data-lcb': 'filter', 'data-key': key, 'data-val': k, 'data-fk': 'bf:' + key + ':' + k }));
-      return g;
-    };
-    bar.appendChild(seg('show', 'Show', M().SHOWS, state.show));
-    bar.appendChild(seg('hs', 'House', M().HOUSE_FILTERS, state.hs));
-    const sel = (label, id, opts, cur, key) => {
-      const w = el('span', 'lcc-bd-sel');
-      w.appendChild(el('label', 'lcc-bd-lbl', label.toUpperCase(), { for: id }));
-      const s = el('select', 'lcc-bd-select', '', { id, 'data-lcb': key, 'data-fk': 'bf:' + key });
-      for (const [v, t] of opts) { const o = el('option', '', t, { value: v }); if (String(v) === String(cur)) o.selected = true; s.appendChild(o); }
-      w.appendChild(s);
-      return w;
-    };
-    // the House names only, A to Z (#979): the square number is not in the drop-down (the board and the list show it; the jump is by the House)
-    const jumpOpts = [['', 'Choose a House…']].concat(board.houses.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'en')).map((h) => [String(h.id), h.name]));
-    // Jump to House and the buttons that choose Houses are one group: they stay together on a line and wrap together. The page seats its choose buttons in the slot (host.seat); with no page
-    // (or a board that did not pass its checks) the slot stays empty and is not drawn.
-    const jl = el('span', 'lcc-bd-jumpline');
-    jl.appendChild(sel('Jump to House', 'lcc-bd-jump', jumpOpts, state.sel === null ? '' : state.sel, 'jump'));
-    jl.appendChild(el('span', 'lcc-bd-barslot lcc-bd-chooseslot', '', { 'data-lcc-slot': 'choose' }));
-    bar.appendChild(jl);
-    if (state.layout === 'list' || !board.ready) bar.appendChild(sel('Group', 'lcc-bd-group', [['', 'No groups'], ['region', 'By region'], ['spec', W().bySpecialization]], state.group, 'group'));
-    // The count of the Houses shown is said only while a filter narrows the board (#1044): with nothing chosen it would say "25 of 25" and tell nothing. The node stays, empty, as the polite live region.
-    const narrowed = state.show !== 'all' || state.hs !== 'any' || state.spec !== 'all';
-    bar.appendChild(el('span', 'lcc-bd-shown', narrowed ? matchIds.size + ' of ' + board.houses.length + ' Houses shown' : '', { role: 'status', id: 'lcc-bd-shown' }));
-    // the line of the actions on the chosen Houses (Fill, Complete, Reopen, the faction for them and the count of the chosen Houses), seated by the page
-    bar.appendChild(el('div', 'lcc-bd-barslot lcc-bd-actslot', '', { 'data-lcc-slot': 'act' }));
-    return bar;
+  // ---- the control area (tau #974, the approved design "E6 v2") ----------------------------------------------------------------------------------------------------------------
+  // ONE sticky strip at the top of the board panel, in two modes in the same place. Nothing chosen: the Show tabs, the Filter key (a categorized menu: House with the pledge row and the 25 Houses as tickable items,
+  // Specialization, Group), the Find House key, one chip per active filter category (never one per House: a House in the menu TICKS its square), the count and Choose shown. Houses chosen: the action bar (the count with
+  // "chosen", the faction crests, Fill, Complete, Reopen, Clear); the Filter key and the chips are away until the choice is cleared, and the filters stay applied. The question before a write takes the whole bar.
+  // The controls that write are the page's own (data-lb "pickall", "pickno", "bulk", "cyes", "cno" and the faction box): this file only places and restyles them (host.seat) and shows the mode. The strip swaps when the Filter menu
+  // CLOSES (Done, Escape, a click outside, Tab out) or at once when a square is ticked on the board; a House the filters hide is never counted and never written (the page's rule, lbDropHidden).
+  const NS = 'http://www.w3.org/2000/svg';
+  const ICONS = Object.freeze({
+    sliders: [['path', 'M3.5 7h8M16.5 7h4M3.5 17h3M11.5 17h9'], ['circle', 14, 7, 2.3], ['circle', 9, 17, 2.3]],
+    chev: [['path', 'M6 9.5l6 6 6-6']],
+    pin: [['path', 'M12 21.5S5.5 15.8 5.5 10.2a6.5 6.5 0 0 1 13 0c0 5.6-6.5 11.3-6.5 11.3z'], ['circle', 12, 10.2, 2.4]],
+    eye: [['path', 'M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z'], ['circle', 12, 12, 3]],
+    x: [['path', 'M6 6l12 12M18 6L6 18']],
+    fill: [['path', 'M5 4h14l-1.4 14.2a2 2 0 0 1-2 1.8H8.4a2 2 0 0 1-2-1.8z'], ['path', 'M5.9 11.2c2-1.6 4 1.6 6.1 0s4.1 1.6 6.1 0']],
+    done: [['circle', 12, 12, 8.8], ['path', 'M7.8 12.4l3 3 5.4-6.6']],
+    reopen: [['path', 'M4.4 12a7.6 7.6 0 1 0 2.3-5.4'], ['path', 'M4.2 3.8v4.6h4.6']],
+    more: [['path', 'M5 12h.01M12 12h.01M19 12h.01']],
+  });
+  function icon(name, extra) {
+    const s = root.document.createElementNS(NS, 'svg');
+    s.setAttribute('class', 'lcc-k-ic' + (extra ? ' ' + extra : '')); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+    for (const p of ICONS[name] || []) {
+      const n = root.document.createElementNS(NS, p[0]);
+      if (p[0] === 'path') n.setAttribute('d', p[1]); else { n.setAttribute('cx', p[1]); n.setAttribute('cy', p[2]); n.setAttribute('r', p[3]); }
+      s.appendChild(n);
+    }
+    return s;
+  }
+  // the view state of the control area that must outlive a redraw: the Filter menu (open or not, its category, the House search), the Find House list and its search
+  const ui = { menu: false, cat: 'house', q: '', view: 'cats', find: false, fq: '' };
+  const phone = () => { try { return !!(root.matchMedia && root.matchMedia('(max-width: 700px)').matches); } catch (err) { return false; } };
+  const reducedMotion = () => { try { return !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (err) { return false; } };
+  const lamp = () => el('span', 'lcc-k-lamp', '', { 'aria-hidden': 'true' });
+  // a mouse-over text that keyboard focus shows too (the kit's .lcc-k-tip); a visible label comes first, the tip only says more and is never needed to operate the control
+  function tipped(node, text, pos) {
+    node.classList.add('lcc-k-tipped');
+    for (const p of String(pos || '').split(' ').filter(Boolean)) node.classList.add('lcc-k-tip-' + p);
+    node.appendChild(el('span', 'lcc-k-tip' + (text.length > 40 ? ' lcc-k-tip-wide' : ''), text, { 'aria-hidden': 'true' }));
+    return node;
+  }
+  function kbtn(cls, label, attrs, ic, tip, pos) {
+    const b = btn('lcc-k-btn lcc-k-fr ' + cls, '', attrs);
+    if (ic) b.appendChild(icon(ic));
+    b.appendChild(el('span', 'lcc-k-bl', label));
+    return tip ? tipped(b, tip, pos) : b;
+  }
+  const SHOW_OFF = 'Not available while Houses are chosen. Clear the choice to change which Houses are shown.';
+  const SPEC_LIST = Object.freeze(['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
+  const groupOn = (board) => !!state.group && (state.layout === 'list' || !board.ready);
+  // one chip per active filter category (House, Specialization, Group), never one per House; Show is not a chip (its tabs are always on the strip)
+  function activeFilters(board) {
+    const out = [];
+    if (state.hs !== 'any') { const t = state.hs === 'open' ? W().undecided : W().pledged; out.push({ key: 'hs', text: 'House: ' + t, full: 'House: ' + t }); }
+    if (state.specs.length) {
+      const names = state.specs.map(trackWord);
+      out.push({ key: 'spec', text: 'Specialization: ' + (names.length >= 3 ? names.length + ' chosen' : names.join(' + ')), full: 'Specialization: ' + names.join(', ') });
+    }
+    if (groupOn(board)) { const t = state.group === 'region' ? 'By region' : W().bySpecialization; out.push({ key: 'group', text: 'Group: ' + t, full: 'Group: ' + t }); }
+    return out;
+  }
+  function chip(f) {
+    const c = el('span', 'lcc-k-chip', '', { 'data-lk': 'chip', 'data-key': f.key, title: f.full });
+    c.appendChild(el('span', '', f.text));
+    const x = btn('lcc-k-chipx', '', { 'data-lk': 'chipx', 'data-key': f.key, 'data-fk': 'cx:' + f.key, 'aria-label': 'Remove ' + f.full, title: 'Remove ' + f.full });
+    x.appendChild(icon('x'));
+    c.appendChild(x);
+    return c;
+  }
+  const letterOf = (name) => (/^atreides/i.test(String(name)) ? 'a' : /^harkonnen/i.test(String(name)) ? 'h' : '');
+  function strip(board, matchIds) {
+    const s = el('div', 'lcc-k-strip', '', { 'data-part': 'strip' });
+    const lens = el('div', 'lcc-k-lens lcc-k-pane lcc-k-pane-f', '', { 'data-part': 'lens' });
+    const tray = el('div', 'lcc-k-tray lcc-k-fr lcc-k-lens-tray');
+    const grp = el('div', 'lcc-k-grp');
+    grp.appendChild(tipped(el('span', 'lcc-k-gl', 'Show'), 'Show changes only which Houses are shown. It never changes which Houses are chosen.', 'below start'));
+    const tabs = el('div', 'lcc-k-tabs', '', { role: 'radiogroup', 'aria-label': 'Show' });
+    for (const [k, t] of M().SHOWS) {
+      const on = state.show === k;
+      const b = el('button', 'lcc-k-tab lcc-k-fr', t, { type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', tabindex: on ? '0' : '-1', 'data-lcb': 'filter', 'data-key': 'show', 'data-val': k, 'data-fk': 'bf:show:' + k });
+      b.appendChild(lamp());
+      tabs.appendChild(b);
+    }
+    grp.appendChild(tabs); tray.appendChild(grp); lens.appendChild(tray);
+    const act = activeFilters(board);
+    const fw = el('span', 'lcc-k-fwrap');
+    const fb = kbtn('lcc-k-fbtn', 'Filter', { 'aria-haspopup': 'dialog', 'aria-expanded': ui.menu ? 'true' : 'false', 'aria-controls': 'lcc-bd-menu', 'data-lk': 'fbtn', 'data-fk': 'fbtn' }, 'sliders', 'Opens the Filter menu: House, Specialization and Group (list layout). What is filtered shows as chips beside this key.', 'below');
+    fb.appendChild(el('span', 'lcc-k-fcnt', String(act.length), { 'data-lk': 'fcnt', hidden: act.length ? null : '' }));
+    fb.appendChild(icon('chev', 'lcc-k-chev')); fb.appendChild(lamp());
+    fw.appendChild(fb); lens.appendChild(fw);
+    const dw = el('span', 'lcc-k-fwrap lcc-k-findwrap');
+    const fd = kbtn('lcc-k-fbtn lcc-k-findbtn', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': ui.find ? 'true' : 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn' }, 'pin', 'Find House: scrolls the board to one House', 'below');
+    fd.appendChild(lamp());
+    dw.appendChild(fd); lens.appendChild(dw);
+    lens.appendChild(el('i', 'lcc-k-brk', '', { 'aria-hidden': 'true' }));
+    const chips = el('span', 'lcc-k-chips', '', { role: 'group', 'aria-label': 'Active filters', 'data-lk': 'chips' });
+    for (const f of act) chips.appendChild(chip(f));
+    lens.appendChild(chips);
+    const cg = el('span', 'lcc-k-cg');
+    const count = tipped(el('span', 'lcc-k-count', '', { role: 'status', id: 'lcc-bd-shown' }), 'Houses shown by the filters. A House that is not shown is never counted and never written.', 'below end');
+    count.insertBefore(icon('eye'), count.firstChild);
+    const nums = el('span', '', '', { 'aria-hidden': 'true' });
+    nums.appendChild(el('b', '', String(matchIds.size), { 'data-lk': 'shown' })); nums.appendChild(root.document.createTextNode(' / ')); nums.appendChild(el('b', '', String(board.houses.length)));
+    count.appendChild(nums);
+    count.appendChild(el('span', 'lcc-k-sr', matchIds.size + ' of ' + board.houses.length + ' Houses shown', { 'data-lk': 'shownsr' }));
+    cg.appendChild(count);
+    cg.appendChild(el('span', 'lcc-k-hid', '', { 'data-lk': 'hid', hidden: '' }));
+    cg.appendChild(el('span', 'lcc-bd-barslot lcc-k-chooseslot', '', { 'data-lcc-slot': 'choose' }));
+    lens.appendChild(cg);
+    s.appendChild(lens);
+    const cmd = el('section', 'lcc-k-cmd lcc-k-fr lcc-k-pane lcc-k-pane-a', '', { 'data-part': 'action', role: 'group', 'aria-label': 'Actions on the chosen Houses' });
+    cmd.appendChild(el('i', 'lcc-k-hair', '', { 'aria-hidden': 'true' }));
+    cmd.appendChild(kbtn('lcc-k-findbtn lcc-k-findbar', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn2' }, 'pin', 'Find House: scrolls the board to one House', 'below start'));
+    cmd.appendChild(el('span', 'lcc-bd-barslot lcc-k-actslot', '', { 'data-lcc-slot': 'act' }));
+    cmd.appendChild(el('span', 'lcc-bd-barslot lcc-k-askslot', '', { 'data-lcc-slot': 'askbar' }));
+    s.appendChild(cmd);
+    return s;
+  }
+  // the Filter menu: categories at the left, their items at the right, a footer with Clear filters, the number of Houses chosen and Done. On a phone it is a bottom sheet (categories first, then the items of one).
+  function menu(board) {
+    const p = el('div', 'lcc-k-pop5 lcc-k-fr', '', { id: 'lcc-bd-menu', role: 'dialog', 'aria-label': 'Filter', 'data-lk': 'pop', 'data-view': ui.view, hidden: ui.menu ? null : '' });
+    p.appendChild(el('div', 'lcc-k-p5-head')).appendChild(el('span', '', 'Filter'));
+    const body = el('div', 'lcc-k-p5-body');
+    const cats = el('div', 'lcc-k-p5-cats', '', { role: 'tablist', 'aria-orientation': 'vertical', 'aria-label': 'Filter by' });
+    const gridOnly = state.layout !== 'list' && board.ready; // Group is a list-layout control: in the grid its row stays, off, and says why
+    const n = { house: state.hs !== 'any' ? 1 : 0, spec: state.specs.length, group: groupOn(board) ? 1 : 0 };
+    const catDefs = [['house', 'House'], ['spec', W().specialization], ['group', 'Group']];
+    if (gridOnly && ui.cat === 'group') ui.cat = 'house';
+    for (const [k, t] of catDefs) {
+      const off = k === 'group' && gridOnly;
+      const c = el('button', 'lcc-k-cat', '', { type: 'button', role: 'tab', 'aria-selected': ui.cat === k ? 'true' : 'false', tabindex: ui.cat === k ? '0' : '-1', 'data-lk': 'cat', 'data-cat': k, 'data-fk': 'mn:cat:' + k, 'aria-disabled': off ? 'true' : null });
+      c.appendChild(el('span', '', t));
+      if (off) c.appendChild(el('span', 'lcc-k-cond', 'List layout only'));
+      c.appendChild(el('span', 'lcc-k-c', n[k] ? String(n[k]) : '', { 'data-lk': 'cc' }));
+      cats.appendChild(c);
+    }
+    body.appendChild(cats);
+    const items = el('div', 'lcc-k-p5-items', '', { role: 'tabpanel', 'aria-label': 'Choices' });
+    const back = el('div', 'lcc-k-p5-back');
+    back.appendChild(btn('lcc-k-link', 'Back', { 'data-lk': 'back', 'data-fk': 'mn:back' }));
+    back.appendChild(el('span', 'lcc-k-p5-t', (catDefs.find((c) => c[0] === ui.cat) || catDefs[0])[1], { 'data-lk': 'ptitle' }));
+    items.appendChild(back);
+    // House: the pledge row, the search and the 25 Houses (each a box: ticking it ticks the square on the board, it never hides the others)
+    const ph = el('div', 'lcc-k-p5-panel', '', { 'data-cat': 'house', hidden: ui.cat === 'house' ? null : '' });
+    const pledge = el('div', 'lcc-k-tabs', '', { role: 'radiogroup', 'aria-label': 'House' });
+    for (const [k, t] of M().HOUSE_FILTERS) {
+      const on = state.hs === k;
+      const b = el('button', 'lcc-k-tab lcc-k-fr', t, { type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', tabindex: on ? '0' : '-1', 'data-lcb': 'filter', 'data-key': 'hs', 'data-val': k, 'data-fk': 'bf:hs:' + k });
+      b.appendChild(lamp());
+      if (k === 'open') tipped(b, 'No faction has the favor of the House yet. Wavering: both factions have progress on it.', 'below');
+      if (k === 'taken') tipped(b, 'The House is pledged to a faction: ' + W().pledgedTo + ' Atreides or ' + W().pledgedTo + ' Harkonnen.', 'below end');
+      pledge.appendChild(b);
+    }
+    ph.appendChild(pledge);
+    ph.appendChild(tipped(el('p', 'lcc-k-p5-sub', 'Houses', { id: 'lcc-bd-houses-h' }), 'Ticks the House on the board. A ticked House is chosen. It does not hide the others.', 'below start'));
+    ph.appendChild(el('input', 'lcc-k-search', '', { type: 'search', 'data-lk': 'hsearch', 'data-fk': 'mn:search', 'aria-label': 'Search Houses', placeholder: 'Search Houses', autocomplete: 'off', value: ui.q }));
+    ph.appendChild(el('p', 'lcc-k-p5-n', '', { role: 'status', 'data-lk': 'hn' }));
+    const hl = el('div', 'lcc-k-p5-list', '', { role: 'group', 'aria-label': 'Houses', 'aria-describedby': 'lcc-bd-houses-h', 'data-list': 'h' });
+    for (const h of board.houses.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'en'))) hl.appendChild(btn('lcc-k-opt', L().houseTitle(h.name), { role: 'checkbox', 'aria-checked': 'false', tabindex: '-1', 'data-lk': 'hpick', 'data-id': h.id, 'data-fk': 'hp:' + h.id }));
+    ph.appendChild(hl);
+    items.appendChild(ph);
+    const ps = el('div', 'lcc-k-p5-panel', '', { 'data-cat': 'spec', hidden: ui.cat === 'spec' ? null : '' });
+    ps.appendChild(el('p', 'lcc-k-p5-sub', W().specialization));
+    const sl = el('div', 'lcc-k-p5-list lcc-k-p5-one', '', { role: 'group', 'aria-label': 'Specializations', 'data-list': 's' });
+    sl.appendChild(btn('lcc-k-opt', 'All', { role: 'checkbox', 'aria-checked': state.specs.length ? 'false' : 'true', tabindex: '-1', 'data-lk': 'spick', 'data-val': 'all', 'data-i': '0', 'data-fk': 'sp:all' }));
+    SPEC_LIST.forEach((k, i) => sl.appendChild(btn('lcc-k-opt', trackWord(k), { role: 'checkbox', 'aria-checked': state.specs.includes(k) ? 'true' : 'false', tabindex: '-1', 'data-lk': 'spick', 'data-val': k, 'data-i': String(i + 1), 'data-fk': 'sp:' + k })));
+    ps.appendChild(sl);
+    items.appendChild(ps);
+    const pg = el('div', 'lcc-k-p5-panel', '', { 'data-cat': 'group', hidden: ui.cat === 'group' ? null : '' });
+    pg.appendChild(el('p', 'lcc-k-p5-sub', 'Group'));
+    const gt = el('div', 'lcc-k-tabs', '', { role: 'radiogroup', 'aria-label': 'Group by' });
+    for (const [v, t] of [['', 'None'], ['region', 'By region'], ['spec', W().bySpecialization]]) {
+      const on = (state.group || '') === v;
+      const b = el('button', 'lcc-k-tab lcc-k-fr', t, { type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', tabindex: on ? '0' : '-1', 'data-lk': 'gpick', 'data-val': v, 'data-fk': 'gp:' + (v || 'none') });
+      b.appendChild(lamp());
+      gt.appendChild(b);
+    }
+    pg.appendChild(gt);
+    items.appendChild(pg);
+    body.appendChild(items);
+    p.appendChild(body);
+    const foot = el('div', 'lcc-k-p5-foot');
+    foot.appendChild(btn('lcc-k-link lcc-k-clearf', 'Clear filters', { 'data-lk': 'clearf', 'data-fk': 'mn:clear', hidden: activeFilters(board).length ? null : '' }));
+    foot.appendChild(el('span', 'lcc-k-spacer'));
+    foot.appendChild(el('span', 'lcc-k-p5-cnt', '', { role: 'status', 'data-lk': 'pcnt' }));
+    foot.appendChild(kbtn('lcc-k-pri', 'Done', { 'data-lk': 'popclose', 'data-fk': 'mn:done' }));
+    p.appendChild(foot);
+    return p;
+  }
+  // Find House: a single-pick searchable list. It scrolls the board to the House and outlines it for 1.8 s; it changes no filter and ticks nothing.
+  function findList(board) {
+    const p = el('div', 'lcc-k-pop5 lcc-k-popf lcc-k-fr', '', { id: 'lcc-bd-find', role: 'dialog', 'aria-label': 'Find House', 'data-lk': 'fpop', hidden: ui.find ? null : '' });
+    const head = el('div', 'lcc-k-p5-head');
+    head.appendChild(el('span', '', 'Find House'));
+    head.appendChild(btn('lcc-k-link', 'Done', { 'data-lk': 'fclose', 'data-fk': 'fd:done' }));
+    p.appendChild(head);
+    p.appendChild(el('input', 'lcc-k-search', '', { type: 'search', 'data-lk': 'fsearch', 'data-fk': 'fd:search', 'aria-label': 'Search Houses', placeholder: 'Search Houses', autocomplete: 'off', value: ui.fq }));
+    p.appendChild(el('p', 'lcc-k-p5-n', '', { role: 'status', 'data-lk': 'fn' }));
+    const l = el('div', 'lcc-k-p5-list lcc-k-p5-one lcc-k-fl', '', { role: 'listbox', 'aria-label': 'Houses', 'data-list': 'f' });
+    for (const h of board.houses.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'en'))) l.appendChild(btn('lcc-k-opt lcc-k-opt-find', L().houseTitle(h.name), { role: 'option', tabindex: '-1', 'data-lk': 'fpick', 'data-id': h.id, 'data-fk': 'fp:' + h.id }));
+    p.appendChild(l);
+    return p;
   }
   function legend(board, ev) {
     ev = ev || M().evaluate(board, null);
@@ -736,7 +898,8 @@
     const grid_ = el('div', 'lcc-bd-grid');
     const panel = el('section', 'lcc-bd-surface lcc-bd-panel', '', { 'aria-labelledby': 'lcc-bd-h' });
     panel.appendChild(panelHead(board));
-    panel.appendChild(filters(board, matchIds));
+    panel.className += ' lcc-k-page lcc-k-e2 lcc-k-e3 lcc-k-m5 lcc-k-e6'; panel.setAttribute('data-mode', 'filters'); panel.setAttribute('data-state', 'idle');
+    panel.appendChild(strip(board, matchIds));
     // directly under the control bar: the question before a write, the result line and the note on a write (the page puts them here, see host.seat)
     panel.appendChild(el('div', 'lcc-bd-slot', '', { 'data-lcc-slot': 'bar' }));
     panel.appendChild(legend(board, ev));
@@ -750,7 +913,298 @@
     side.appendChild(inspector(board, state.sel === null ? null : board.byId.get(state.sel), host, editable));
     grid_.appendChild(side);
     w.appendChild(grid_);
+    w.classList.add('lcc-k-page', 'lcc-k-e2', 'lcc-k-e3', 'lcc-k-m5', 'lcc-k-e6'); // the Filter menu and the Find House list are not inside the panel: they take the same kit rules from the board's own box
+    w.appendChild(menu(board)); w.appendChild(findList(board)); w.appendChild(el('div', 'lcc-k-scrim', '', { 'data-lk': 'scrim', hidden: '' })); // the Filter menu and the Find House list sit outside the panel (fixed, or a sheet on a phone)
     return w;
+  }
+
+  // ---- the control area: what it does after it is drawn (tau #974) -------------------------------------------------------------------------------------------------------------------
+  const qsel = (sel) => (last ? last.container.querySelector(sel) : null);
+  const panelNode = () => qsel('.lcc-bd-panel.lcc-k-page');
+  const picksNow = () => { const h = last && last.host; const s = h && typeof h.picks === 'function' ? h.picks() : null; return s ? [...s] : []; };
+  // what is shown now, what is chosen and shown, and what is chosen but not shown by the filters (a House the filters hide is never counted and never written)
+  function counts() {
+    const board = last.board, shown = new Set(board.houses.filter((h) => M().matches(h, state)).map((h) => h.id));
+    const ids = new Set(picksNow()), chosen = [...ids].filter((id) => shown.has(id)).length;
+    return { board, shown, chosen, hidden: ids.size - chosen, ids };
+  }
+  const setText = (root_, sel, t) => { const n = root_.querySelector(sel); if (n && n.textContent !== t) n.textContent = t; };
+  // the question before a write is drawn in the strip as a pocket of the bar, with the crest of the faction it is for
+  function skinConfirm() {
+    const cf = qsel('.lcc-k-cmd #lsb-confirm');
+    if (!cf || cf.classList.contains('lcc-k-ask')) return;
+    const f = cf.getAttribute('data-f') || '';
+    cf.className = 'lcc-k-ask';
+    const qc = el('span', 'lcc-k-qcrest', '', { 'data-f': f, 'aria-hidden': 'true' });
+    qc.appendChild(el('span', 'lcc-k-crest'));
+    cf.insertBefore(qc, cf.firstChild);
+    // the question's own words are not changed: its first sentence is the line of the bar, what it writes (the totals, the Houses, the Houses left alone) is the small text under it (two lines, the whole of it in the mouse-over text and in the accessible name)
+    const b = cf.querySelector('b'), tx = el('div', 'lcc-k-qtx');
+    if (b) {
+      const full = b.textContent, i = full.indexOf('? ');
+      b.classList.add('lcc-k-qh');
+      if (i > 0) { b.textContent = full.slice(0, i + 1); tx.setAttribute('title', full); }
+      b.replaceWith(tx); tx.appendChild(b);
+      if (i > 0) tx.appendChild(el('p', 'lcc-k-qd', full.slice(i + 2)));
+    }
+    const bt = el('div', 'lcc-k-qbtn');
+    for (const n of [...cf.querySelectorAll('button')]) { n.className = 'lcc-k-btn lcc-k-fr' + (n.getAttribute('data-lb') === 'cyes' ? ' lcc-k-pri' : ''); bt.appendChild(n); }
+    cf.appendChild(bt);
+  }
+  // the one place that says which mode the strip is in and what the counts are; the page calls it (host.syncStrip is LCCB.syncStrip) on every change of the choice
+  function syncStrip() {
+    if (!last || !last.board) return;
+    const panel = panelNode();
+    if (!panel) return;
+    skinConfirm();
+    const c = counts(), asking = !!panel.querySelector('.lcc-k-cmd #lsb-confirm');
+    const mode = asking || (c.chosen > 0 && !ui.menu) ? 'action' : 'filters';
+    panel.setAttribute('data-mode', mode); panel.setAttribute('data-state', asking ? 'confirm' : c.chosen > 0 ? 'chosen' : 'idle');
+    // the filters stay unavailable while Houses are chosen, on every width (on a phone the Show tabs are outside the strip, so the strip's own swap does not hide them)
+    for (const t of panel.querySelectorAll('.lcc-k-tab[data-key="show"]')) { if (mode === 'action') { t.setAttribute('aria-disabled', 'true'); t.setAttribute('title', SHOW_OFF); } else { t.removeAttribute('aria-disabled'); t.removeAttribute('title'); } }
+    setText(panel, '[data-lk="shown"]', String(c.shown.size)); setText(panel, '[data-lk="shownsr"]', c.shown.size + ' of ' + c.board.houses.length + ' Houses shown');
+    const hid = panel.querySelector('[data-lk="hid"]');
+    if (hid) { hid.textContent = c.hidden ? c.hidden + ' chosen, not shown' : ''; hid.hidden = !c.hidden; }
+    const hid2 = panel.querySelector('[data-lk="hid2"]');
+    if (hid2) { hid2.textContent = c.hidden ? c.hidden + ' not shown' : ''; hid2.hidden = !c.hidden; }
+    setText(panel, '[data-lk="n"]', String(c.chosen));
+    setText(panel, '[data-lk="nsr"]', c.chosen + (c.chosen === 1 ? ' House' : ' Houses') + ' chosen' + (c.hidden ? ' (' + c.hidden + ' not shown)' : ''));
+    setText(panel, '[data-lk="chooselabel"]', 'Choose shown (' + c.shown.size + ')');
+    const m = last.container.querySelector('#lcc-bd-menu');
+    if (m) {
+      setText(m, '[data-lk="pcnt"]', c.chosen + ' chosen' + (c.hidden ? ', ' + c.hidden + ' not shown' : ''));
+      for (const o of m.querySelectorAll('.lcc-k-opt[data-lk="hpick"]')) {
+        const id = Number(o.getAttribute('data-id')), off = !c.shown.has(id);
+        o.setAttribute('aria-checked', c.ids.has(id) && !off ? 'true' : 'false');
+        if (off) { o.setAttribute('aria-disabled', 'true'); o.setAttribute('title', 'Not shown, so it cannot be chosen'); } else { o.removeAttribute('aria-disabled'); o.removeAttribute('title'); }
+      }
+      const ph = m.querySelector('.lcc-k-p5-panel[data-cat="house"]'), hl = ph && ph.querySelector('.lcc-k-p5-list');
+      if (hl) filterList(hl, ui.q, ph.querySelector('[data-lk="hn"]'), c.chosen ? ', ' + c.chosen + ' chosen' : '');
+    }
+  }
+  function filterList(list, text, nEl, extra) {
+    const t = String(text || '').trim().toLowerCase();
+    let n = 0, total = 0;
+    for (const o of list.querySelectorAll('.lcc-k-opt')) { total++; const hit = !t || o.textContent.toLowerCase().includes(t); o.hidden = !hit; if (hit) n++; }
+    if (nEl) nEl.textContent = !t ? total + ' Houses' + (extra || '') : n ? n + ' of ' + total + ' Houses match' : 'No House matches the search.';
+    return n;
+  }
+  const visibleFind = () => { const p = panelNode(); return p ? [...p.querySelectorAll('[data-lk="findbtn"]')].find((b) => b.offsetParent) || null : null; };
+  // the popovers are fixed under their key on a desktop width and bottom sheets (a style rule) on a phone
+  function placeAll() {
+    const panel = panelNode();
+    if (!panel) return;
+    const pr = panel.getBoundingClientRect();
+    const place = (pop, anchor, wide) => {
+      if (!pop || pop.hidden || !anchor) return;
+      if (phone()) { pop.style.left = ''; pop.style.top = ''; pop.style.width = ''; return; }
+      const a = anchor.getBoundingClientRect(), w = Math.min(wide ? 640 : 360, pr.width), top = Math.round(a.bottom + 6);
+      const left = Math.max(pr.left, wide ? pr.right - w : Math.min(a.left, pr.right - w));
+      pop.style.width = w + 'px'; pop.style.left = left + 'px'; pop.style.top = top + 'px';
+      const r = pop.getBoundingClientRect(), dx = r.left - left, dy = r.top - top; // a containing block of its own would shift a fixed box: take that off
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) { pop.style.left = (left - dx) + 'px'; pop.style.top = (top - dy) + 'px'; }
+    };
+    place(qsel('#lcc-bd-menu'), qsel('[data-lk="fbtn"]'), true);
+    place(qsel('#lcc-bd-find'), visibleFind(), false);
+  }
+  function layersSync() {
+    if (!last) return;
+    const m = qsel('#lcc-bd-menu'), f = qsel('#lcc-bd-find'), sc = qsel('[data-lk="scrim"]');
+    if (m) { m.hidden = !ui.menu; m.setAttribute('data-view', ui.view); }
+    if (f) f.hidden = !ui.find;
+    if (sc) sc.hidden = !(phone() && (ui.menu || ui.find));
+    for (const b of last.container.querySelectorAll('[data-lk="fbtn"]')) b.setAttribute('aria-expanded', ui.menu ? 'true' : 'false');
+    for (const b of last.container.querySelectorAll('[data-lk="findbtn"]')) b.setAttribute('aria-expanded', ui.find ? 'true' : 'false');
+  }
+  function focusFk(fk) { const n = qsel('[data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); return true; } return false; }
+  function setMenu(open, o) {
+    o = o || {};
+    if (!last || ui.menu === open) return;
+    ui.menu = open;
+    if (open) { ui.find = false; ui.view = 'cats'; }
+    layersSync(); placeAll(); syncStrip();
+    if (open) focusFk('mn:cat:' + ui.cat);
+    else if (o.focus) { if (!(counts().chosen > 0 && focusFk('b-fill'))) focusFk('fbtn'); } // Done and Escape: the focus goes to Fill when the strip swapped to the bar, else back to Filter
+  }
+  function setFind(open, back) {
+    if (!last || ui.find === open) return;
+    if (open && ui.menu) { ui.menu = false; }
+    ui.find = open;
+    if (!open) { ui.fq = ''; const i = qsel('[data-lk="fsearch"]'); if (i) i.value = ''; }
+    layersSync(); placeAll(); syncStrip();
+    const f = qsel('#lcc-bd-find'), l = f && f.querySelector('.lcc-k-p5-list');
+    if (open && f) { if (l) filterList(l, ui.fq, f.querySelector('[data-lk="fn"]')); const i = f.querySelector('[data-lk="fsearch"]'); if (i) i.focus({ preventScroll: true }); }
+    else if (back) { const k = visibleFind(); if (k) k.focus({ preventScroll: true }); }
+  }
+  // Find House: scroll to the House and outline it for 1.8 s (reduced motion: no smooth scroll, the outline only). It changes no filter, ticks nothing and chooses no House.
+  function findHouse(id) {
+    if (!last) return;
+    const c = last.container, target = c.querySelector('.lcc-bd-cell[data-id="' + id + '"]') || c.querySelector('tr.lcc-bd-row[data-id="' + id + '"]');
+    if (!target) return;
+    if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    for (const n of c.querySelectorAll('.lcc-k-flash')) n.classList.remove('lcc-k-flash');
+    target.classList.add('lcc-k-flash');
+    root.setTimeout(() => target.classList.remove('lcc-k-flash'), 1800);
+  }
+  function stuckSync() {
+    const p = panelNode(), s = p && p.querySelector('.lcc-k-strip');
+    if (!s) return;
+    const lim = parseFloat(root.getComputedStyle(s).top) || 0;
+    p.setAttribute('data-stuck', s.getBoundingClientRect().top <= lim + 0.5 && p.getBoundingClientRect().top < lim - 1 ? '1' : '0');
+  }
+  // the 25 squares are ONE tab stop (the box that was last used, else the first ticked, else the first), arrows move between the boxes
+  function rove() {
+    if (!last) return;
+    const boxes = [...last.container.querySelectorAll('.lcc-bd-pick')], ok = boxes.filter((b) => !b.disabled);
+    if (!ok.length) return;
+    const keep = ok.find((b) => b.getAttribute('data-id') === ui.rove) || ok.find((b) => b.checked) || ok[0];
+    for (const b of boxes) b.setAttribute('tabindex', b === keep ? '0' : '-1');
+  }
+  function pickKey(e) {
+    const t = e.target;
+    if (!t || !t.classList || !t.classList.contains('lcc-bd-pick')) return false;
+    if (e.key === 'Enter') { e.preventDefault(); t.click(); return true; }
+    const grid = !!last.container.querySelector('.lcc-bd-tiles');
+    const d = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: grid ? -M().COLS : -1, ArrowDown: grid ? M().COLS : 1 }[e.key];
+    if (!d) return false;
+    const boxes = [...last.container.querySelectorAll('.lcc-bd-pick')];
+    let i = boxes.indexOf(t) + d;
+    while (i >= 0 && i < boxes.length && boxes[i].disabled) i += d;
+    e.preventDefault();
+    if (i >= 0 && i < boxes.length) { ui.rove = boxes[i].getAttribute('data-id'); boxes[i].focus(); rove(); }
+    return true;
+  }
+  function radioKey(e) {
+    const t = e.target;
+    if (!t || !t.getAttribute || t.getAttribute('role') !== 'radio') return false;
+    const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key], g = t.closest('[role="radiogroup"]');
+    if (!d || !g) return false;
+    const rs = [...g.querySelectorAll('[role="radio"]:not([aria-disabled="true"])')], n = rs[(rs.indexOf(t) + d + rs.length) % rs.length];
+    e.preventDefault(); if (n) n.click();
+    return true;
+  }
+  const firstIn = (panel) => panel.querySelector('.lcc-k-tab[tabindex="0"], .lcc-k-search, .lcc-k-opt:not([hidden])');
+  function menuKey(e) {
+    const t = e.target, m = t && t.closest ? t.closest('#lcc-bd-menu') : null;
+    if (!m) return false;
+    if (t.classList.contains('lcc-k-cat')) {
+      const cats = [...m.querySelectorAll('.lcc-k-cat:not([aria-disabled="true"])')], i = cats.indexOf(t);
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { const n = cats[(i + (e.key === 'ArrowDown' ? 1 : cats.length - 1)) % cats.length]; e.preventDefault(); if (n) { n.click(); n.focus(); } return true; }
+      if (e.key === 'ArrowRight') { const p = m.querySelector('.lcc-k-p5-panel:not([hidden])'), f = p && firstIn(p); if (f) { e.preventDefault(); f.focus(); } return true; }
+      return false;
+    }
+    if (t.classList.contains('lcc-k-opt')) {
+      const list = t.closest('.lcc-k-p5-list'), opts = [...list.querySelectorAll('.lcc-k-opt:not([hidden])')], i = opts.indexOf(t);
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (step) {
+        e.preventDefault();
+        if (i + step < 0) { const s = m.querySelector('.lcc-k-search'); if (s && list.getAttribute('data-list') === 'h') s.focus(); else { const c = m.querySelector('.lcc-k-cat[aria-selected="true"]'); if (c) c.focus(); } } else if (opts[i + step]) opts[i + step].focus();
+        return true;
+      }
+      if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); (e.key === 'Home' ? opts[0] : opts[opts.length - 1]).focus(); return true; }
+      return false;
+    }
+    if (t.getAttribute('data-lk') === 'hsearch' && e.key === 'ArrowDown') { const f = m.querySelector('.lcc-k-p5-panel[data-cat="house"] .lcc-k-opt:not([hidden])'); if (f) { e.preventDefault(); f.focus(); } return true; }
+    return false;
+  }
+  function ctlKey(e) {
+    if (!last) return;
+    if (e.key === 'Escape') {
+      const t = e.target, inFind = t.closest && t.closest('#lcc-bd-find'), inMenu = t.closest && t.closest('#lcc-bd-menu');
+      if (ui.find && (inFind || !ui.menu)) { if (t.getAttribute && t.getAttribute('data-lk') === 'fsearch' && t.value) { t.value = ''; ui.fq = ''; ctlInput(e); } else setFind(false, true); e.preventDefault(); e.stopPropagation(); return; }
+      if (ui.menu) { if (t.getAttribute && t.getAttribute('data-lk') === 'hsearch' && t.value) { t.value = ''; ui.q = ''; ctlInput(e); } else setMenu(false, { focus: true }); e.preventDefault(); e.stopPropagation(); return; }
+      const mo = qsel('.lcc-k-moremenu:not([hidden])');
+      if (mo) { mo.hidden = true; const mb = qsel('[data-lk="more"]'); if (mb) mb.setAttribute('aria-expanded', 'false'); if (mb) mb.focus(); e.preventDefault(); return; }
+      if (inMenu || !t.closest || !(t.closest('.lcc-k-strip') || t.closest('.lcc-bd-pick'))) return;
+      const no = qsel('.lcc-k-cmd [data-lb="cno"]'); // the question first (the page's own Cancel returns the focus to Fill), then the choice
+      if (no) { e.preventDefault(); no.click(); return; }
+      const p = panelNode();
+      if (p && p.getAttribute('data-mode') === 'action') { const cl = p.querySelector('[data-lb="pickno"]'); if (cl) { e.preventDefault(); cl.click(); } }
+      return;
+    }
+    if (pickKey(e) || radioKey(e) || menuKey(e)) return;
+  }
+  function ctlInput(e) {
+    const t = e.target, k = t && t.getAttribute ? t.getAttribute('data-lk') : '';
+    if (k === 'hsearch') { ui.q = t.value; const m = qsel('#lcc-bd-menu'), l = m && m.querySelector('.lcc-k-p5-panel[data-cat="house"] .lcc-k-p5-list'); if (l) filterList(l, ui.q, m.querySelector('[data-lk="hn"]'), counts().chosen ? ', ' + counts().chosen + ' chosen' : ''); }
+    if (k === 'fsearch') { ui.fq = t.value; const f = qsel('#lcc-bd-find'), l = f && f.querySelector('.lcc-k-p5-list'); if (l) filterList(l, ui.fq, f.querySelector('[data-lk="fn"]')); }
+  }
+  // a click on one of this area's own keys; the Show tabs and the pledge row use the board's own filter path (data-lcb="filter") and are not handled here
+  function ctlClick(e) {
+    const t = e.target && e.target.closest ? e.target.closest('[data-lk]') : null;
+    if (!t || !last) return false;
+    const k = t.getAttribute('data-lk');
+    const reset = (key) => { if (key === 'hs') state.hs = 'any'; else if (key === 'spec') { state.specs = []; state.spec = 'all'; } else if (key === 'group') state.group = ''; };
+    if (k === 'fbtn') { e.preventDefault(); setMenu(!ui.menu, { focus: true }); return true; }
+    if (k === 'findbtn') { e.preventDefault(); setFind(!ui.find, true); return true; }
+    if (k === 'popclose') { e.preventDefault(); setMenu(false, { focus: true }); return true; }
+    if (k === 'fclose') { e.preventDefault(); setFind(false, true); return true; }
+    if (k === 'cat') {
+      e.preventDefault();
+      if (t.getAttribute('aria-disabled') === 'true') return true;
+      ui.cat = t.getAttribute('data-cat'); if (phone()) ui.view = 'items';
+      const m = qsel('#lcc-bd-menu');
+      for (const c of m.querySelectorAll('.lcc-k-cat')) { const on = c === t; c.setAttribute('aria-selected', on ? 'true' : 'false'); c.setAttribute('tabindex', on ? '0' : '-1'); }
+      for (const p of m.querySelectorAll('.lcc-k-p5-panel')) p.hidden = p.getAttribute('data-cat') !== ui.cat;
+      setText(m, '[data-lk="ptitle"]', (t.firstChild ? t.firstChild.textContent : ''));
+      layersSync();
+      return true;
+    }
+    if (k === 'back') { e.preventDefault(); ui.view = 'cats'; layersSync(); focusFk('mn:cat:' + ui.cat); return true; }
+    if (k === 'hpick') { // ticks the square on the board, the same tick the board gives; no chip, no scroll, nothing is hidden
+      e.preventDefault();
+      const cb = last.container.querySelector('.lcc-bd-pick[data-id="' + t.getAttribute('data-id') + '"]');
+      if (cb && !cb.disabled && t.getAttribute('aria-disabled') !== 'true') { ui.ticking = true; try { cb.click(); } finally { ui.ticking = false; } } // the click of the square must not close the menu it came from
+      return true;
+    }
+    if (k === 'spick') {
+      e.preventDefault();
+      const v = t.getAttribute('data-val'), set = new Set(state.specs);
+      if (v === 'all') set.clear(); else if (set.has(v)) set.delete(v); else set.add(v);
+      state.specs = SPEC_LIST.filter((s) => set.has(s)); state.spec = 'all';
+      filtered(); redraw();
+      return true;
+    }
+    if (k === 'gpick') { e.preventDefault(); state.group = t.getAttribute('data-val') === 'region' || t.getAttribute('data-val') === 'spec' ? t.getAttribute('data-val') : ''; redraw(); return true; }
+    if (k === 'clearf') { e.preventDefault(); reset('hs'); reset('spec'); reset('group'); filtered(); redraw(); focusFk('mn:done'); return true; }
+    if (k === 'chipx') { e.preventDefault(); reset(t.getAttribute('data-key')); filtered(); redraw(); focusFk('fbtn'); return true; }
+    if (k === 'fpick') { e.preventDefault(); const id = Number(t.getAttribute('data-id')); setFind(false, true); findHouse(id); return true; }
+    if (k === 'seat') { e.preventDefault(); if (last.host && last.host.setFac) last.host.setFac(t.getAttribute('data-fid')); return true; }
+    if (k === 'more') { e.preventDefault(); const mm = qsel('.lcc-k-moremenu'); if (mm) { mm.hidden = !mm.hidden; t.setAttribute('aria-expanded', mm.hidden ? 'false' : 'true'); } return true; }
+    if (k === 'scrim') { setMenu(false, {}); setFind(false, false); return true; }
+    return false;
+  }
+  // a click outside an open menu or list closes it (and the strip swaps when Houses are ticked); Tab out of it does the same
+  function outside(e) {
+    if (!last || !last.container.isConnected) return;
+    const t = e.target;
+    if (ui.ticking) return;
+    if (ui.menu && !(t.closest && (t.closest('#lcc-bd-menu') || t.closest('[data-lk="fbtn"]')))) setMenu(false, {});
+    if (ui.find && !(t.closest && (t.closest('#lcc-bd-find') || t.closest('[data-lk="findbtn"]')))) setFind(false, false);
+    const mm = qsel('.lcc-k-moremenu:not([hidden])');
+    if (mm && !(t.closest && (t.closest('.lcc-k-moremenu') || t.closest('[data-lk="more"]')))) { mm.hidden = true; const mb = qsel('[data-lk="more"]'); if (mb) mb.setAttribute('aria-expanded', 'false'); }
+  }
+  function leaving(e) {
+    if (!last) return;
+    const to = e.relatedTarget;
+    if (!to) return;
+    if (ui.menu && e.target.closest && e.target.closest('#lcc-bd-menu') && !to.closest('#lcc-bd-menu') && !to.closest('[data-lk="fbtn"]')) setMenu(false, {});
+    if (ui.find && e.target.closest && e.target.closest('#lcc-bd-find') && !to.closest('#lcc-bd-find') && !to.closest('[data-lk="findbtn"]')) setFind(false, false);
+  }
+  // after every drawing of the board (mount): the crests, the mode, the roving box, the popovers and what the menu keeps
+  function afterMount() {
+    const panel = panelNode();
+    if (!panel) return;
+    for (const ph of [...last.container.querySelectorAll('.lcc-k-icph')]) ph.replaceWith(icon(ph.getAttribute('data-ic'))); // the icons of the page's keys (the page draws a placeholder; the board draws the picture)
+    for (const f of ['a', 'h']) { const a = L().factionAsset ? L().factionAsset(f, 'mark') : null; if (a && a.src) panel.style.setProperty('--lcc-k-crest-' + f, 'url("' + a.src + '")'); }
+    // on a phone the Show tabs are not part of the sticky strip (they scroll away, just above it); on a wider window they are the first thing in its filter row
+    const tray = panel.querySelector('.lcc-k-lens-tray'), st = panel.querySelector('.lcc-k-strip'), lens = st && st.querySelector('.lcc-k-lens');
+    if (tray && st && lens) {
+      if (phone() && tray.parentNode === lens) { tray.classList.add('lcc-k-tray-out'); st.parentNode.insertBefore(tray, st); } else if (!phone() && tray.parentNode !== lens) { tray.classList.remove('lcc-k-tray-out'); lens.insertBefore(tray, lens.firstChild); }
+    }
+    syncStrip(); layersSync(); rove(); placeAll(); stuckSync();
+    const f = qsel('#lcc-bd-find'), l = f && f.querySelector('.lcc-k-p5-list');
+    if (f && l) filterList(l, ui.fq, f.querySelector('[data-lk="fn"]'));
   }
 
   // ---- mounting and the view's own events ---------------------------------------------------------------------------------------------------------------------------------------
@@ -760,10 +1214,12 @@
   }
   function mount(container, answer, host) {
     if (!inited) { inited = true; const v = host && host.get ? host.get('layout') : null; if (v === 'grid' || v === 'list') state.layout = v; }
+    if (!last || last.container !== container) { ui.menu = false; ui.find = false; ui.fq = ''; } // a new board (a return to the tab) starts with the Filter menu and Find House closed; a redraw of the same board keeps them
     last = { container, answer, host };
     const fk = container.contains(root.document.activeElement) ? focusKey() : '';
     if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
     const board = M().readBoard(answer);
+    last.board = board;
     container.textContent = '';
     const built = build(board, host);
     container.appendChild(built);
@@ -776,12 +1232,19 @@
       container.addEventListener('mouseleave', tipHide);
       container.addEventListener('focusin', (e) => { const n = rtipOf(e); if (n) tipShow(n); else tipHide(); });
       container.addEventListener('focusout', tipHide);
-      container.addEventListener('keydown', (e) => { if (e.key === 'Escape') tipHide(); });
+      container.addEventListener('keydown', (e) => { if (e.key === 'Escape') tipHide(); ctlKey(e); });
+      container.addEventListener('input', ctlInput); container.addEventListener('focusout', leaving);
+      container.addEventListener('focusin', (e) => { const b = e.target; if (b && b.classList && b.classList.contains('lcc-bd-pick')) { ui.rove = b.getAttribute('data-id'); rove(); } });
+      if (!root.__lccBdGlobals) { // the page and the window get these listeners once, not once per container: a tab switch builds a new container, and the handlers read the board that is mounted now (last)
+        root.__lccBdGlobals = true;
+        root.document.addEventListener('click', outside); root.addEventListener('scroll', () => { stuckSync(); if (ui.menu || ui.find) placeAll(); }, { passive: true }); let wasPhone = phone(); root.addEventListener('resize', () => { if (!last || !last.container.isConnected) return; if (phone() !== wasPhone) { wasPhone = phone(); redraw(); return; } layersSync(); placeAll(); });
+      }
       container.addEventListener('click', tipHide, true);
       container.addEventListener('click', onClick); container.addEventListener('change', onChange);
       container.addEventListener('scroll', onScroll, true); container.addEventListener('toggle', onToggle, true); // neither event bubbles
     }
     if (host && host.seat) host.seat(container);
+    afterMount();
     const insp = container.querySelector('.lcc-bd-insp');
     // the panel is drawn again on every select, filter and tier change: it is put back where it was scrolled to when it is still the same House
     if (insp && memo.insp && memo.insp.top > 0 && memo.insp.id === insp.getAttribute('data-id')) insp.scrollTop = memo.insp.top;
@@ -829,7 +1292,14 @@
   function coarsePointer() {
     try { return !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches); } catch (err) { return false; }
   }
+  // a key of the More disclosure closes it; the page's own handler then asks or writes as before
+  function closeMoreFor(e) {
+    const mi = e.target && e.target.closest ? e.target.closest('.lcc-k-moremenu [data-lb="bulk"]') : null;
+    if (mi) { const mm = mi.closest('.lcc-k-moremenu'), mb = qsel('[data-lk="more"]'); mm.hidden = true; if (mb) mb.setAttribute('aria-expanded', 'false'); }
+  }
   function onClick(e) {
+    closeMoreFor(e);
+    if (ctlClick(e)) return; // the keys of the control area (the Filter menu, Find House, the chips, the faction crests)
     const box = e.target && e.target.closest ? e.target.closest('.lcc-hc-t[data-lb="tier"]') : null;
     if (box && last && e.detail > 0 && coarsePointer()) {
       e.preventDefault(); e.stopPropagation(); // the page's own click handler (the one that writes) never sees this tap
@@ -853,6 +1323,7 @@
     if (k === 'gopath') { e.preventDefault(); if (last.host && typeof last.host.goPath === 'function') last.host.goPath(t.getAttribute('data-track')); return; }
     if (k === 'filter') {
       e.preventDefault();
+      if (t.getAttribute('aria-disabled') === 'true') { if (last.host && typeof last.host.say === 'function') last.host.say(SHOW_OFF); return; }
       state[t.getAttribute('data-key')] = t.getAttribute('data-val');
       filtered(); redraw();
       return;
@@ -896,31 +1367,17 @@
   function onChange(e) {
     const t = e.target, k = t && t.getAttribute ? t.getAttribute('data-lcb') : '';
     if (!k) return;
-    if (k === 'spec') { state.spec = M().TRACKS.includes(t.value) ? t.value : 'all'; filtered(); redraw(); return; }
-    if (k === 'group') { state.group = t.value === 'region' || t.value === 'spec' ? t.value : ''; redraw(); return; }
     if (k === 'fac') { // the board's own faction box takes the choice; when it does not (it is off during a write) the panel's box goes back to the faction that is used, so it never shows one that was not applied (#882)
       const took = last && last.host && last.host.setFac ? last.host.setFac(t.value) : false;
       if (took === false) { const was = t.getAttribute('data-was'); if (was !== null) t.value = was; }
       return;
-    }
-    if (k === 'jump') {
-      state.sel = t.value === '' ? null : Number(t.value);
-      memo.insp = null;
-      if (state.sel !== null) { // a jump shows the House: the filters that would hide it are cleared, as the classic list's jump does
-        state.show = 'all'; state.hs = 'any'; state.spec = 'all';
-      }
-      redraw();
-      if (state.sel !== null) {
-        const c = last.container.querySelector('[data-fk="ht:' + state.sel + '"]');
-        if (c && c.focus) { c.focus(); if (c.scrollIntoView) c.scrollIntoView({ block: 'nearest' }); }
-      }
     }
   }
 
   // The path of the large House symbol (the 128 px picture of the Command Center art) for the hover card that the page builds (#1069): the page may not reach into the art itself (a test keeps it to LCCM, LCCB, LCCS, LCCT and LCC_HOST),
   // so it asks here. The name is looked up in the art's fixed list of Houses (houseAsset): a name that is not on it, or no art, gives an empty answer and the card has no picture.
   const houseSymbol = (name) => { const a = L() && L().houseAsset ? L().houseAsset(name) : null; return a ? a.src : ''; };
-  const api = { state, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE, houseSymbol };
+  const api = { state, ui, syncStrip, mount, redraw, keepInView, visible, build, tipOf, majorityOf, victoryWords, plaque, grid, houseCard, list, inspector, victoryPanel, tierKind, NOT_IN_SAVE, houseSymbol };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.LCCB = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -39,7 +39,7 @@ const VARIANTS = [
   { name: 'Command Center grid: the Place line of the hover card', view: 'board', layout: 'grid', link: (id) => `li.lcc-bd-cell[data-id="${id}"] .hcard-place` },
   { name: 'Command Center inspector: the place line under the House name', view: 'board', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]' },
   { name: 'Command Center inspector: the Open in the Saved map action', view: 'board', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' },
-  { name: 'Command Center: Jump to House, then the inspector', view: 'board', layout: 'grid', pre: (ui, id) => { const j = ui.doc.querySelector('[data-lcb="jump"]'); assert.ok(j, 'the jump'); j.value = String(id); j.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }, link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' },
+  { name: 'Command Center: Find House, then the inspector', view: 'board', layout: 'grid', pre: (ui, id) => { click(ui, '[data-lk="findbtn"]'); click(ui, '[data-lk="fpick"][data-id="' + id + '"]'); click(ui, '[data-fk="ht:' + id + '"]'); }, link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' }, // Find House scrolls and outlines only (tau #974); the card opens the inspector
 ];
 
 // what the page was asked to scroll, in order: the window to an offset, an element into view (by its id or its class)
