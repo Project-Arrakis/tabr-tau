@@ -1056,3 +1056,15 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 /* the whole question is read on screen: the Houses, the Houses left alone and the sentence about the backup; no line clamp (a very long list scrolls inside its own box) */
 .lcc-k-e6 .lcc-k-ask .lcc-k-qd { margin: 2px 0 0; font: 12px/1.35 var(--lcc-sans); color: var(--lcc-dim); max-height: min(30vh, 16em); overflow-y: auto; }
 @media (max-width: 700px) { .lcc-k-e6 .lcc-k-cmd .lcc-k-morewrap { order: 7; flex: 0 0 44px; } .lcc-k-moremenu { right: 0; left: auto; } }
+/* the summary line of the term (#440): one line under the term, three counts that are keys of the Show tabs; it wraps on a narrow window instead of running over, and keeps the size of a name (12 px) */
+.lcc-bd-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; margin-top: 4px; font: 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); min-width: 0; }
+.lcc-bd-sum-sep { color: var(--lcc-dim); }
+.lcc-bd .lcc-bd-sumb { font: 12px/1.3 var(--lcc-sans); }
+.lcc-bd .lcc-bd-sumb b { font-weight: 700; margin-right: 4px; }
+.lcc-bd .lcc-bd-sumb[aria-pressed="true"] { text-decoration-thickness: 2px; color: var(--lcc-text); }
+/* the character's level in the specialization of a House, on the House panel's specialization line (#646) */
+.lcc-bd-lvl { display: inline-block; margin-left: 8px; font: 600 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); white-space: nowrap; }
+/* the list where it is crowded (#1103): the "(N more)" of the Next tier cell is read out and shown in the mouse-over, but not drawn, so Place and Next tier stay on few lines and the Not collected column stays whole */
+@supports (container-type: inline-size) { @container (max-width: 1000px) {
+  .lcc-bd-more { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+} }

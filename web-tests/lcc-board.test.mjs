@@ -174,7 +174,7 @@ test('each card carries the specialization emblem of its mapped path in the uppe
   const badge = w.querySelector('.lcc-hc-top .lcc-hc-spec');
   assert.ok(badge, 'the badge is in the top row, after the number');
   assert.equal(badge.dataset.track, 'exploration');
-  assert.equal(badge.getAttribute('title'), 'Exploration specialization');
+  assert.equal(badge.getAttribute('title'), 'Exploration specialization, Level —', 'the level is a dash until the Specializations tab has read it (#646)');
   assert.equal(badge.querySelector('img').getAttribute('src'), '/lcc/art/emblems/exploration.png', 'the clean emblem cut from the banner, not the banner with its shadow and side copies (#976), not a screenshot crop (#963)');
   assert.equal(badge.querySelector('img').getAttribute('width'), '28');
   assert.equal(badge.querySelector('img').getAttribute('alt'), '', 'decorative: the path is also written under the name');
