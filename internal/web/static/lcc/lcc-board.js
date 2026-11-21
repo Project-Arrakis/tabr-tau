@@ -211,6 +211,7 @@
     b.appendChild(el('span', 'lcc-k-bl', label));
     return tip ? tipped(b, tip, pos) : b;
   }
+  const SHOW_OFF = 'Not available while Houses are chosen. Clear the choice to change which Houses are shown.';
   const SPEC_LIST = Object.freeze(['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
   const groupOn = (board) => !!state.group && (state.layout === 'list' || !board.ready);
   // one chip per active filter category (House, Specialization, Group), never one per House; Show is not a chip (its tabs are always on the strip)
@@ -959,6 +960,8 @@
     const c = counts(), asking = !!panel.querySelector('.lcc-k-cmd #lsb-confirm');
     const mode = asking || (c.chosen > 0 && !ui.menu) ? 'action' : 'filters';
     panel.setAttribute('data-mode', mode); panel.setAttribute('data-state', asking ? 'confirm' : c.chosen > 0 ? 'chosen' : 'idle');
+    // the filters stay unavailable while Houses are chosen, on every width (on a phone the Show tabs are outside the strip, so the strip's own swap does not hide them)
+    for (const t of panel.querySelectorAll('.lcc-k-tab[data-key="show"]')) { if (mode === 'action') { t.setAttribute('aria-disabled', 'true'); t.setAttribute('title', SHOW_OFF); } else { t.removeAttribute('aria-disabled'); t.removeAttribute('title'); } }
     setText(panel, '[data-lk="shown"]', String(c.shown.size)); setText(panel, '[data-lk="shownsr"]', c.shown.size + ' of ' + c.board.houses.length + ' Houses shown');
     const hid = panel.querySelector('[data-lk="hid"]');
     if (hid) { hid.textContent = c.hidden ? c.hidden + ' chosen, not shown' : ''; hid.hidden = !c.hidden; }
@@ -1211,6 +1214,7 @@
   }
   function mount(container, answer, host) {
     if (!inited) { inited = true; const v = host && host.get ? host.get('layout') : null; if (v === 'grid' || v === 'list') state.layout = v; }
+    if (!last || last.container !== container) { ui.menu = false; ui.find = false; ui.fq = ''; } // a new board (a return to the tab) starts with the Filter menu and Find House closed; a redraw of the same board keeps them
     last = { container, answer, host };
     const fk = container.contains(root.document.activeElement) ? focusKey() : '';
     if (host && host.unseat) host.unseat(); // what the page put into the board goes back to its own place before the board is drawn again
@@ -1233,7 +1237,7 @@
       container.addEventListener('focusin', (e) => { const b = e.target; if (b && b.classList && b.classList.contains('lcc-bd-pick')) { ui.rove = b.getAttribute('data-id'); rove(); } });
       if (!root.__lccBdGlobals) { // the page and the window get these listeners once, not once per container: a tab switch builds a new container, and the handlers read the board that is mounted now (last)
         root.__lccBdGlobals = true;
-        root.document.addEventListener('click', outside); root.addEventListener('scroll', () => { stuckSync(); if (ui.menu || ui.find) placeAll(); }, { passive: true }); let wasPhone = phone(); root.addEventListener('resize', () => { if (phone() !== wasPhone) { wasPhone = phone(); redraw(); return; } layersSync(); placeAll(); });
+        root.document.addEventListener('click', outside); root.addEventListener('scroll', () => { stuckSync(); if (ui.menu || ui.find) placeAll(); }, { passive: true }); let wasPhone = phone(); root.addEventListener('resize', () => { if (!last || !last.container.isConnected) return; if (phone() !== wasPhone) { wasPhone = phone(); redraw(); return; } layersSync(); placeAll(); });
       }
       container.addEventListener('click', tipHide, true);
       container.addEventListener('click', onClick); container.addEventListener('change', onChange);
@@ -1288,7 +1292,13 @@
   function coarsePointer() {
     try { return !!(root.matchMedia && root.matchMedia('(pointer: coarse)').matches); } catch (err) { return false; }
   }
+  // a key of the More disclosure closes it; the page's own handler then asks or writes as before
+  function closeMoreFor(e) {
+    const mi = e.target && e.target.closest ? e.target.closest('.lcc-k-moremenu [data-lb="bulk"]') : null;
+    if (mi) { const mm = mi.closest('.lcc-k-moremenu'), mb = qsel('[data-lk="more"]'); mm.hidden = true; if (mb) mb.setAttribute('aria-expanded', 'false'); }
+  }
   function onClick(e) {
+    closeMoreFor(e);
     if (ctlClick(e)) return; // the keys of the control area (the Filter menu, Find House, the chips, the faction crests)
     const box = e.target && e.target.closest ? e.target.closest('.lcc-hc-t[data-lb="tier"]') : null;
     if (box && last && e.detail > 0 && coarsePointer()) {
@@ -1313,6 +1323,7 @@
     if (k === 'gopath') { e.preventDefault(); if (last.host && typeof last.host.goPath === 'function') last.host.goPath(t.getAttribute('data-track')); return; }
     if (k === 'filter') {
       e.preventDefault();
+      if (t.getAttribute('aria-disabled') === 'true') { if (last.host && typeof last.host.say === 'function') last.host.say(SHOW_OFF); return; }
       state[t.getAttribute('data-key')] = t.getAttribute('data-val');
       filtered(); redraw();
       return;

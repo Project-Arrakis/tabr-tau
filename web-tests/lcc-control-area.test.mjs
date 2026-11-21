@@ -219,3 +219,103 @@ test('style: the phone has a sticky filter row of about 56 px and an action bar 
 test('style: at 320 px the filter row fits the window (the label of Choose shown takes two short lines under 380 px)', () => {
   assert.match(CSS, /@media \(max-width: 380px\) \{\s*\.lcc-k-e6 \.lcc-k-lens > \.lcc-k-cg \{ flex: 0 1 auto; min-width: 0; \}\s*\.lcc-k-e6 \.lcc-k-cg \.lcc-k-link \{ white-space: normal;/);
 });
+
+// ---- the review of the real-browser pass (tau #974): Cancel, the whole question, the Show tabs while Houses are chosen, a fresh board, the More disclosure ----
+const state = (ui) => panel(ui).dataset.state;
+const fkOf = (ui) => (ui.doc.activeElement && ui.doc.activeElement.getAttribute ? ui.doc.activeElement.getAttribute('data-fk') : '');
+const chosenIds = (ui) => [...ui.w.LCC_HOST.picks()];
+
+test('Cancel, Escape and a stale question give the strip back its action keys at once, and the focus goes to the key that asked (Fill, or More for Complete and fill and Unfill)', async () => {
+  const ui = await open();
+  tick(ui, 3);
+  click(ui, '.lcc-k-cmd [data-do="fill"]');
+  await ui.settle();
+  assert.equal(state(ui), 'confirm');
+  click(ui, '[data-fk="c-no"]');
+  assert.equal(state(ui), 'chosen', 'the strip is synced when the question is cancelled (the keys are hidden while it says confirm)');
+  assert.equal(fkOf(ui), 'b-fill');
+  // Complete and fill sits in the closed More menu: the focus goes to the More key
+  click(ui, '.lcc-k-cmd [data-lk="more"]');
+  assert.equal(ui.doc.querySelector('.lcc-k-moremenu').hidden, false);
+  click(ui, '.lcc-k-cmd [data-do="cfill"]');
+  await ui.settle();
+  assert.equal(state(ui), 'confirm');
+  assert.equal(ui.doc.querySelector('.lcc-k-moremenu').hidden, true, 'a key of the More disclosure closes it');
+  click(ui, '[data-fk="c-no"]');
+  assert.equal(state(ui), 'chosen');
+  assert.equal(fkOf(ui), 'b-more');
+  assert.equal(ui.doc.querySelector('.lcc-k-cmd [data-lk="more"]').getAttribute('aria-expanded'), 'false');
+  // Escape on a question
+  click(ui, '.lcc-k-cmd [data-do="complete"]');
+  await ui.settle();
+  assert.equal(state(ui), 'confirm');
+  ui.doc.activeElement.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.equal(state(ui), 'chosen');
+  assert.equal(fkOf(ui), 'b-complete');
+  assert.equal(ui.posted.length, 0, 'cancelling writes nothing');
+});
+
+test('the question is not clamped: the Houses, the Houses left alone and the backup sentence are all in the text under the heading, and no style clamps the lines', async () => {
+  const ui = await open();
+  tick(ui, 6);
+  click(ui, '.lcc-k-cmd [data-do="fill"]');
+  await ui.settle();
+  const qd = ui.doc.querySelector('.lcc-k-ask .lcc-k-qd');
+  assert.ok(qd, 'the detail of the question');
+  assert.match(text(qd), /Houses: /);
+  assert.match(text(qd), /Written at once, with a backup first\./);
+  const rule = CSS.match(/\.lcc-k-e6 \.lcc-k-ask \.lcc-k-qd \{[^}]*\}/)[0];
+  assert.doesNotMatch(rule, /line-clamp|display: -webkit-box|overflow: hidden/);
+  assert.match(rule, /overflow-y: auto/, 'a very long list scrolls in its own box instead of being cut');
+});
+
+test('the Show tabs are off while Houses are chosen, on every width, with the reason in the title, and a press changes nothing', async () => {
+  const ui = await open();
+  const tabs = () => [...ui.doc.querySelectorAll('.lcc-k-tab[data-key="show"]')];
+  assert.ok(tabs().every((t) => t.getAttribute('aria-disabled') === null));
+  tick(ui, 4);
+  assert.ok(tabs().every((t) => t.getAttribute('aria-disabled') === 'true'), 'off in the action bar');
+  assert.match(tabs()[0].getAttribute('title'), /Not available while Houses are chosen/);
+  const was = chosenIds(ui).length;
+  click(ui, tabs().find((t) => t.getAttribute('aria-checked') === 'false'));
+  assert.equal(chosenIds(ui).length, was, 'the choice is not dropped by a press on an off tab');
+  assert.equal(ui.w.LCCB.state.show, 'all');
+  click(ui, '.lcc-k-cmd [data-lb="pickno"]');
+  assert.ok(tabs().every((t) => t.getAttribute('aria-disabled') === null && t.getAttribute('title') === null), 'back on when the choice is cleared');
+  click(ui, tabs().find((t) => t.getAttribute('aria-checked') === 'false'));
+  assert.notEqual(ui.w.LCCB.state.show, 'all', 'and a press works again');
+});
+
+test('a returning board starts with the Filter menu and Find House closed (the state belongs to one board)', async () => {
+  const ui = await open();
+  openMenu(ui);
+  assert.equal(ui.doc.querySelector('#lcc-bd-menu').hidden, false);
+  click(ui, '[data-tab="player"]'); await ui.settle();
+  click(ui, '[data-tab="landsraad"]'); await ui.settle();
+  assert.equal(ui.doc.querySelector('#lcc-bd-menu').hidden, true, 'the menu does not pop open again');
+  tick(ui, 1);
+  assert.equal(panel(ui).dataset.mode, 'action', 'and Houses chosen are not forced back into the filter row by a stale open menu');
+});
+
+test('More is a disclosure (aria-expanded, aria-controls, ordinary buttons), not a menu; Escape closes it and gives the focus back to More', async () => {
+  const ui = await open();
+  tick(ui, 2);
+  const more = ui.doc.querySelector('.lcc-k-cmd [data-lk="more"]'), menu = ui.doc.querySelector('.lcc-k-moremenu');
+  assert.equal(more.getAttribute('aria-haspopup'), null);
+  assert.equal(more.getAttribute('aria-controls'), menu.id);
+  assert.equal(menu.getAttribute('role'), 'group');
+  assert.equal(menu.querySelectorAll('[role="menuitem"]').length, 0);
+  click(ui, more);
+  assert.equal(more.getAttribute('aria-expanded'), 'true');
+  const first = menu.querySelector('button');
+  first.focus();
+  key(ui, first, 'Escape');
+  assert.equal(menu.hidden, true);
+  assert.equal(more.getAttribute('aria-expanded'), 'false');
+  assert.equal(ui.doc.activeElement, more);
+});
+
+test('style: Clear keeps its word at the panel width of the design (about 860 px) and is the X alone only below 780 px', () => {
+  assert.match(CSS, /@container kA \(max-width: 779px\) \{ \.lcc-k-e6 \.lcc-k-cmd \[data-lb="pickno"\] > span:not\(\.lcc-k-tip\)/);
+  assert.doesNotMatch(CSS, /@container kA \(max-width: 959px\) \{ \.lcc-k-e6 \.lcc-k-cmd \[data-lb="pickno"\]/);
+});
