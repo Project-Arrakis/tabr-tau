@@ -585,8 +585,10 @@
     if (!c) return td;
     const taken = !c.reopen.off; // the Classic row's own toggle: Reopen on a House that is taken, Complete on one that is not
     const say = (s) => String(s).replace(/\btaken by\b/g, 'pledged to').replace(/\btaken\b/g, 'pledged'); // the board says pledged where the page's sentence says taken (the same sentence as the Inspector's button, in the board's words)
+    // Complete acts for the faction chosen on the page, which is not always the person's own and whose crests may be hidden here: the name of the button says for whom (Reopen is the same for every faction, so it says nothing)
+    const forWho = (kind) => (kind === 'complete' && c.ownF === false && c.facName ? ' for ' + c.facName : '');
     const mk = (kind, label, ic, ctl, fk) => {
-      const b = actionBtn('', kind, h, Object.assign({}, ctl, { tip: say(ctl.tip) }), fk, { class: 'lcc-bd-act lcc-bd-rowact', 'aria-label': label + ' House ' + h.name });
+      const b = actionBtn('', kind, h, Object.assign({}, ctl, { tip: say(ctl.tip) }), fk, { class: 'lcc-bd-act lcc-bd-rowact', 'aria-label': label + ' House ' + h.name + forWho(kind) });
       b.appendChild(icon(ic));
       return b;
     };
@@ -596,6 +598,9 @@
   }
   function list(board, matchIds, host, editable, picks) {
     const wrap = el('div', 'lcc-bd-listwrap');
+    // the row buttons act for the faction chosen on the page: say which one above the table, where the faction crests may be hidden (#1028)
+    const first = editable && board.houses.length ? ctlOf(host, board.houses[0].id) : null;
+    if (first && first.facName) wrap.appendChild(el('p', 'lcc-bd-rowfac', 'Row actions act for ' + first.facName + '.'));
     const t = el('table', 'lcc-bd-list');
     t.appendChild(el('caption', 'lcc-bd-cap' + (board.ready ? ' lcc-bd-sr' : ''), 'The Houses of the term' + (board.ready ? ', by default by House name, A to Z' : ', by name: the board could not be checked, so no square is given'))); // read out, not drawn, while the board is a board (#1062)
     const th = el('thead'), hr = el('tr');
