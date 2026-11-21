@@ -200,7 +200,7 @@ test('names and paths from a save are only text on the board, the list and the I
 test('Show, House and Path dim the Houses they leave out and keep the board fixed; the count says how many are shown', async () => {
   const ui = await open();
   const said = () => text(ui.doc.querySelector('[data-lk="shownsr"]'));
-  assert.equal(said(), '25 of 25 Houses shown', 'the strip always says the count (tau #974); the live region stays');
+  assert.equal(said(), 'All 25 Houses shown', 'the strip always says the count (tau #974, #1116: all of them when nothing narrows the board); the live region stays');
   assert.equal(ui.doc.querySelector('#lcc-bd-shown').getAttribute('role'), 'status', 'the live region stays');
   click(ui, '[data-lk="fbtn"]');
   click(ui, '[data-fk="bf:hs:open"]');
@@ -346,7 +346,7 @@ test('the board panel has the approved head, filters, legend, totals and the two
   assert.ok(![...head.querySelectorAll('button')].some((x) => /Clear highlight|Strategy/.test(text(x))), 'no Clear highlight and no Sysselraad Strategy button (#958)');
   assert.deepEqual([...ui.doc.querySelectorAll('#lcc-bd-menu [data-lk="spick"]')].map((o) => text(o)), ['All', 'Crafting', 'Gathering', 'Exploration', 'Combat', 'Sabotage'], 'the Specialization choices moved from the panel head into the Filter menu');
   assert.deepEqual([...b.querySelectorAll('.lcc-bd-headlines li')].map((x) => text(x)), ['PLEDGED TO ATREIDES', 'PLEDGED TO HARKONNEN', 'UNDECIDED', 'WINNING HOUSES · SYSSELRAAD SECURED']);
-  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => x.firstChild.textContent), ['Any', 'Undecided', 'Pledged']);
+  assert.deepEqual([...b.querySelectorAll('[data-lcb="filter"][data-key="hs"]')].map((x) => x.firstChild.textContent), ['All', 'Undecided', 'Pledged']);
   assert.equal(b.querySelector('.lcc-bd-totals'), null, 'no standing line under the board (#1062)');
   assert.equal(b.querySelector('.lcc-bd-foot'), null);
   assert.match(b.querySelector('#lcc-bd-h').getAttribute('title'), /Your rewards on this board: 26 of 120 tiers earned/, 'the sentence is the hover text of the heading');

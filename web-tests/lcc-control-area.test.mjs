@@ -39,7 +39,7 @@ test('nothing chosen: the strip shows Show tabs, Filter, Find House, the count a
   assert.deepEqual([...strip.querySelectorAll('[role="radio"][data-key="show"]')].map((b) => text(b)), ['All', 'What is left', 'Not started', 'In progress', 'Top tier']);
   assert.ok(strip.querySelector('[data-lk="fbtn"]'), 'no Filter key');
   assert.ok(strip.querySelector('[data-lk="findbtn"]'), 'no Find House key');
-  assert.match(text(strip.querySelector('#lcc-bd-shown')), /25\s*\/\s*25/);
+  assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), 'All 25 shown', 'nothing narrows the board: no fraction that looks like a choice (#1116)');
   assert.match(text(strip), /Choose shown \(25\)/);
   assert.equal(ui.doc.querySelectorAll('.lcc-k-strip [data-lk="chips"] .lcc-k-chip').length, 0, 'a chip with nothing filtered');
 });
@@ -191,7 +191,7 @@ test('the words of the control area are the agreed ones', async () => {
   const ui = await open();
   openMenu(ui);
   const menu = text(ui.doc.querySelector('#lcc-bd-menu'));
-  for (const w of ['House', 'Pledge', 'Any', 'Undecided', 'Pledged', 'Specialization', 'Group', 'Done']) assert.ok(menu.includes(w), 'the menu lacks ' + w);
+  for (const w of ['House', 'Pledge', 'All', 'Undecided', 'Pledged', 'Specialization', 'Group', 'Done']) assert.ok(menu.includes(w), 'the menu lacks ' + w);
   assert.ok(ui.doc.querySelector('#lcc-bd-menu input[type="search"]'), 'no Search Houses box');
 });
 

@@ -439,7 +439,7 @@
 
   // ---- filters, sort, groups -----------------------------------------------------------------------------------------------------------------------------------------------
   const SHOWS = Object.freeze([['all', 'All'], ['left', 'What is left'], ['new', 'Not started'], ['part', 'In progress'], ['done', 'Top tier']]);
-  const HOUSE_FILTERS = Object.freeze([['any', 'Any'], ['open', WORDS.undecided], ['taken', WORDS.pledged]]);
+  const HOUSE_FILTERS = Object.freeze([['any', 'All'], ['open', WORDS.undecided], ['taken', WORDS.pledged]]);
   // pledgeOf(h): the state of a House in words, for every surface (the card, the list, the Inspector, the key, the hovers and the screen-reader text): { kind, word, line }.
   //   claimed by a faction (completed, with a winner the Landsraad has)   kind 'a' or 'h'   word 'Atreides'       line 'Pledged to Atreides'
   //   not claimed, and both factions have progress on it                  kind 'wavering'   word 'Wavering'       line 'Wavering'

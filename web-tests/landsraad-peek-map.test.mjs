@@ -78,8 +78,8 @@ function pinOf(peek, frame) {
       assert.ok(Math.abs(pct(dot.style.left) - fx) < 0.002 && Math.abs(pct(dot.style.top) - fy) < 0.002, 'the whole map carries the same place');
       assert.ok(Math.abs(pct(box.style.left) - p.left) < 0.002 && Math.abs(pct(box.style.top) - p.top) < 0.002 && Math.abs(pct(box.style.width) - p.zoom) < 0.002, 'and marks the window');
       // the lines stay: the Place and From you, the Saved map hint
-      assert.match(text(peek), /Place/);
-      assert.match(text(peek), name === 'Alexin' ? /Place\s*Arrakeen/ : /From you\s*about 1\.5 km/);
+      assert.match(text(peek), /Location/); // #1115: it was Place
+      assert.match(text(peek), name === 'Alexin' ? /Location\s*Arrakeen/ : /From you\s*about 1\.5 km/);
       assert.match(text(peek), /Click the place to open the Saved map/);
       assert.equal(peek.getAttribute('aria-hidden'), 'true');
       assert.ok(m.getAttribute('aria-label').includes('Map of ' + LABEL[key]), m.getAttribute('aria-label'));

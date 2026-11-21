@@ -228,6 +228,23 @@
     node.appendChild(el('span', 'lcc-k-tip' + (text.length > 40 ? ' lcc-k-tip-wide' : ''), text, { 'aria-hidden': 'true' }));
     return node;
   }
+  // The mouse-over text of a key in the control strip (Show, Filter, Find House, the count) opens under the whole strip, not under its own key (#1113): the count line, the chips and the other keys of
+  // the strip are never covered, and the text keeps to the strip's width (it wraps), so it never runs on over the House Intelligence panel beside the strip. The keys inside the Filter menu and the
+  // Find list keep their own place (they sit in a popover that has its own box).
+  function stripTipPlace(e) {
+    const t = e.target && e.target.closest ? e.target.closest('.lcc-k-tipped') : null, lens = t && t.closest('.lcc-k-lens');
+    if (!lens || t.closest('.lcc-k-pop5')) return;
+    const tip = [...t.children].find((c) => c.classList.contains('lcc-k-tip'));
+    if (!tip) return;
+    for (const p of ['top', 'bottom', 'left', 'right', 'transform', 'width', 'maxWidth', 'whiteSpace']) tip.style[p] = '';
+    if (root.getComputedStyle(tip).display === 'none') return; // a touch screen draws no mouse-over
+    const lr = lens.getBoundingClientRect(), tr = t.getBoundingClientRect();
+    tip.style.whiteSpace = 'normal'; tip.style.width = 'max-content'; tip.style.maxWidth = Math.max(160, Math.min(352, Math.floor(lr.width))) + 'px';
+    const w = tip.getBoundingClientRect().width;
+    const want = t.classList.contains('lcc-k-tip-end') ? tr.right - w : t.classList.contains('lcc-k-tip-start') ? tr.left : tr.left + tr.width / 2 - w / 2;
+    const at = Math.max(lr.left, Math.min(want, lr.right - w));
+    tip.style.bottom = 'auto'; tip.style.top = Math.round(lr.bottom - tr.top + 6) + 'px'; tip.style.right = 'auto'; tip.style.transform = 'none'; tip.style.left = Math.round(at - tr.left) + 'px';
+  }
   function kbtn(cls, label, attrs, ic, tip, pos) {
     const b = btn('lcc-k-btn lcc-k-fr ' + cls, '', attrs);
     if (ic) b.appendChild(icon(ic));
@@ -257,6 +274,18 @@
     return c;
   }
   const letterOf = (name) => (/^atreides/i.test(String(name)) ? 'a' : /^harkonnen/i.test(String(name)) ? 'h' : '');
+  // The count line (#1116). With no filter narrowing the board it says plainly "All 25 shown": a fraction "25 / 25" next to Choose shown read as if all 25 Houses were already chosen (the number of chosen Houses is in the
+  // action bar, never here). When a filter narrows the board it says "9 / 25 shown". The number of shown Houses keeps its data-lk "shown".
+  function countNums(nums, n, total) {
+    const all = n === total, d = root.document;
+    if (nums.getAttribute('data-all') !== String(all) || !nums.firstChild) {
+      nums.setAttribute('data-all', String(all)); nums.textContent = '';
+      const b = el('b', '', String(n), { 'data-lk': 'shown' });
+      if (all) { nums.appendChild(d.createTextNode('All ')); nums.appendChild(b); } else { nums.appendChild(b); nums.appendChild(d.createTextNode(' / ')); nums.appendChild(el('b', '', String(total))); }
+      nums.appendChild(el('span', 'lcc-k-cw', ' shown')); // the word is not drawn on a phone (a style rule), where the row has no room for it; the live region says the whole sentence
+    } else { const b = nums.querySelector('[data-lk="shown"]'); if (b && b.textContent !== String(n)) b.textContent = String(n); }
+  }
+  const shownSr = (n, total) => (n === total ? 'All ' + total + ' Houses shown' : n + ' of ' + total + ' Houses shown');
   function strip(board, matchIds) {
     const s = el('div', 'lcc-k-strip', '', { 'data-part': 'strip' });
     const lens = el('div', 'lcc-k-lens lcc-k-pane lcc-k-pane-f', '', { 'data-part': 'lens' });
@@ -288,10 +317,10 @@
     const cg = el('span', 'lcc-k-cg');
     const count = tipped(el('span', 'lcc-k-count', '', { role: 'status', id: 'lcc-bd-shown' }), 'Houses shown by the filters. A House that is not shown is never counted and never written.', 'below end');
     count.insertBefore(icon('eye'), count.firstChild);
-    const nums = el('span', '', '', { 'aria-hidden': 'true' });
-    nums.appendChild(el('b', '', String(matchIds.size), { 'data-lk': 'shown' })); nums.appendChild(root.document.createTextNode(' / ')); nums.appendChild(el('b', '', String(board.houses.length)));
+    const nums = el('span', '', '', { 'aria-hidden': 'true', 'data-lk': 'nums' });
+    countNums(nums, matchIds.size, board.houses.length);
     count.appendChild(nums);
-    count.appendChild(el('span', 'lcc-k-sr', matchIds.size + ' of ' + board.houses.length + ' Houses shown', { 'data-lk': 'shownsr' }));
+    count.appendChild(el('span', 'lcc-k-sr', shownSr(matchIds.size, board.houses.length), { 'data-lk': 'shownsr' }));
     cg.appendChild(count);
     cg.appendChild(el('span', 'lcc-k-hid', '', { 'data-lk': 'hid', hidden: '' }));
     cg.appendChild(el('span', 'lcc-bd-barslot lcc-k-chooseslot', '', { 'data-lcc-slot': 'choose' }));
@@ -345,6 +374,8 @@
     ph.appendChild(el('input', 'lcc-k-search', '', { type: 'search', 'data-lk': 'hsearch', 'data-fk': 'mn:search', 'aria-label': 'Search Houses', placeholder: 'Search Houses', autocomplete: 'off', value: ui.q }));
     ph.appendChild(el('p', 'lcc-k-p5-n', '', { role: 'status', 'data-lk': 'hn' }));
     const hl = el('div', 'lcc-k-p5-list', '', { role: 'group', 'aria-label': 'Houses', 'aria-describedby': 'lcc-bd-houses-h', 'data-list': 'h' });
+    // All is the first choice of the list (#1114): it ticks every House that is shown (the page's own Choose shown) and, when every shown House is already ticked, clears the choice (the page's own Clear)
+    hl.appendChild(btn('lcc-k-opt lcc-k-opt-all', 'All', { role: 'checkbox', 'aria-checked': 'false', tabindex: '-1', 'data-lk': 'hall', 'data-fk': 'hp:all' }));
     for (const h of board.houses.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'en'))) hl.appendChild(btn('lcc-k-opt', L().houseTitle(h.name), { role: 'checkbox', 'aria-checked': 'false', tabindex: '-1', 'data-lk': 'hpick', 'data-id': h.id, 'data-fk': 'hp:' + h.id }));
     ph.appendChild(hl);
     items.appendChild(ph);
@@ -530,7 +561,7 @@
   // ---- the list ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   const COLS = () => [
     { k: 'position', t: W().square, sort: 'position' }, { k: 'house', t: 'House', sort: 'house' }, { k: 'owner', t: W().pledgeBy, sort: 'status' }, { k: 'path', t: W().specialization },
-    { k: 'location', t: 'Place', sort: 'location' }, { k: 'state', t: 'Your progress', sort: 'state' }, { k: 'tiers', t: 'Tiers', sort: 'tiers' }, { k: 'next', t: 'Next tier', sort: 'next' }, { k: 'waiting', t: 'Not collected' },
+    { k: 'location', t: 'Location', sort: 'location' }, { k: 'state', t: 'Your progress', sort: 'state' }, { k: 'tiers', t: 'Tiers', sort: 'tiers' }, { k: 'next', t: 'Next tier', sort: 'next' }, { k: 'waiting', t: 'Not collected' },
   ];
   function locCell(h, host) {
     const td = el('td', 'lcc-bd-loc');
@@ -913,7 +944,7 @@
 
     // where it is
     const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });
-    s5.appendChild(secHead('PLACE', 'lcc-bd-s5'));
+    s5.appendChild(secHead('LOCATION', 'lcc-bd-s5'));
     if (!h.loc.known) s5.appendChild(el('p', 'lcc-bd-none', 'Not mapped yet: the save holds no map marker for this House’s representative, and the editor does not guess a place.'));
     else {
       s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));
@@ -1014,7 +1045,7 @@
     panel.setAttribute('data-mode', mode); panel.setAttribute('data-state', asking ? 'confirm' : c.chosen > 0 ? 'chosen' : 'idle');
     // the filters stay unavailable while Houses are chosen, on every width (on a phone the Show tabs are outside the strip, so the strip's own swap does not hide them)
     for (const t of panel.querySelectorAll('.lcc-k-tab[data-key="show"]')) { if (mode === 'action') { t.setAttribute('aria-disabled', 'true'); t.setAttribute('title', SHOW_OFF); } else { t.removeAttribute('aria-disabled'); t.removeAttribute('title'); } }
-    setText(panel, '[data-lk="shown"]', String(c.shown.size)); setText(panel, '[data-lk="shownsr"]', c.shown.size + ' of ' + c.board.houses.length + ' Houses shown');
+    const nums = panel.querySelector('[data-lk="nums"]'); if (nums) countNums(nums, c.shown.size, c.board.houses.length); setText(panel, '[data-lk="shownsr"]', shownSr(c.shown.size, c.board.houses.length));
     const hid = panel.querySelector('[data-lk="hid"]');
     if (hid) { hid.textContent = c.hidden ? c.hidden + ' chosen, not shown' : ''; hid.hidden = !c.hidden; }
     const hid2 = panel.querySelector('[data-lk="hid2"]');
@@ -1030,6 +1061,8 @@
         o.setAttribute('aria-checked', c.ids.has(id) && !off ? 'true' : 'false');
         if (off) { o.setAttribute('aria-disabled', 'true'); o.setAttribute('title', 'Not shown, so it cannot be chosen'); } else { o.removeAttribute('aria-disabled'); o.removeAttribute('title'); }
       }
+      const all = m.querySelector('.lcc-k-opt[data-lk="hall"]');
+      if (all) { all.setAttribute('aria-checked', c.shown.size > 0 && c.chosen === c.shown.size ? 'true' : 'false'); if (!c.shown.size) all.setAttribute('aria-disabled', 'true'); else all.removeAttribute('aria-disabled'); }
       const ph = m.querySelector('.lcc-k-p5-panel[data-cat="house"]'), hl = ph && ph.querySelector('.lcc-k-p5-list');
       if (hl) filterList(hl, ui.q, ph.querySelector('[data-lk="hn"]'), c.chosen ? ', ' + c.chosen + ' chosen' : '');
     }
@@ -1037,7 +1070,7 @@
   function filterList(list, text, nEl, extra) {
     const t = String(text || '').trim().toLowerCase();
     let n = 0, total = 0;
-    for (const o of list.querySelectorAll('.lcc-k-opt')) { total++; const hit = !t || o.textContent.toLowerCase().includes(t); o.hidden = !hit; if (hit) n++; }
+    for (const o of list.querySelectorAll('.lcc-k-opt:not([data-lk="hall"])')) { total++; const hit = !t || o.textContent.toLowerCase().includes(t); o.hidden = !hit; if (hit) n++; }
     if (nEl) nEl.textContent = !t ? total + ' Houses' + (extra || '') : n ? n + ' of ' + total + ' Houses match' : 'No House matches the search.';
     return n;
   }
@@ -1209,6 +1242,13 @@
       if (cb && !cb.disabled && t.getAttribute('aria-disabled') !== 'true') { ui.ticking = true; try { cb.click(); } finally { ui.ticking = false; } } // the click of the square must not close the menu it came from
       return true;
     }
+    if (k === 'hall') { // the page's own Choose shown, or its own Clear when every shown House is ticked already: the same choice the board gives, nothing is hidden
+      e.preventDefault();
+      if (t.getAttribute('aria-disabled') === 'true') return true;
+      const c = counts(), btn_ = last.container.querySelector(c.shown.size > 0 && c.chosen === c.shown.size ? '[data-lb="pickno"]' : '[data-lb="pickall"]');
+      if (btn_) { ui.ticking = true; try { btn_.click(); } finally { ui.ticking = false; } }
+      return true;
+    }
     if (k === 'spick') {
       e.preventDefault();
       const v = t.getAttribute('data-val'), set = new Set(state.specs);
@@ -1281,6 +1321,7 @@
     if (!container.__lccWired) {
       container.__lccWired = true;
       container.addEventListener('mouseover', (e) => { const n = rtipOf(e); if (n) tipShow(n); else tipHide(); });
+      container.addEventListener('mouseover', stripTipPlace); container.addEventListener('focusin', stripTipPlace);
       container.addEventListener('mouseleave', tipHide);
       container.addEventListener('focusin', (e) => { const n = rtipOf(e); if (n) tipShow(n); else tipHide(); });
       container.addEventListener('focusout', tipHide);
