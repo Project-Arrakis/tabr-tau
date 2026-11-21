@@ -230,7 +230,7 @@ const WHOLE = { ok: true, kit: 'Starter', kitHash: '0123456789abcdef', dryRun: f
   xp: { requested: 215, applied: 215, levelBefore: 0, levelAfter: 2, capped: false }, skillPoints: { requested: 3, applied: 3, capped: false } };
 const PARTIAL = { ...WHOLE, complete: false, requested: 2001, given: 1500, notGiven: [{ name: 'Spice-infused Fuel Cell', requested: 2000, short: 500, reason: 'the backpack is full' }],
   lines: [{ template_id: 'SpicedFuelCell', name: 'Spice-infused Fuel Cell', requested: 2000, given: 1500, reason: 'the backpack is full', limit: 'slots' }, { template_id: 'Combat_Heavy_Unique_Reinforced_Helmet_06', name: 'Bulwark Helmet', requested: 1, given: 0, reason: 'the backpack is full', limit: 'slots' }] };
-const fixtureState = () => JSON.parse(fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
+const fixtureState = () => JSON.parse(fs.readFileSync(process.env.UI_FIXTURES_FILE || path.join(process.env.UI_FIXTURES_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures'), 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
 const applyUI = (preview, apply, kits = [STARTER]) => boot({ get: { '/api/kits': KITS(kits) }, post: { '/api/kits/preview': { ...preview, dryRun: true }, '/api/kits/apply': apply } });
 
 test('Apply shows the dry run first, applies nothing on Cancel, and applies once on OK', async () => {

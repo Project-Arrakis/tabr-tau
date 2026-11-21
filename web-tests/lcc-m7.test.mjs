@@ -1,4 +1,4 @@
-// Command Center milestone M7: the regression net across the four pages (Board, Sysselraad Strategy, Term and Decrees, Specializations). What each page writes was compared with the classic page
+// Command Center milestone M7: the regression net across the four pages (Board, Sysselraad Strategy, Term and Decrees, Specializations). What each page writes was compared with the classic page (the Landsraad Classic list is retired, #1028: its requests are recorded in the golden files)
 // in lcc-board-write, lcc-board-requests, lcc-term-requests and lcc-spec-requests; this file ties them together: the list of routes that can write is fixed and every one of them is
 // exercised by an equivalence test, looking at any of the four pages sends nothing, the text floor holds in every style file of the Command Center, and the files are plain public text with
 // LF line ends. Real page code and the synthetic answers of M1; no game save is read.
@@ -35,7 +35,7 @@ test('the server registers exactly these write routes for the Landsraad and the 
   assert.deepEqual(gets, ['/api/landsraad', '/api/player/specs']);
 });
 
-test('every write route is played by an equivalence test: the board against the classic list, the Term and Decrees section and the Specializations view against recordings of the classic page', () => {
+test('every write route is played by an equivalence test: the board and the Term and Decrees section against the recordings of the retired Classic list, the Specializations view against recordings of its classic page', () => {
   const sources = ['lcc-board-write.test.mjs', 'lcc-board-requests.test.mjs', 'lcc-term-requests.test.mjs', 'lcc-spec-requests.test.mjs', 'lcc-board-requests.golden.json', 'lcc-term-requests.golden.json', 'lcc-spec-requests.golden.json']
     .map((f) => read('web-tests', f)).join('\n');
   for (const r of WRITE_ROUTES) {

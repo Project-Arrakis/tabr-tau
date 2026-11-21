@@ -21,7 +21,7 @@ function landsraad() {
   return a;
 }
 const kenola = (a) => a.tasks.find((t) => t.house_name === 'DA_HouseKenola');
-const where = (n) => (n.closest('.lcc-bd-cell') ? 'board-card' : n.closest('.lcc-bd-row') ? 'board-row' : n.closest('.hr') ? 'classic-row' : 'elsewhere:' + n.className);
+const where = (n) => (n.closest('.lcc-bd-cell') ? 'board-card' : n.closest('.lcc-bd-row') ? 'board-row' : 'elsewhere:' + n.className);
 
 async function open(local, extra = {}) {
   const log = [], a = landsraad();
@@ -35,10 +35,11 @@ async function open(local, extra = {}) {
   await ui.settle();
   return { ui, log, a, id: kenola(a).id };
 }
-// The Saved map line "Showing House X": the place button of the House opens it
-async function viaMap(ui, id, board) {
-  click(ui, board ? `[data-fk="ht:${id}"]` : `#lsrow-${id} .loc-t[data-lb="map"]`); await ui.settle();
-  if (board) { click(ui, '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]'); await ui.settle(); }
+// The Saved map line "Showing House X": the place button of the House opens it, from the Inspector (grid or list) or, with `cell`, from the place cell of the list row
+async function viaMap(ui, id, cell) {
+  if (cell) click(ui, `tr.lcc-bd-row[data-id="${id}"] [data-lb="map"]`);
+  else { click(ui, `[data-fk="ht:${id}"]`); await ui.settle(); click(ui, '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]'); }
+  await ui.settle();
   assert.ok(ui.doc.querySelector('#lmhouse [data-lmback]'), 'the Saved map has the way back');
 }
 function checkOrder(log, id, kind, block) {
@@ -51,9 +52,9 @@ function checkOrder(log, id, kind, block) {
   assert.ok(top >= 0 && at > top, 'the move to the top comes first and the scroll to the House after it, so it is not undone: ' + JSON.stringify(log.map((e) => e[0])));
 }
 
-test('#1072: Back to House on the Saved map opens the Command Center board with the House chosen and its card scrolled into view', async () => {
-  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' });
-  await viaMap(ui, id, true);
+test('#1072: Back to House on the Saved map opens the board with the House chosen and its card scrolled into view', async () => {
+  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.layout': 'grid' });
+  await viaMap(ui, id, false);
   ui.w.LCCB.state.sel = null;
   log.length = 0;
   click(ui, '#lmhouse [data-lmback]'); await ui.settle();
@@ -64,8 +65,8 @@ test('#1072: Back to House on the Saved map opens the Command Center board with 
 });
 
 test('#1072: and in the list layout of the board', async () => {
-  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'list' });
-  await viaMap(ui, id, true);
+  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.layout': 'list' });
+  await viaMap(ui, id, false);
   ui.w.LCCB.state.sel = null;
   log.length = 0;
   click(ui, '#lmhouse [data-lmback]'); await ui.settle();
@@ -73,14 +74,15 @@ test('#1072: and in the list layout of the board', async () => {
   checkOrder(log, id, 'board-row', 'center');
 });
 
-test('#1072: and in the Classic list, with the House opened', async () => {
-  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.view': 'classic' });
-  await viaMap(ui, id, false);
+test('#1072: and from the place cell of a row of the list layout', async () => {
+  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.layout': 'list' });
+  await viaMap(ui, id, true);
+  ui.w.LCCB.state.sel = null;
   log.length = 0;
   click(ui, '#lmhouse [data-lmback]'); await ui.settle();
-  assert.equal(ui.doc.querySelector(`#lsx-${id}`).checked, true, 'its row is open');
-  checkOrder(log, id, 'classic-row', 'start');
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'classic', 'the saved view is not rewritten');
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp[data-id="' + id + '"]'), 'the House is chosen in the Inspector');
+  checkOrder(log, id, 'board-row', 'center');
+  assert.deepEqual(ui.posted, [], 'nothing is written');
 });
 
 test('#1072: Open House of a path on the Specializations page scrolls to the House on the board too (the same mechanism)', async () => {
@@ -91,12 +93,12 @@ test('#1072: Open House of a path on the Specializations page scrolls to the Hou
   click(ui, '[data-lcs-go="' + house.id + '"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('.lcc-bd-insp[data-id="' + house.id + '"]'));
   checkOrder(log, house.id, 'board-card', 'center');
-  assert.equal(ui.w.localStorage.getItem('lsb.view'), 'classic', 'the saved view is not rewritten');
+  assert.equal(ui.w.localStorage.getItem('lsb.view'), null, 'the old saved Classic choice is gone (#1060, #1028): the board is the only view');
 });
 
 test('#1072: a visit by the tabs is not scrolled to the House again, and starts at the top', async () => {
-  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' });
-  await viaMap(ui, id, true);
+  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.layout': 'grid' });
+  await viaMap(ui, id, false);
   click(ui, '#lmhouse [data-lmback]'); await ui.settle();
   assert.ok(log.some((e) => e[0] === 'into'), 'the link scrolled');
   click(ui, ui.doc.querySelector('[data-tab="player"]')); await ui.settle();
@@ -107,7 +109,7 @@ test('#1072: a visit by the tabs is not scrolled to the House again, and starts 
 });
 
 test('#1072: Find House (the jump of the control area, tau #974) still scrolls to the card once, and the place link of a House still opens the Saved map without scrolling to a card', async () => {
-  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.view': 'board', 'lsb.layout': 'grid' });
+  const { ui, log, id } = await open({ tab: 'landsraad', 'lsb.layout': 'grid' });
   assert.ok(ui.doc.querySelector('[data-lk="findbtn"]'), 'the Find House key');
   log.length = 0;
   click(ui, '[data-lk="findbtn"]');
@@ -117,5 +119,5 @@ test('#1072: Find House (the jump of the control area, tau #974) still scrolls t
   click(ui, '[data-fk="ht:' + id + '"]'); await ui.settle(); // Find House opens no panel and ticks nothing: the House is chosen as before, by its card
   click(ui, '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#lmhouse'), 'the Saved map shows the House');
-  assert.equal(log.filter((e) => e[0] === 'into' && e[1].closest && e[1].closest('.lcc-bd-cell, .hr')).length, 1, 'only Find House scrolled to a card; the link to the map did not');
+  assert.equal(log.filter((e) => e[0] === 'into' && e[1].closest && e[1].closest('.lcc-bd-cell')).length, 1, 'only Find House scrolled to a card; the link to the map did not');
 });

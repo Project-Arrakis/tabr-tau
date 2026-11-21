@@ -1,5 +1,5 @@
 // Milestone M6 on the real page: the Term and Decrees section, the way between the board, the term section and Specializations. Real app.js and lcc scripts, the
-// synthetic answer of M1 (no game save is read). What the term controls write is compared with the classic panel in lcc-term-requests.test.mjs.
+// synthetic answer of M1 (no game save is read). What the term controls write is compared with the requests recorded from the retired Classic panel in lcc-term-requests.test.mjs.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -81,12 +81,6 @@ test('the Sysselraad Strategy button, its list of twelve lines and the Clear hig
   click(ui, '.lcc-hc[data-selected="true"] .lcc-hc-select');
   assert.equal(ui.doc.querySelector('.lcc-hc[data-selected="true"]'), null, 'a second click on it lets it go');
   assert.equal(ui.posted.length, 0, 'nothing is written by looking at a House');
-});
-
-test('with the classic list view nothing of the Command Center is drawn, and the classic term panel is', async () => {
-  const ui = await open(synthetic(), { 'lsb.view': 'classic' });
-  assert.equal(ui.doc.querySelector('#lcc-term'), null);
-  assert.ok(ui.doc.querySelector('.lsb .tctl'));
 });
 
 test('the Inspector of a House with a specialization line opens that line in Specializations, and nothing is written', async () => {

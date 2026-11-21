@@ -1,5 +1,8 @@
 # Command Center M3, fidelity pass: matrix against the approved Landsraad Board tab
 
+> Note (2026-11-20, #1028): the Classic Landsraad list described below was retired. The Command Center board is now the only Landsraad view and the default (see DECISIONS.md, section M). Mentions of the classic list, its result line or its switch are the record of that milestone, not the current page.
+
+
 The project owner found the built board did not match the approved design: no specialization badge, no decree preview, no term row, no section above the squares, and a reward indicator, font and look that were wrong. This note lists every visible element and behaviour of the approved Landsraad Board tab, where the board stood before this pass, where it stands now, and why anything is still different. Nothing was dropped without a row.
 
 Method: the approved prototype and the editor page were drawn side by side in a headless browser at 1280 px (dark and light) and at 390 px, with the same Houses, owners, tiers and decree in both, and the computed styles of the card parts were compared value by value. The prototype is a layout reference only: its numbers are demonstration data, ours come from the save. No write behaviour, route or test of the write path changed.

@@ -87,12 +87,13 @@ test('the link of a House at a hub opens the Saved map on that hub, centred on t
   const alexin = { known: true, map: 'Harko Village', map_key: 'HarkoVillage', area: 'Harko Village', place: '', cell: '', unconfirmed: false, x: 0.5842211055276382, y: 0.5672194304857622 };
   const ui = await boot({ get: { '/api/landsraad': board([house(900, 'Alexin', alexin), house(901, 'Mutelli', mutelli)]), '/api/livemap': MAP(ARRAKEEN) } });
   ui.click('[data-tab="landsraad"]'); await ui.settle();
-  const btn = ui.doc.querySelector('#lsrow-901 .loc-t');
-  assert.ok(!btn.classList.contains('off') && btn.getAttribute('aria-disabled') !== 'true', 'the place is a link, not muted');
-  assert.equal(ui.doc.querySelector('#lsrow-901 .loc-t .cue'), null, 'it no longer says "no map picture"');
+  // a board with two Houses is not a complete board: the Command Center shows them in its read-only list, whose place cell is the same link
+  const btn = ui.doc.querySelector('tr.lcc-bd-row[data-id="901"] td.lcc-bd-loc .lcc-bd-linkb');
+  assert.ok(btn && btn.getAttribute('data-lb') === 'map' && btn.getAttribute('aria-disabled') !== 'true', 'the place is a link, not muted');
+  assert.equal(ui.doc.querySelector('tr.lcc-bd-row[data-id="901"] td.lcc-bd-loc .lcc-bd-nopic'), null, 'it does not say "no map picture"');
   const calls = []; const real = ui.w.liveMapShow; ui.w.liveMapShow = (...a) => { calls.push(a); real(...a); };
   ui.fetchedUrls.length = 0;
-  ui.doc.querySelector('#lsrow-901 [data-lb=map]').dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
+  btn.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true }));
   await ui.settle();
   assert.deepEqual(calls, [['Arrakeen', mutelli.x, mutelli.y, 'Mutelli', 901]]);
   assert.ok(ui.fetchedUrls.includes('/api/livemap?map=Arrakeen'), ui.fetchedUrls.join(' '));

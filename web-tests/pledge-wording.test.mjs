@@ -16,7 +16,6 @@ async function open(mod, local) {
 }
 const fact = (ui, k) => ui.doc.querySelector('#lcc-term [data-fact="' + k + '"]');
 const nextCC = (ui) => fact(ui, 'elected').querySelector('.lcc-tm-v');
-const nextClassic = (ui) => ui.doc.querySelector('#lsb [data-next]');
 
 const STATES = {
   divided: { mod: (a) => { a.term.reigning_faction_id = null; a.term.elected_decree_id = null; }, text: 'The Landsraad is still divided' },
@@ -25,17 +24,9 @@ const STATES = {
 };
 
 for (const [name, s] of Object.entries(STATES)) {
-  test('Next term\'s decree, ' + name + ': the Command Center Term section says it, with its hover (#1073)', async () => {
+  test('Next term\'s decree, ' + name + ': the Term section says it, with its hover (#1073)', async () => {
     const { ui } = await open(s.mod);
     const v = nextCC(ui);
-    assert.equal(text(v), s.text);
-    assert.equal(v.getAttribute('data-next'), name);
-    if (s.tip) assert.equal(v.getAttribute('title').replace(/’/g, "'"), s.tip);
-  });
-  test('Next term\'s decree, ' + name + ': the Classic Term panel says the same words (#1073)', async () => {
-    const { ui } = await open(s.mod, { 'lsb.view': 'classic' });
-    const v = nextClassic(ui);
-    assert.ok(v, 'the Classic next-term value');
     assert.equal(text(v), s.text);
     assert.equal(v.getAttribute('data-next'), name);
     if (s.tip) assert.equal(v.getAttribute('title').replace(/’/g, "'"), s.tip);
@@ -46,17 +37,14 @@ test('Next term\'s decree, decree chosen: the decree is shown as before, no stat
   const { ui } = await open();
   assert.match(text(fact(ui, 'elected')), /Ranged/i);
   assert.doesNotMatch(text(fact(ui, 'elected')), /divided|swayed/);
-  const c = await open(null, { 'lsb.view': 'classic' });
-  assert.equal(c.ui.doc.querySelector('#lsb [data-next]'), null, 'no state word when a decree is chosen');
+  assert.equal(ui.doc.querySelector('#lsb [data-next]'), null, 'no state word when a decree is chosen');
 });
 
-test('the operator\'s save state: Harkonnen in control, no decree chosen, reads as swayed on both pages (#1073)', async () => {
+test('the operator\'s save state: Harkonnen in control, no decree chosen, reads as swayed (#1073)', async () => {
   const mod = (a) => { a.term.reigning_faction_id = 2; a.term.elected_decree_id = null; };
   const cc = await open(mod);
   assert.doesNotMatch(text(fact(cc.ui, 'elected')), /none yet/i);
   assert.match(text(fact(cc.ui, 'elected')), /^Next term's decrees*Harkonnen have swayed the Landsraad; their decree is yet to be chosen$/);
-  const cl = await open(mod, { 'lsb.view': 'classic' });
-  assert.match(text(cl.ui.doc.querySelector('#lsb .tkv')), /Harkonnen have swayed the Landsraad; their decree is yet to be chosen/);
 });
 
 // ---- a House: Pledged to X / Undecided / Wavering ------------------------------------------------------------------------------------------------------------------------------------------
@@ -101,19 +89,17 @@ test('the Inspector heading says what the House is: Pledged to X, Undecided or W
 });
 
 test('no House or Landsraad text of the board says "won" or "no favor": a faction pledges a House, the Sysselraad is secured (#1073)', async () => {
-  for (const view of ['board', 'classic']) {
-    const { ui, a } = await open(null, { 'lsb.view': view });
-    // open the first House so the Inspector words are on the page too
-    if (view === 'board') { ui.doc.querySelector('[data-fk="ht:' + a.tasks.find((t) => t.house_name === KEN).id + '"]').click(); await ui.settle(); }
-    const root = ui.doc.querySelector('#lsb') || ui.doc.body;
-    const all = text(root) + ' | ' + [...root.querySelectorAll('[title],[aria-label]')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || '')).join(' | ');
-    // the one old line kept on purpose is the write-gate sentence of the Classic list (a golden of request equivalence names it), which says a House "won by" nothing the user sees
-    const rest = all.replace(/Pick a faction[^|]*won[^|.]*\./gi, '');
-    assert.doesNotMatch(rest, /\bwon\b|\bwon by\b|favor won|not won|no favor\b/i, view + ': ' + (/(.{40})\b(won|no favor)\b(.{20})/i.exec(rest) || [])[0]);
-  }
+  const { ui, a } = await open();
+  // open a House so the Inspector words are on the page too
+  ui.doc.querySelector('[data-fk="ht:' + a.tasks.find((t) => t.house_name === KEN).id + '"]').click(); await ui.settle();
+  const root = ui.doc.querySelector('#lsb') || ui.doc.body;
+  const all = text(root) + ' | ' + [...root.querySelectorAll('[title],[aria-label]')].map((e) => (e.getAttribute('title') || '') + ' ' + (e.getAttribute('aria-label') || '')).join(' | ');
+  // the one old line kept on purpose is the write-gate sentence (a golden of request equivalence names it), which says a House "won by" nothing the user sees
+  const rest = all.replace(/Pick a faction[^|]*won[^|.]*\./gi, '');
+  assert.doesNotMatch(rest, /\bwon\b|\bwon by\b|favor won|not won|no favor\b/i, (/(.{40})\b(won|no favor)\b(.{20})/i.exec(rest) || [])[0]);
 });
 
-test('the Classic copy of the House words (for a page without the Command Center scripts) says what the model says (#1073)', async () => {
+test('the page\'s own copy of the House words (for a page without the Command Center scripts) says what the model says (#1073)', async () => {
   const fs = await import('node:fs'), path = await import('node:path'), url = await import('node:url');
   const root = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..');
   const app = fs.readFileSync(path.join(root, 'internal', 'web', 'static', 'app.js'), 'utf8');

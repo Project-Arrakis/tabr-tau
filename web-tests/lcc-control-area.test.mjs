@@ -202,7 +202,8 @@ test('style: tick boxes are 16-18 px in a 36 px hit area (44 px on a phone) and 
 });
 
 test('style: the control area sets no text under 11 px (12 px for names), in the kit rules or the app rules', () => {
-  const kit = CSS.slice(CSS.indexOf('.lcc-k-'));
+  // the kit rules start at .lcc-k-page; a rule of the List layout that only mentions a kit icon (the Fill and Complete keys of a row) is not the kit
+  const kit = CSS.slice(CSS.indexOf('.lcc-k-page {'));
   const sizes = [];
   for (const m of kit.matchAll(/(?:font-size:\s*|font:\s*(?:\d{3}\s+|italic\s+|normal\s+)*)(\d+(?:\.\d+)?)px/g)) sizes.push(Number(m[1]));
   assert.ok(sizes.length > 20, 'the sizes were not read');

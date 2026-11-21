@@ -1,6 +1,6 @@
 // The Command Center list pass (tau #952, #950, #953, #951, #940, #937), in the page's own code (jsdom), with the synthetic answer of M1 and no game save.
 // #952: a faction wins a House's favor (it does not own or claim it); a House's place is its square; its track is its specialization. The words are written once, in lcc-model.js (WORDS).
-// #950: the favor cell of the list shows ONE mark. #953: the list opens sorted by the House name, A to Z. #951: the list has the Classic mouse-overs. #940: the Place line of the House card is a link
+// #950: the favor cell of the list shows ONE mark. #953: the list opens sorted by the House name, A to Z. #951: the list has the hover card and the mouse-overs of the retired Classic list (#1028). #940: the Place line of the House card is a link
 // that opens the Saved map. #937: every reward of the inspector has a mouse-over with its item, except Solari.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -103,7 +103,7 @@ test('#953: the list opens sorted by the House name, A to Z, and says so; a clic
 });
 
 // ---- #951, #940 --------------------------------------------------------------------------------------------------------------------------------------------------------
-test('#951: the House name of a row carries the Classic hover card, and the cells carry the Classic mouse-over words', async () => {
+test('#951: the House name of a row carries the hover card, and the cells carry the mouse-over words', async () => {
   const ui = await open();
   const r = rowOf(ui, 'Alexin');
   const card = r.querySelector('.hw > .hcard');
@@ -112,9 +112,6 @@ test('#951: the House name of a row carries the Classic hover card, and the cell
   for (const w of ['House Alexin', 'Next reward', 'Not collected', 'Faction standing', 'Place']) assert.ok(t.includes(w), w + ' in ' + t);
   assert.ok(r.querySelector('.hw > .lcc-bd-namebtn'), 'the name stays the button that looks at the House');
   assert.equal(r.querySelector('.hw .hn'), null);
-  // the same card as the Classic list's, from one builder
-  const c = await open('list', 'classic');
-  assert.equal(text(c.doc.querySelector('#lsrow-' + idOf(synthetic(), 'Alexin') + ' .hcard')), t, 'the Classic card and the board card say the same');
   // the cells
   const tip = (cls) => { const n = r.querySelector('.' + cls); return n.getAttribute('title') || ui.w.LCCB.tipOf(n).title; }; // the reward cells carry the picture mouse-over (#977), which keeps the sentence
   assert.match(tip('lcc-bd-c-state'), /^(Your contribution: [\d,]+\. |No contribution of yours recorded\. )\d+ of 5 tiers earned.$/);
@@ -124,7 +121,7 @@ test('#951: the House name of a row carries the Classic hover card, and the cell
   assert.match(tip('lcc-bd-c-wait'), /^Not collected: /, 'Alexin has a reward waiting in the fixture');
 });
 
-test('#951: the Place cell is the Classic place link with the quick peek (the map picture) in the mouse-over, and the peek is for the mouse only', async () => {
+test('#951: the Place cell is the place link with the quick peek (the map picture) in the mouse-over, and the peek is for the mouse only', async () => {
   const a = synthetic();
   const ui = await open();
   const r = rowOf(ui, 'Kenola');
@@ -145,9 +142,9 @@ test('#951: the Place cell is the Classic place link with the quick peek (the ma
   assert.equal(insp.querySelector('.loc > .pop').getAttribute('aria-hidden'), 'true');
 });
 
-test('#940: the Place line of the House card is a link that opens the Saved map, in the Classic list and in the Command Center list, and the card stays while the focus is on it', async () => {
+test('#940: the Place line of the House card is a link that opens the Saved map, in the Command Center list, and the card stays while the focus is on it', async () => {
   const a = synthetic();
-  for (const [layout, view, sel] of [['list', 'board', '.lcc-bd-row'], ['list', 'classic', '.hr']]) {
+  for (const [layout, view, sel] of [['list', 'board', '.lcc-bd-row']]) {
     const ui = await open(layout, view);
     const calls = []; const real = ui.w.liveMapShow; ui.w.liveMapShow = (...x) => { calls.push(x); real(...x); };
     const r = [...ui.doc.querySelectorAll(sel)].find((x) => /Kenola/.test(text(x)));
@@ -157,7 +154,7 @@ test('#940: the Place line of the House card is a link that opens the Saved map,
     assert.equal(place.getAttribute('data-lb'), 'map', 'the same handler as the place link of the row');
     assert.match(place.getAttribute('title'), /^Click the place to open the Saved map\.$/);
     assert.match(place.getAttribute('aria-label'), /Open in the Saved map$/);
-    assert.ok(place.closest('.loc').querySelector(':scope > .pop .minimap'), 'with the Classic peek (the map picture) under it');
+    assert.ok(place.closest('.loc').querySelector(':scope > .pop .minimap'), 'with the peek (the map picture) under it');
     click(ui, place);
     assert.deepEqual(calls.map((c) => [c[0], c[1], c[2], c[3]]), [['HaggaBasin', 0.25, 0.5, 'Kenola']], view);
   }
@@ -192,7 +189,7 @@ test('#940: the card stays open while the pointer or the keyboard focus is on an
 });
 
 // ---- #937 ---------------------------------------------------------------------------------------------------------------------------------------------------------------
-test('#937: each reward of the inspector has the item in its mouse-over and on focus, in the Classic words, and Solari has none', async () => {
+test('#937: each reward of the inspector has the item in its mouse-over and on focus, in the words of the list, and Solari has none', async () => {
   const a = synthetic();
   const ui = await open('grid');
   look(ui, a, 'Alexin');

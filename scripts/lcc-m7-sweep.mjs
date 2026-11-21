@@ -302,34 +302,11 @@ async function main() {
       process.stdout.write('t');
     }
   }
-  // The result line and the question of a click scroll into view clear of the sticky header and of the banner under it, however tall that banner is (#823). The Classic list is scrolled to its last House,
-  // the banner is made 220 px tall (a long list of queued changes does that), and lbReveal brings the result line back: it must land below the bottom of the banner, not under it.
-  if (!only || only.includes('reveal')) {
-    current = 'reveal-tall-banner';
-    await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
-    await b.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
-    await b.send('Page.navigate', { url: base + '/design/tokens.css' });
-    await sleep(150);
-    await evalIn(`localStorage.clear(); const s = ${JSON.stringify({ tab: 'landsraad', 'lsb.view': 'classic', tauTheme: 'dark' })}; for (const k in s) localStorage.setItem(k, s[k]); true`);
-    await b.send('Page.navigate', { url: base + '/?c=reveal' });
-    let ok = false;
-    for (let i = 0; i < 100 && !ok; i++) { await sleep(150); ok = await evalIn('!!document.querySelector("#lsb-rows .hr") && !document.querySelector("#loading")').catch(() => false); }
-    if (!ok) report.hard.push(current + ': the Classic list did not draw');
-    else {
-      const r = await evalIn(`(() => { const gw = document.querySelector('#gamewarn'); gw.style.minHeight = '220px'; document.querySelector('#lsb-rows .hr:last-child').scrollIntoView({ block: 'end' });
-        lbReveal(document.querySelector('#lsb-result')); const bottom = (s) => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().bottom) : null; };
-        const gs = getComputedStyle(gw); return new Promise((res) => setTimeout(() => res({ banner: bottom('#gamewarn'), sticky: gs.position === 'sticky', result: Math.round(document.querySelector('#lsb-result').getBoundingClientRect().top) }), 600)); })()`);
-      report.cases.push({ name: current, ...r });
-      if (!r.sticky) report.hard.push(current + ': the banner is not sticky here, so the check proves nothing: ' + JSON.stringify(r));
-      else if (r.result < r.banner - 1) report.hard.push(current + ': the result line is under the banner: ' + JSON.stringify(r));
-      process.stdout.write('r');
-    }
-  }
   // A place link of a House opens the Saved map scrolled to the map, with the House named, whatever offset the board had (#1025). The board is scrolled to its end, the link of a mapped House is pressed with a
   // real mouse press, and the Saved map must have its canvas inside the window (not scrolled past) and the line that names the House in view.
   if (!only || only.includes('maplink')) {
     const GRID_PRE = `(() => { const id = document.querySelector(".lcc-bd-cell .hcard-place:not(.off)").dataset.id; document.querySelector('[data-fk="ht:' + id + '"]').click(); return id; })()`; // the grid: a mapped House is chosen, and its inspector has the link
-    for (const [view, layout, link, w, h, pre] of [['classic', 'grid', '#lsb-rows .loc-t[data-lb=map]:not(.off)', 1280, 800], ['board', 'list', 'td.lcc-bd-loc .lcc-bd-linkb[data-lb=map]', 1280, 800], ['board', 'grid', '.lcc-bd-insp .lcc-bd-act[data-lb=map]', 1280, 800, GRID_PRE], ['board', 'list', 'td.lcc-bd-loc .lcc-bd-linkb[data-lb=map]', 390, 800]]) {
+    for (const [view, layout, link, w, h, pre] of [['board', 'list', 'td.lcc-bd-loc .lcc-bd-linkb[data-lb=map]', 1280, 800], ['board', 'grid', '.lcc-bd-insp .lcc-bd-act[data-lb=map]', 1280, 800, GRID_PRE], ['board', 'list', 'td.lcc-bd-loc .lcc-bd-linkb[data-lb=map]', 390, 800]]) {
       current = `maplink-${view}-${layout}-${w}`;
       await b.send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: false });
       await b.send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
@@ -358,7 +335,7 @@ async function main() {
       else if (!r.line) report.hard.push(current + ': the Saved map does not name the House: ' + JSON.stringify(r));
       else if (r.canvasTop < r.headerBottom - 1 || r.canvasTop > r.vh - 100) report.hard.push(current + ': the map is not in view (it starts at ' + r.canvasTop + ' of a window ' + r.vh + ' high, the header ends at ' + r.headerBottom + '): ' + JSON.stringify(r));
       else if (r.focus !== 'lmc') report.hard.push(current + ': the keyboard focus is not on the map: ' + r.focus);
-      if (/(classic|board)-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '.png'), Buffer.from(shot.data, 'base64')); }
+      if (/board-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '.png'), Buffer.from(shot.data, 'base64')); }
       // and the way back: "Back to House X" on that Saved map opens the Landsraad tab with the House chosen and its card, row or list line in view below the sticky header, not at the top of the page (#1072)
       if (drawn && r.line) {
         const bk = await evalIn(`(() => { const k = document.querySelector('#lmhouse [data-lmback]'); if (!k) return null; k.scrollIntoView({ block: 'center' }); const q = k.getBoundingClientRect(); return { x: Math.round(q.left + q.width / 2), y: Math.round(q.top + q.height / 2), id: k.dataset.lmback }; })()`);
@@ -376,7 +353,7 @@ async function main() {
           const seen = q.found && q.bottom > q.headerBottom && q.top < q.vh;
           if (!seen) report.hard.push(current + ': Back to House did not bring the House into view: ' + JSON.stringify(q));
           else if (q.board && q.inspector !== bk.id) report.hard.push(current + ': Back to House did not choose the House on the board: ' + JSON.stringify(q));
-          if (/(classic|board)-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '-back.png'), Buffer.from(shot.data, 'base64')); }
+          if (/board-(grid|list)-1280/.test(current) && !allShots) { const shot = await b.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path.join(out, current + '-back.png'), Buffer.from(shot.data, 'base64')); }
         }
       }
       process.stdout.write('m');

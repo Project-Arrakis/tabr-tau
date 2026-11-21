@@ -1,5 +1,8 @@
 # Command Center M6: Term and Decrees, Sysselraad Strategy and the way between the pages
 
+> Note (2026-11-20, #1028): the Classic Landsraad list described below was retired. The Command Center board is now the only Landsraad view and the default (see DECISIONS.md, section M). Mentions of the classic list, its result line or its switch are the record of that milestone, not the current page.
+
+
 > **Update 2026-11-18 (operator decision, #958, DECISIONS.md section I): Sysselraad Strategy was removed.** The Strategy button, the "Twelve lines" list, the violet preview outline, the PREVIEW LINE legend entry and the Clear highlight button no longer exist, and neither do their tests. The Sysselraad Strategy table below and every Strategy row (S1 to S13, C-rows that mention it) are kept as the record of what M6 built; they describe nothing that is on the page now. The Term and Decrees section and the way between the pages are unchanged.
 
 This note records what was built for milestone M6 (issue #768) and lists every element and behaviour that the approved design and the milestone prompt ask for in this area, where the editor stands now, and why anything is still different. Nothing was dropped without a row.

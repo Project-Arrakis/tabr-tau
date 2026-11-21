@@ -574,10 +574,33 @@
     if (h.next) nextTd.appendChild(el('span', 'lcc-bd-more', ' (' + fmt(h.next.remaining) + ' more)'));
     tr.appendChild(rtipCell(raw, 'next', nextTd));
     tr.appendChild(rtipCell(raw, 'waiting', el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined)));
+    if (editable) tr.appendChild(rowActions(h, host));
     return tr;
+  }
+  // The quick actions of a row (#1028): Fill, and Complete or Reopen, the two buttons the Classic list had on every row. They are the Inspector's own controls (data-lb="qa", the same data-do and data-id, the on and off
+  // and the words from the page through host.ctl, the same as the Inspector's Fill and Complete House / Reopen), so one click handler of the page asks, checks and writes them, with the request it always sent. The key of
+  // each is its own (rf:, rc:) so the Inspector's keys stay unique. Icons only, with the words in the accessible name and the mouse-over: the list is already crowded.
+  function rowActions(h, host) {
+    const td = el('td', 'lcc-bd-c-qa'), c = ctlOf(host, h.id);
+    if (!c) return td;
+    const taken = !c.reopen.off; // the Classic row's own toggle: Reopen on a House that is taken, Complete on one that is not
+    const say = (s) => String(s).replace(/\btaken by\b/g, 'pledged to').replace(/\btaken\b/g, 'pledged'); // the board says pledged where the page's sentence says taken (the same sentence as the Inspector's button, in the board's words)
+    // Complete acts for the faction chosen on the page, which is not always the person's own and whose crests may be hidden here: the name of the button says for whom (Reopen is the same for every faction, so it says nothing)
+    const forWho = (kind) => (kind === 'complete' && c.ownF === false && c.facName ? ' for ' + c.facName : '');
+    const mk = (kind, label, ic, ctl, fk) => {
+      const b = actionBtn('', kind, h, Object.assign({}, ctl, { tip: say(ctl.tip) }), fk, { class: 'lcc-bd-act lcc-bd-rowact', 'aria-label': label + ' House ' + h.name + forWho(kind) });
+      b.appendChild(icon(ic));
+      return b;
+    };
+    td.appendChild(mk('fill', 'Fill', 'fill', c.fill, 'rf:' + h.id));
+    td.appendChild(taken ? mk('reopen', 'Reopen', 'reopen', c.reopen, 'rc:' + h.id) : mk('complete', 'Complete', 'done', c.complete, 'rc:' + h.id));
+    return td;
   }
   function list(board, matchIds, host, editable, picks) {
     const wrap = el('div', 'lcc-bd-listwrap');
+    // the row buttons act for the faction chosen on the page: say which one above the table, where the faction crests may be hidden (#1028)
+    const first = editable && board.houses.length ? ctlOf(host, board.houses[0].id) : null;
+    if (first && first.facName) wrap.appendChild(el('p', 'lcc-bd-rowfac', 'Row actions act for ' + first.facName + '.'));
     const t = el('table', 'lcc-bd-list');
     t.appendChild(el('caption', 'lcc-bd-cap' + (board.ready ? ' lcc-bd-sr' : ''), 'The Houses of the term' + (board.ready ? ', by default by House name, A to Z' : ', by name: the board could not be checked, so no square is given'))); // read out, not drawn, while the board is a board (#1062)
     const th = el('thead'), hr = el('tr');
@@ -590,8 +613,9 @@
       else cell.textContent = c.t;
       hr.appendChild(cell);
     }
+    if (editable) hr.appendChild(el('th', 'lcc-bd-c-qa', 'Actions', { scope: 'col' }));
     th.appendChild(hr); t.appendChild(th);
-    const cols = cols0.length + (editable ? 1 : 0);
+    const cols = cols0.length + (editable ? 2 : 0);
     const me = board.me.key;
     const sortKey = board.ready ? state.sort : state.sort === 'position' ? 'house' : state.sort;
     const rows = M().sortHouses(board.houses.filter((h) => matchIds.has(h.id)), { sort: sortKey, dir: state.dir, group: state.group }, me);
@@ -792,7 +816,7 @@
       pin.appendChild(el('div', 'lcc-bd-ask', '', { 'data-lcc-slot': 'ask' }));
       side.appendChild(pin);
     } else if (!editable) {
-      side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view. The classic list stays available.'));
+      side.appendChild(el('p', 'lcc-bd-warn', 'Read-only: the board could not be checked, so nothing can be written from this view.'));
     }
 
     // who it is pledged to: only what the save's own two fields say; a lead on the faction goal is a lead and never a pledge
@@ -909,7 +933,7 @@
     const w = el('section', 'lcc lcc-bd', '', { 'aria-labelledby': 'lcc-bd-h', 'data-ready': board.ready ? 'true' : 'false' });
     if (!board.ready) {
       const p = el('div', 'lcc-bd-problems', '', { role: 'status' });
-      p.appendChild(el('p', 'lcc-bd-warn', 'The board cannot be drawn as a fixed five by five board, and nothing can be written from this view. The Houses that could be read are in the list. The classic list has the same Houses and its actions.'));
+      p.appendChild(el('p', 'lcc-bd-warn', 'The board cannot be drawn as a fixed five by five board, and nothing can be written from this view. The Houses that could be read are in the list.'));
       const ul = el('ul', 'lcc-bd-why', '', { role: 'list' });
       for (const t of board.problems) ul.appendChild(el('li', '', t));
       p.appendChild(ul);

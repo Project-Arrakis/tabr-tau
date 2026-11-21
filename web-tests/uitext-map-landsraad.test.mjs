@@ -6,28 +6,38 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boot, closeAll } from './boot.mjs';
 import { visibleText, movedText } from './uitext.mjs';
+import { synthetic } from './lcc-fixture.mjs';
+const text = (e) => e.textContent.replace(/\s+/g, ' ').trim();
 
 test.afterEach(() => closeAll());
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIX = JSON.parse(fs.readFileSync(path.join(process.env.UI_FIXTURES_DIR || path.join(here, 'fixtures'), 'ui-fixtures.json'), 'utf8'));
-const TIERS = [1200, 2400, 3600, 4800, 6000];
-const house = (id, name, mine) => ({
-  id, board_index: id - 900, house_name: 'DA_House' + name, goal_amount: 4000, completed: 0, contributions: [], player_contributions: [], my_contribution: mine, my_recorded: mine > 0,
-  rewards: TIERS.map((threshold) => ({ threshold, amount: 1, template_id: 'Item.A', reached: mine >= threshold, delivered: false })),
-});
-const board = (faction) => ({
-  term: { term_id: 7, start_time: 1, end_time: 2, reigning_faction_id: 1, active_decree_id: 1, elected_decree_id: 1 }, factions: [{ id: 1, name: 'Atreides' }, { id: 2, name: 'Harkonnen' }],
-  character: { player_id: 1, name: 'Tester', faction_id: faction }, decrees: [{ id: 1, decree_name: 'Decree A', disabled: 0 }], rotation: [], tasks: [house(900, 'Alexin', 0), house(901, 'Thorvald', 1300)],
-});
 const go = async (ui, tab) => { ui.click(`[data-tab="${tab}"]`); await ui.settle(); return ui.doc.querySelector('#main'); };
 
-test('Landsraad: the long explanations of the board are in About this, with their words, and the short lines and the buttons stay in view', async () => {
-  const ui = await boot({ get: { '/api/landsraad': board(1) } });
-  const main = await go(ui, 'landsraad');
-  const shown = visibleText(main), moved = movedText(main);
-  for (const s of ['contribution is cumulative, so', 'Each click is written at once']) { assert.ok(moved.includes(s), 'lost, not moved: ' + s); assert.ok(!shown.includes(s), 'still shown: ' + s); }
-  for (const s of ['Faction for Fill and Complete', 'Fill chosen', 'Complete chosen', 'Reopen chosen', 'Choose all houses', 'Clear the choice']) assert.ok(shown.includes(s), 'missing: ' + s);
+test('Landsraad: the explanations of the board are tooltips of its keys, not text on the page, and the short lines and the buttons stay in view', async () => {
+  const ui = await boot({ get: { '/api/landsraad': synthetic() }, local: { tab: 'landsraad' } });
+  await ui.settle();
+  const main = ui.doc.querySelector('#main');
+  const shown = visibleText(main);
+  // the Classic list's About this disclosures went with it (#1028): the board has none open or closed, its long explanations are the tooltips of its keys and the Help tab
+  assert.equal(main.querySelectorAll('details.about').length, 0, 'no About this on the board');
+  const tip = (fk) => ui.doc.querySelector(`[data-fk="${fk}"] .lcc-k-tip`);
+  // the long sentences of the keys are in their tooltips (aria-hidden: the key's own aria-label is what a screen reader says)
+  for (const [fk, s] of [['b-fill', 'The question shows the totals before anything is written.'], ['b-complete', 'Marks every chosen House complete for the faction chosen'], ['b-reopen', 'Progress and contributions stay as they are'], ['b-all', 'Chooses the Houses that are shown now.'], ['b-none', 'Clears the choice']]) {
+    const t = tip(fk);
+    assert.ok(t && t.textContent.includes(s), fk + ' has its explanation as a tooltip: ' + s);
+    assert.equal(t.getAttribute('aria-hidden'), 'true', fk + ': the tooltip is not read twice');
+  }
+  // the long sentences of the Classic list are not on the page
+  for (const s of ['Each click is written at once', 'Every row starts collapsed']) assert.ok(!shown.includes(s) && !text(main).includes(s), 'still shown: ' + s);
+  // the buttons and their words stay in view
+  assert.equal(text(ui.doc.querySelector('[data-fk="b-fill"] .lcc-k-bl')), 'Fill');
+  assert.equal(text(ui.doc.querySelector('[data-fk="b-complete"] .lcc-k-bl')), 'Complete');
+  assert.equal(text(ui.doc.querySelector('[data-fk="b-reopen"] .lcc-k-bl')), 'Reopen');
+  assert.equal(text(ui.doc.querySelector('[data-fk="b-all"]')).startsWith('Choose shown'), true);
+  assert.ok(ui.doc.querySelector('[aria-label="Faction for Fill and Complete"]'), 'the faction for Fill and Complete');
+  assert.ok(ui.doc.querySelector('[data-fk="b-none"]'), 'Clear');
   ui.dom.window.close();
 });
 

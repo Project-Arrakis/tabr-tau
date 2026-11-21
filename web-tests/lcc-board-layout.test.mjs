@@ -39,7 +39,7 @@ test('the whole action bar is in the sticky strip above the 5 by 5 (tau #974, wa
   assert.deepEqual([...act.querySelectorAll('[data-lb="bulk"]')].map((b) => [b.dataset.lb, b.dataset.do, b.dataset.fk]), [['bulk', 'fill', 'b-fill'], ['bulk', 'complete', 'b-complete'], ['bulk', 'reopen', 'b-reopen'], ['bulk', 'cfill', 'b-cfill'], ['bulk', 'unfill', 'b-unfill']]);
   assert.deepEqual([...act.querySelectorAll('.lcc-k-bl')].map((b) => text(b)), ['Fill', 'Complete', 'Reopen', 'More']);
   const clear = act.querySelector('[data-lb="pickno"]');
-  assert.ok(clear && clear.dataset.fk === 'b-none', 'Clear is the classic list\'s Clear the choice (same data attributes)');
+  assert.ok(clear && clear.dataset.fk === 'b-none', 'Clear is the Clear the choice key (data-fk b-none)');
   assert.deepEqual([...act.querySelectorAll('.lcc-k-seats [role="radio"]')].map((b) => [b.dataset.lk, b.getAttribute('aria-checked')]), [['seat', 'true'], ['seat', 'false']], 'two crests, the character\'s faction is on');
   const fac = act.querySelector('select#lsb-fac');
   assert.ok(fac && fac.dataset.lb === 'fac' && fac.dataset.fk === 'fac', 'the faction box stays behind the crests');
@@ -72,36 +72,18 @@ test('the whole action bar is in the sticky strip above the 5 by 5 (tau #974, wa
   assert.equal(lcc.getAttribute('aria-labelledby'), 'lcc-bd-h', 'the landmark of the board keeps its name');
 });
 
-test('the classic list keeps its action bar as it was (one bar, the About sections included)', async () => {
-  const ui = await boot({ get: { '/api/landsraad': synthetic() }, local: { tab: 'landsraad', 'lsb.view': 'classic' } });
-  await ui.settle();
-  const bar = ui.doc.querySelector('#lsb-board > .actbar');
-  assert.ok(bar, 'the bar is in the classic board');
-  assert.deepEqual([...bar.querySelectorAll('button')].map((b) => b.dataset.fk), ['b-all', 'b-none', 'b-fill', 'b-complete', 'b-cfill', 'b-reopen', 'b-unfill']);
-  assert.ok(bar.querySelector('#lsb-fac') && bar.querySelector('#lsb-sum'));
-  assert.equal(bar.querySelector('#lsb-legend'), null);
-  assert.deepEqual([...bar.querySelectorAll('details.about > summary')].map((s) => text(s)), ['About tiers', 'About Fill and Complete']);
-  assert.equal(bar.querySelector('[data-bar]'), null, 'it is not drawn in parts');
-  assert.equal(bar.hidden, false, 'the classic bar is shown');
-  assert.equal(bar.getAttribute('role'), 'group');
-  assert.equal(bar.getAttribute('aria-label'), 'Actions on the board', 'and keeps its name');
-});
-
-test('each control of the action bar in the control bar sends the request the classic list sends for the same choice', async () => {
+test('each control of the action bar in the control bar asks first and then sends one request for the chosen Houses, for the faction chosen', async () => {
+  // the exact bodies of these presses are the recorded ones of lcc-board-requests.test.mjs (golden file, recorded from the retired Classic list, #1028); this checks the control bar's own keys and crests
   const a = synthetic();
   const namesOf = (kind) => (kind === 'reopen' ? ['Hurata', 'Vernius'] : ['Sor', 'Lindaren', 'Kenola']);
-  const run = async (view, kind, faction) => {
-    const ui = view === 'classic'
-      ? await boot({ get: { '/api/landsraad': a }, post: { '/api/landsraad/apply': OK }, local: { tab: 'landsraad', 'lsb.view': 'classic' } })
-      : await open(a);
+  const run = async (kind, faction) => {
+    const ui = await open(a);
+    pick(ui, a, namesOf(kind));
+    if (faction !== undefined) click(ui, '.lcc-k-cmd [data-lk="seat"][data-fid="' + faction + '"]'); // the board's faction is the crest (the box behind it follows)
+    click(ui, '.lcc-k-cmd [data-fk="b-' + kind + '"]');
     await ui.settle();
-    for (const n of namesOf(kind)) { const c = ui.doc.querySelector((view === 'classic' ? '.pick' : '.lcc-bd-pick') + '[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
-    if (faction !== undefined && view === 'classic') { const f = ui.doc.querySelector('#lsb-fac'); f.value = String(faction); f.dispatchEvent(new ui.w.Event('change', { bubbles: true })); }
-    if (faction !== undefined && view !== 'classic') click(ui, '.lcc-k-cmd [data-lk="seat"][data-fid="' + faction + '"]'); // the board's faction is the crest (the box behind it follows)
-    click(ui, view === 'classic' ? '#lsb-board > .actbar [data-fk="b-' + kind + '"]' : '.lcc-k-cmd [data-fk="b-' + kind + '"]');
-    await ui.settle();
-    assert.ok(ui.doc.querySelector('#lsb-confirm'), view + ' ' + kind + ' ' + faction + ': the question is asked before a write');
-    assert.equal(ui.posted.length, 0, view + ': nothing is written before the answer');
+    assert.ok(ui.doc.querySelector('#lsb-confirm'), kind + ' ' + faction + ': the question is asked before a write');
+    assert.equal(ui.posted.length, 0, 'nothing is written before the answer');
     const q = questionText(ui.doc);
     click(ui, '#lsb-confirm [data-fk="c-yes"]');
     await ui.settle();
@@ -111,10 +93,14 @@ test('each control of the action bar in the control bar sends the request the cl
   };
   const other = a.factions.find((f) => f.id !== a.character.faction_id).id;
   for (const [kind, faction] of [['fill'], ['complete'], ['reopen'], ['complete', other]]) {
-    const board = await run('board', kind, faction), classic = await run('classic', kind, faction);
-    assert.ok(board.posted.length >= 1, kind + ': a request is sent');
-    assert.deepEqual(board.posted, classic.posted, kind + (faction !== undefined ? ' for another faction' : '') + ': the same request');
-    assert.equal(board.q.split('?')[0], classic.q.split('?')[0], 'the question names the same action');
+    const r = await run(kind, faction);
+    const label = kind + (faction !== undefined ? ' for another faction' : '');
+    assert.equal(r.posted.length, 1, label + ': one request');
+    assert.equal(r.posted[0].path, '/api/landsraad/apply');
+    assert.equal(r.posted[0].body.term_id, 7, label + ': the term of the read, for the stale guard');
+    assert.deepEqual(r.posted[0].body.houses.map((h) => h.task_id).sort(), namesOf(kind).map((n) => idOf(a, n)).sort(), label + ': the chosen Houses, all in one request');
+    if (kind === 'complete') for (const h of r.posted[0].body.houses) assert.equal(h.complete_for, faction === undefined ? a.character.faction_id : faction, label + ': completed for the faction chosen');
+    assert.match(r.q, kind === 'fill' ? /^Fill / : kind === 'complete' ? /^Complete / : /^Reopen /, label + ': the question names the action');
   }
   // choose all and clear the choice
   const ui = await open(a);

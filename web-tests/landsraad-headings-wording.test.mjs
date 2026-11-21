@@ -1,6 +1,6 @@
-// #1061 (leftovers) and #1063: one name for the Landsraad section and the two views, and no internal product name over the page. The page heading of the Houses is "Houses" in the Classic list and in the
-// Command Center (not "Task board" and not "Command Center board"); the View switch of the Landsraad and of the Specialization page offers "Classic list" and "Command Center"; the Command Center's
-// button is "Add XP" as the Classic list's is (not "Apply XP"); the reset-all question of the Classic list says specializations, with its typed sentence; and the hint of a specialization the editor cannot
+// #1061 (leftovers) and #1063: one name for the Landsraad section, and no internal product name over the page. The page heading of the Houses is "Houses" (not "Task board" and not "Command Center board");
+// the View switch of the Specialization page offers "Classic list" and "Command Center" (the Landsraad has no View switch since #1028: the board is its only view); the Command Center's
+// button is "Add XP" as the Classic list's is (not "Apply XP"); the reset-all question of the Classic Specialization list says specializations, with its typed sentence; and the hint of a specialization the editor cannot
 // match carries no "number" or "track". Real app.js and lcc scripts over the synthetic answers.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,26 +13,27 @@ const CASES = JSON.parse(read('docs', 'design', 'landsraad-command-center', 'fix
 const SPECS = (id) => JSON.parse(JSON.stringify(CASES.find((c) => c.id === id).response));
 const text = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
 
-async function openLandsraad(view) {
-  const ui = await boot({ get: { '/api/landsraad': synthetic() }, local: { tab: 'landsraad', 'lsb.view': view, 'lsb.layout': 'grid' } });
+async function openLandsraad() {
+  const ui = await boot({ get: { '/api/landsraad': synthetic() }, local: { tab: 'landsraad', 'lsb.layout': 'grid' } });
   await ui.settle();
   return ui;
 }
 
-for (const view of ['board', 'classic']) {
-  test('Landsraad, ' + view + ' view: the page heading of the Houses is "Houses", and no internal product name is a heading', async () => {
-    const ui = await openLandsraad(view);
-    assert.match(text(ui.doc.getElementById('lsb-board-h')), /^Houses \d+ houses?$/);
-    const main = text(ui.doc.querySelector('#main'));
-    assert.doesNotMatch(main, /Task board|Command Center board/);
-    const heads = [...ui.doc.querySelectorAll('#main h1, #main h2, #main h3')].map((h) => text(h));
-    assert.ok(!heads.some((h) => /board$|^Task|^Command Center board/i.test(h.replace(/\s+\d+ houses?$/, ''))), 'headings: ' + heads);
-  });
-  test('Landsraad, ' + view + ' view: the View switch offers Classic list and Command Center', async () => {
-    const ui = await openLandsraad(view);
-    assert.deepEqual([...ui.doc.querySelectorAll('.viewsw button')].map((b) => text(b)), ['Classic list', 'Command Center']);
-  });
-}
+test('Landsraad: the page heading of the Houses is "Houses", and no internal product name is a heading', async () => {
+  const ui = await openLandsraad();
+  assert.match(text(ui.doc.getElementById('lsb-board-h')), /^Houses \d+ houses?$/);
+  const main = text(ui.doc.querySelector('#main'));
+  assert.doesNotMatch(main, /Task board|Command Center board/);
+  const heads = [...ui.doc.querySelectorAll('#main h1, #main h2, #main h3')].map((h) => text(h));
+  assert.ok(!heads.some((h) => /board$|^Task|^Command Center board/i.test(h.replace(/\s+\d+ houses?$/, ''))), 'headings: ' + heads);
+});
+
+test('Landsraad: there is no View switch, the board is the only view of the Houses', async () => {
+  const ui = await openLandsraad();
+  assert.equal(ui.doc.querySelector('#main .viewsw'), null);
+  assert.equal(ui.doc.querySelector('#main [data-lb="view"]'), null);
+  assert.doesNotMatch(text(ui.doc.querySelector('#main')), /Classic list/);
+});
 
 test('Specialization page: the View switch says the same two names', async () => {
   const ui = await boot({ get: { '/api/player/specs': SPECS('mixed-five-tracks'), '/api/landsraad': synthetic() }, local: { tab: 'player', 'spec.view': 'cc' } });

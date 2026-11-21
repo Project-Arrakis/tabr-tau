@@ -1,7 +1,6 @@
-// Every control of the Command Center's Term and Decrees section that writes still sends exactly what the classic panel's control sends. The expected requests, the result lines and the focus after
-// the write were recorded from the CLASSIC panel (web-tests/lcc-term-requests.golden.json); this file plays the same scenarios against the classic panel and against the Command Center section and
-// compares them one by one. Real page code, the synthetic answer of M1, no game save. Set LCC_RECORD_REQUESTS=1 to write the file again (only ever done on a tree that is known to be right, and only
-// from the classic view).
+// Every control of the Command Center's Term and Decrees section that writes still sends exactly what the control of the retired Classic panel sent (#1028). The expected requests, the result lines and
+// the focus after the write were recorded from the Classic panel before it was removed (web-tests/lcc-term-requests.golden.json) and stay as they were; this file plays the same scenarios against the
+// Command Center section and compares them one by one. Real page code, the synthetic answer of M1, no game save. The file cannot be recorded again from this tree: the Classic panel it was recorded from is gone.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,7 +13,6 @@ afterEach(closeAll);
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GOLDEN = path.join(here, 'lcc-term-requests.golden.json');
-const RECORD = process.env.LCC_RECORD_REQUESTS === '1';
 const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
 const click = (ui, sel) => { const el = typeof sel === 'string' ? ui.doc.querySelector(sel) : sel; assert.ok(el, 'no element ' + sel); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); assert.ok(el, 'no element ' + sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
@@ -58,40 +56,27 @@ async function play(name, view) {
   return out;
 }
 
-const golden = RECORD || !fs.existsSync(GOLDEN) ? {} : JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
-const recorded = {};
+const golden = JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
 for (const name of Object.keys(SCENARIOS)) {
-  if (RECORD) {
-    test('record, from the classic panel: ' + name, async () => {
-      recorded[name] = await play(name, 'classic');
-      fs.writeFileSync(GOLDEN, JSON.stringify(Object.fromEntries(Object.keys(recorded).sort().map((k) => [k, recorded[k]])), null, 1) + '\n');
-    });
-    continue;
-  }
-  for (const view of ['classic', 'board']) {
-    test('the same request, result line and focus as the classic panel (' + view + ' view): ' + name, async () => {
-      assert.ok(golden[name], 'a recorded scenario for ' + name);
-      const got = await play(name, view);
-      assert.deepEqual(got, golden[name]);
-      if (!/no faction chosen|no decree and no faction/.test(name)) assert.ok(got.sent.length === 1, 'one write was made');
-      else assert.equal(got.sent.length, 0, 'nothing is sent when Make active or Apply is not allowed');
-    });
-  }
+  test('the same request, result line and focus as the recorded Classic panel: ' + name, async () => {
+    assert.ok(golden[name], 'a recorded scenario for ' + name);
+    const got = await play(name, 'board');
+    assert.deepEqual(got, golden[name]);
+    if (!/no faction chosen|no decree and no faction/.test(name)) assert.ok(got.sent.length === 1, 'one write was made');
+    else assert.equal(got.sent.length, 0, 'nothing is sent when Make active or Apply is not allowed');
+  });
 }
 
-test('the board view draws the Command Center section and not the classic panel; the classic view draws the classic panel', async () => {
+test('the board view draws the Command Center section and not the retired Classic panel, whatever view is remembered', async () => {
   const a = synthetic();
-  const board = await boot({ get: { '/api/landsraad': a }, local: { tab: 'landsraad', 'lsb.view': 'board' } });
-  await board.settle();
-  assert.ok(board.doc.querySelector('#lcc-term.lcc-tm'), 'the section is drawn');
-  assert.equal(board.doc.querySelectorAll('#lsb-tad').length, 1, 'one set of controls, never two');
-  assert.equal(board.doc.querySelector('.lsb .tctl'), null, 'no classic panel beside it');
-  closeAll();
-  const classic = await boot({ get: { '/api/landsraad': a }, local: { tab: 'landsraad', 'lsb.view': 'classic' } });
-  await classic.settle();
-  assert.equal(classic.doc.querySelector('#lcc-term'), null);
-  assert.equal(classic.doc.querySelectorAll('#lsb-tad').length, 1);
-  assert.ok(classic.doc.querySelector('.lsb .tctl'));
+  for (const local of [{ tab: 'landsraad', 'lsb.view': 'board' }, { tab: 'landsraad', 'lsb.view': 'classic' }]) {
+    const board = await boot({ get: { '/api/landsraad': a }, local });
+    await board.settle();
+    assert.ok(board.doc.querySelector('#lcc-term.lcc-tm'), 'the section is drawn');
+    assert.equal(board.doc.querySelectorAll('#lsb-tad').length, 1, 'one set of controls, never two');
+    assert.equal(board.doc.querySelector('.lsb .tctl'), null, 'no classic panel beside it');
+    closeAll();
+  }
 });
 
 test('a decree is only written by Apply, Make active and Set flag: choosing in a drop-down, opening the pool or the earlier terms sends nothing', async () => {
