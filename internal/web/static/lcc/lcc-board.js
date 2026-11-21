@@ -574,7 +574,25 @@
     if (h.next) nextTd.appendChild(el('span', 'lcc-bd-more', ' (' + fmt(h.next.remaining) + ' more)'));
     tr.appendChild(rtipCell(raw, 'next', nextTd));
     tr.appendChild(rtipCell(raw, 'waiting', el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined)));
+    if (editable) tr.appendChild(rowActions(h, host));
     return tr;
+  }
+  // The quick actions of a row (#1028): Fill, and Complete or Reopen, the two buttons the Classic list had on every row. They are the Inspector's own controls (data-lb="qa", the same data-do and data-id, the on and off
+  // and the words from the page through host.ctl, the same as the Inspector's Fill and Complete House / Reopen), so one click handler of the page asks, checks and writes them, with the request it always sent. The key of
+  // each is its own (rf:, rc:) so the Inspector's keys stay unique. Icons only, with the words in the accessible name and the mouse-over: the list is already crowded.
+  function rowActions(h, host) {
+    const td = el('td', 'lcc-bd-c-qa'), c = ctlOf(host, h.id);
+    if (!c) return td;
+    const taken = !c.reopen.off; // the Classic row's own toggle: Reopen on a House that is taken, Complete on one that is not
+    const say = (s) => String(s).replace(/\btaken by\b/g, 'pledged to').replace(/\btaken\b/g, 'pledged'); // the board says pledged where the page's sentence says taken (the same sentence as the Inspector's button, in the board's words)
+    const mk = (kind, label, ic, ctl, fk) => {
+      const b = actionBtn('', kind, h, Object.assign({}, ctl, { tip: say(ctl.tip) }), fk, { class: 'lcc-bd-act lcc-bd-rowact', 'aria-label': label + ' House ' + h.name });
+      b.appendChild(icon(ic));
+      return b;
+    };
+    td.appendChild(mk('fill', 'Fill', 'fill', c.fill, 'rf:' + h.id));
+    td.appendChild(taken ? mk('reopen', 'Reopen', 'reopen', c.reopen, 'rc:' + h.id) : mk('complete', 'Complete', 'done', c.complete, 'rc:' + h.id));
+    return td;
   }
   function list(board, matchIds, host, editable, picks) {
     const wrap = el('div', 'lcc-bd-listwrap');
@@ -590,8 +608,9 @@
       else cell.textContent = c.t;
       hr.appendChild(cell);
     }
+    if (editable) hr.appendChild(el('th', 'lcc-bd-c-qa', 'Actions', { scope: 'col' }));
     th.appendChild(hr); t.appendChild(th);
-    const cols = cols0.length + (editable ? 1 : 0);
+    const cols = cols0.length + (editable ? 2 : 0);
     const me = board.me.key;
     const sortKey = board.ready ? state.sort : state.sort === 'position' ? 'house' : state.sort;
     const rows = M().sortHouses(board.houses.filter((h) => matchIds.has(h.id)), { sort: sortKey, dir: state.dir, group: state.group }, me);

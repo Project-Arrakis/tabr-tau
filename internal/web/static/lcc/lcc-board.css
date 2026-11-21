@@ -176,6 +176,14 @@
 .lcc-bd-list thead th { font: 700 11px/1.2 var(--lcc-sans); letter-spacing: .03em; text-transform: uppercase; color: var(--lcc-dim); white-space: nowrap; }
 .lcc-bd-list th[aria-sort="ascending"]::after { content: ' \25B2'; }
 .lcc-bd-list th[aria-sort="descending"]::after { content: ' \25BC'; }
+/* the two quick actions of a row (#1028): icon buttons, 36 px (44 px on a phone through the touch floors below), side by side in a cell as wide as the two */
+.lcc-bd-c-qa { white-space: nowrap; width: 1%; padding-left: 3px; padding-right: 3px; }
+.lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact { width: 28px; min-height: 28px; padding: 0; justify-content: center; margin-right: 2px; }
+.lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact:last-child { margin-right: 0; }
+.lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact .lcc-k-ic { color: var(--lcc-gold-text); }
+.lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+@media (pointer: coarse), (max-width: 900px) { .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact { width: 36px; min-height: 36px; } } /* the touch floors of the page: 36 px, and 44 px on a phone */
+@media (max-width: 640px) { .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact { width: 44px; min-height: 44px; } }
 .lcc-bd-c-owner .lcc-owner { white-space: nowrap; } /* one mark on one line: a wrapped cell once read as a second H over HARKONNEN (#950) */
 .lcc-bd-sortb, .lcc-bd-linkb { all: unset; box-sizing: border-box; cursor: pointer; color: inherit; text-decoration: underline; text-underline-offset: 3px; min-height: 24px; display: inline-flex; align-items: center; }
 .lcc-bd-linkb { color: var(--lcc-gold-text); }
@@ -1067,4 +1075,5 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 /* the list where it is crowded (#1103): the "(N more)" of the Next tier cell is read out and shown in the mouse-over, but not drawn, so Place and Next tier stay on few lines and the Not collected column stays whole */
 @supports (container-type: inline-size) { @container (max-width: 1000px) {
   .lcc-bd-more { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .lcc-bd-list thead th { white-space: normal; } /* the two words of a heading (Your progress, Not collected) may stack, so the Actions column (#1028) fits without a sideways scroll */
 } }
