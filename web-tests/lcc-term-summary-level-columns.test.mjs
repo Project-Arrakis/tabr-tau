@@ -113,3 +113,40 @@ test('#646: a line the save holds no level for, and a House with no specializati
   a.tasks[0].line = '';
   assert.equal(ui.w.LCCM.readBoard(a, { gathering: 5 }).houses.find((h) => h.id === a.tasks[0].id).level, null, 'a House with no line has no level');
 });
+
+test('#1103: the list cells fit: the Place link is short, the Next tier cell keeps "(N more)" apart from the number, and the full words stay in the label and the mouse-over', async () => {
+  const ui = await open(synthetic(), { layout: 'list' });
+  const rows = [...ui.doc.querySelectorAll('.lcc-bd-list tbody tr.lcc-bd-row')];
+  assert.equal(rows.length, 25);
+  const lind = rows.find((r) => text(r.querySelector('.lcc-bd-c-house')).startsWith('Lindaren'));
+  const place = lind.querySelector('td.lcc-bd-loc .lcc-bd-linkb, td.lcc-bd-loc .lcc-bd-nopic');
+  assert.match(text(place), /^Deep Desert · B8$/, 'no word "cell" in the drawn text');
+  const said = (place.getAttribute('aria-label') || '') + ' ' + (place.getAttribute('title') || '');
+  assert.match(said, /cell B8/, 'the word is kept for a screen reader and the mouse-over');
+  const nextRow = rows.find((r) => r.querySelector('.lcc-bd-c-next .lcc-bd-more'));
+  assert.ok(nextRow, 'a House with a next tier');
+  const next = nextRow.querySelector('.lcc-bd-c-next');
+  const more = next.querySelector('.lcc-bd-more');
+  assert.match(text(more), /^\(\d[\d,]* more\)$/);
+  assert.match(next.firstChild.textContent, /^\d[\d,]*$/, 'the number stands alone in front of the span');
+  const hover = next.getAttribute('title') || ui.w.eval('window.LCC_HOST.tips(' + nextRow.dataset.id + ')').next; // the cell's own title, or the reward hover card's heading (the page's text for it)
+  assert.match(hover, /\d[\d,]* more/, 'the mouse-over keeps how many more');
+  assert.equal(text(next).includes('more'), true, 'the text is still in the cell for a screen reader');
+});
+
+test('#1103: the style sheet hides "(N more)" visually only where the list is crowded (a container query), reads it out, and does not give Place a minimum width', () => {
+  const css = read('internal', 'web', 'static', 'lcc', 'lcc-board.css');
+  const m = css.match(/@container \(max-width: (\d+)px\) \{\s*\.lcc-bd-more \{([^}]*)\}/);
+  assert.ok(m, 'a container query holds the rule');
+  assert.match(m[2], /position: absolute/);
+  assert.match(m[2], /clip: rect\(0 0 0 0\)/);
+  assert.doesNotMatch(m[2], /display: none|visibility: hidden/, 'read out, not removed');
+  assert.ok(!/\.lcc-bd-loc[^{]*\{[^}]*min-width/.test(css) && !/lcc-bd-c-loc[^{]*\{[^}]*min-width/.test(css), 'a minimum width on Place cut the Not collected column (#1103)');
+});
+
+test('the summary line, the level and the list cells ask for nothing: the board makes the same reads as before', async () => {
+  const ui = await open(synthetic(), { layout: 'list' });
+  const reads = [...new Set(ui.fetched)].filter((p) => p.startsWith('/api/landsraad') || p.startsWith('/api/player/specs'));
+  assert.deepEqual(reads, ['/api/landsraad']);
+  assert.equal(ui.posted.length, 0);
+});

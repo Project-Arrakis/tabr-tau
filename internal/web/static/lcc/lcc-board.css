@@ -1064,3 +1064,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd .lcc-bd-sumb[aria-pressed="true"] { text-decoration-thickness: 2px; color: var(--lcc-text); }
 /* the character's level in the specialization of a House, on the House panel's specialization line (#646) */
 .lcc-bd-lvl { display: inline-block; margin-left: 8px; font: 600 12px/1.3 var(--lcc-sans); color: var(--lcc-dim); white-space: nowrap; }
+/* the list where it is crowded (#1103): the "(N more)" of the Next tier cell is read out and shown in the mouse-over, but not drawn, so Place and Next tier stay on few lines and the Not collected column stays whole */
+@supports (container-type: inline-size) { @container (max-width: 1000px) {
+  .lcc-bd-more { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+} }

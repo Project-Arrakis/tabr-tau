@@ -536,10 +536,11 @@
     const td = el('td', 'lcc-bd-loc');
     // a House with no place is an em dash, not three wrapped words (#1059); the words stay for a screen reader and in the mouse-over
     if (!h.loc.known) { const d = el('span', 'lcc-bd-mut lcc-bd-dash', '—', { title: 'Not mapped yet: the save holds no map marker for this House’s representative' }); d.appendChild(el('span', 'lcc-bd-sr', ' not mapped yet')); td.appendChild(d); return td; }
-    const text = [h.loc.area, h.loc.cell ? 'cell ' + h.loc.cell : ''].filter(Boolean).join(' · ');
+    const text = [h.loc.area, h.loc.cell].filter(Boolean).join(' · '); // 'Deep Desert · B8': the word cell is in the label read out and in the mouse-over, it wrapped the cell to three lines (#1103)
+    const said = [h.loc.area, h.loc.cell ? 'cell ' + h.loc.cell : ''].filter(Boolean).join(' · ');
     const peek = host && typeof host.peek === 'function' ? host.peek(h.id) : null; // the Classic quick peek (the map picture), shown in the mouse-over only
     const wrap = el('span', 'loc');
-    if (h.loc.map_key) wrap.appendChild(btn('lcc-bd-linkb', text, { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lm:' + h.id, title: 'Open ' + (h.loc.area || h.loc.map) + ' in the Saved map' + (peek ? '. Hover for a quick peek.' : ''), 'aria-label': 'House ' + h.name + ': ' + text + '. Open in the Saved map' }));
+    if (h.loc.map_key) wrap.appendChild(btn('lcc-bd-linkb', text, { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lm:' + h.id, title: 'Open ' + (h.loc.area || h.loc.map) + (h.loc.cell ? ', cell ' + h.loc.cell + ',' : '') + ' in the Saved map' + (peek ? '. Hover for a quick peek.' : ''), 'aria-label': 'House ' + h.name + ': ' + said + '. Open in the Saved map' }));
     else { const t = el('span', 'lcc-bd-nopic', text, { title: M().noPictureSays(h.loc).replace(/\.$/, '') }); t.appendChild(el('span', 'lcc-bd-sr', ' · no map picture')); wrap.appendChild(t); } // the words "no map picture" are for a screen reader and the mouse-over; they wrapped the cell to three lines (#1059)
     if (peek) wrap.appendChild(peek);
     td.appendChild(wrap);
@@ -568,7 +569,10 @@
     const tiersTd = el('td', 'lcc-bd-c-tiers', h.takenNoTiers ? 'no tier record' : h.tierCount ? h.reached + ' of ' + h.tierCount : 'no tiers', tips ? { title: tips.tiers } : undefined);
     if (!h.takenNoTiers && h.tierCount) tiersTd.appendChild(el('span', 'lcc-bd-sr', ' ' + W().tiersEarned));
     tr.appendChild(rtipCell(raw, 'tiers', tiersTd));
-    tr.appendChild(rtipCell(raw, 'next', el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) + ' (' + fmt(h.next.remaining) + ' more)' : h.tierCount ? W().topTierEarned : '—', tips ? { title: tips.next } : undefined)));
+    // the '(N more)' is its own span: where the list is crowded the style sheet reads it out but does not draw it (#1103); the mouse-over says it either way
+    const nextTd = el('td', 'lcc-bd-c-next', h.next ? fmt(h.next.threshold) : h.tierCount ? W().topTierEarned : '—', tips ? { title: tips.next } : h.next ? { title: fmt(h.next.remaining) + ' more to reach ' + fmt(h.next.threshold) } : undefined);
+    if (h.next) nextTd.appendChild(el('span', 'lcc-bd-more', ' (' + fmt(h.next.remaining) + ' more)'));
+    tr.appendChild(rtipCell(raw, 'next', nextTd));
     tr.appendChild(rtipCell(raw, 'waiting', el('td', 'lcc-bd-c-wait', h.waiting ? String(h.waiting) : '0', tips ? { title: tips.waiting } : undefined)));
     return tr;
   }
