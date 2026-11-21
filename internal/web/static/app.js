@@ -804,15 +804,13 @@ const specViewSwitch = () => (window.LCCS && window.LCC ? html`<div class="lcc l
 // Opening a House of a specialization on the Landsraad board only moves between pages: the board shows it selected, with its filters cleared, and nothing is written.
 function specGoHouse(id) {
   if (!Number.isInteger(id)) return;
-  // The board is shown for this visit only: the view the person chose (saved under lsb.view) is not rewritten (#1060), so a Classic user is back on the Classic list the next time the page is opened, and the View switch is there to stay.
-  if (window.LCC && window.LCCM && window.LCCB) { LV.view = 'board'; const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
+  if (window.LCC && window.LCCM && window.LCCB) { const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
   tab = 'landsraad'; browserStore.set('tab', tab); askReveal(() => lbRevealHouse(id)); render();
 }
-// The way back from the Saved map to a House: the Landsraad tab in the view the person is in now (the board with the House chosen, or the Classic list with only that House shown and opened). It only moves between pages and writes nothing (#1060).
+// The way back from the Saved map to a House: the Landsraad tab with the House chosen on the board. It only moves between pages and writes nothing (#1060).
 function lbOpenHouseHere(id) {
   if (!Number.isInteger(id)) return;
   if (lbBoardOn()) { const st = window.LCCB.state; st.sel = id; st.show = 'all'; st.hs = 'any'; st.spec = 'all'; }
-  else { LB.show = 'all'; LB.hs = 'any'; LB.jump = String(id); LB.open.add(id); }
   tab = 'landsraad'; browserStore.set('tab', tab); askReveal(() => lbRevealHouse(id)); render();
 }
 // And back: the specialization of a House opens that specialization in the Specialization tab's Command Center view. It only moves between pages (the chosen specialization is the view's own state) and writes nothing.
@@ -1850,28 +1848,19 @@ async function vehiclesView() {
 // ---------- LANDSRAAD
 let LD = null; // the Landsraad read the board shows
 // ---------- LANDSRAAD board (tau #599, design of record: docs/design/mock/landsraad/a-board.html)
-// One list of the houses of the current term, alphabetical by default, every row collapsed to one line and opened to the tiers with their rewards, the factions' progress and the
-// place. The page reads the save through /api/landsraad and draws every row once; the filters, the sort, the grouping and the jump only show, hide and order the rows.
-const LB = { sort: 'house', dir: 'asc', show: 'all', hs: 'any', group: false, jump: '', open: new Set(), all: false };
+// The page reads the save through /api/landsraad and the Command Center scripts draw the board (lcc/lcc-board.js); the classic list that used to be the other view was retired (#1028). The filters, the sort and the
+// grouping of the board are the board's own.
 // Every click on the board writes at once (#641): there is no staged state. LP holds only what the page remembers between redraws: the faction chosen for Fill and Complete, the
 // houses with a tick in their Choose box, the line that says what the last click did, whether a write is running (a second click waits) and an open bulk question ({ act, F, n, ids }).
 const LP = { fac: null, pick: new Set(), say: '', bad: false, warn: false, busy: false, confirm: null };
-// Which view of the Landsraad tab is open: the classic list (the default, and the fallback when the Command Center scripts are not there) or the Command Center board. The view only changes how
-// the same houses are drawn: every write of both views goes through lbItem, lbGo, lbSend and lbRun below.
-const LV = { view: browserStore.get('lsb.view') === 'board' ? 'board' : 'classic' };
-const lbBoardOn = () => LV.view === 'board' && !!(window.LCC && window.LCCM && window.LCCB);
-const LB_GLYPH = { new: '○', part: '◐', done: '✓' }, LB_WORD = { new: 'Not started', part: 'In progress', done: 'Top tier' };
+// The Command Center board is the only view of the Landsraad tab (the Classic list was retired, #1028). Every write goes through lbItem, lbGo, lbSend and lbRun below. A view chosen in an earlier version of the
+// editor (the browser kept it under lsb.view) is dropped here: the board is the default and there is no other view to choose.
+browserStore.remove('lsb.view');
+const lbBoardOn = () => !!(window.LCC && window.LCCM && window.LCCB); // false only when the Command Center scripts did not load (lbBoardMissing)
 // the three states of a tier, in one pair of words in both views (#936, #1099): Not reached / Earned, not collected / Earned, collected (the Command Center board says the same). The longer explanation stays in the text for a screen reader.
-const LB_STW = { not_reached: 'Not reached', waiting: 'Not collected', delivered: 'Collected', no_row: 'Earned, no delivery recorded' };
 const LB_STL = { not_reached: 'not reached', waiting: 'earned, not collected (waiting at the house representative)', delivered: 'earned, collected', no_row: 'earned, no delivery recorded' };
 const lbF = (n) => Number(n).toLocaleString('en-US');
 const lbNameOf = (r) => String(r.house_name || '').replace(/^DA_House/, '');
-// House symbols (#645): the game's own picture of each house (64 px, shown at 32), one file per house in /houses. The file is looked up in this fixed list by the
-// lower-cased house name and is never built from the name, so a strange name can only miss the list; a house that is not listed keeps the two letters.
-const LB_SYM = new Map(['alexin', 'argosaz', 'dyvetz', 'ecaz', 'hagal', 'hurata', 'imota', 'kenola', 'lindaren', 'maros', 'mikkarol', 'moritani', 'mutelli', 'novebruns', 'richese', 'sor', 'spinette', 'taligari', 'thorvald', 'tseida', 'varota', 'vernius', 'wallach', 'wayku', 'wydras'].map((n) => [n, n]));
-LB_SYM.set('mikarrol', 'mikkarol'); // the game's own spelling of the house the save writes as Mikkarol
-const lbSym = (name) => LB_SYM.get(String(name).toLowerCase()) || '';
-const lbCrest = (name, hue) => { const f = lbSym(name); return html`<span class="crest" data-hue="${hue}" aria-hidden="true">${f ? html`<img src="/houses/${f}.webp" alt="" width="28" height="28" decoding="async">` : String(name).slice(0, 2)}</span>`; };
 const LB_WAIT = 'A write is still running. Wait for it to finish, then click again.';
 const LB_REOPEN_TIP = 'Reopen this house: clears the completion and the faction that holds its favor. Progress and your contribution stay as they are, so the faction’s progress stays at the goal and a house that was taken by another faction is not given back to it.';
 const crTipC = (fn) => `Complete for ${fn}: taken by ${fn}, progress to the goal`;
@@ -1907,11 +1896,6 @@ function lbNextParts(h) {
 function lbNextReward(h) { for (const t of h.tiers) if (h.mine < t.th) return lbF(t.th) + ': ' + lbRText(t); return 'top tier earned'; }
 // one reward per line (#666): each waiting reward is its own block, so a long item name wraps inside its own line and never runs into the next reward
 const lbWaiting = (h) => { const w = h.tiers.filter((t) => t.state === 'waiting').map(lbRText); return w.length ? w.map((r) => html`<span class="hrw">${r}</span>`) : 'nothing waiting'; };
-function lbLead(h, ids) { // the faction with the most progress, when it is one faction
-  let best = 0, who = null, tie = false;
-  for (const id of ids) { const p = h.prog[id] || 0; if (p > best) { best = p; who = id; tie = false; } else if (p === best && p > 0) tie = true; }
-  return tie ? null : who;
-}
 const lbTop = (h) => (h.tiers.length ? h.tiers[h.tiers.length - 1].th : 0);
 // the faction of the list: the box on the page is the truth (a refresh puts a chosen value back into it), else what was chosen before, else the character's own faction, else the first
 function lbFacId(l) {
@@ -2019,13 +2003,7 @@ function lbGrantSay(g) {
 // the sentence for missions left unpaid because the editor paid that ground before (a tier removal takes back no Solari, House Scrip, XP or faction progress, so the same raise never pays them twice; it only writes again a reward a removal took back)
 const lbPaidBefore = (n) => nn(n, 'mission', 'missions') + ' not paid: the editor recorded that ground as paid in an earlier raise, and removing a tier does not take back what its missions paid.';
 const lbGrantShort = (g) => (!g ? '' : g.problem ? 'will be refused' : g.missions ? nn(g.missions, 'mission', 'missions') + ': +' + lbF(g.solari) + ' Solari' : 'no missions');
-function lbHsText(h, l) {
-  const mineF = l.character ? l.character.faction_id : null;
-  if (h.taken) return lbW().pledged + (h.win != null ? ' to ' + lbFacName(l, h.win) + (mineF != null && h.win == mineF ? ' (your faction)' : '') : '');
-  const ld = lbLead(h, (l.factions || []).map((f) => f.id));
-  return lbOpenWord(h, l) + (ld != null ? ' · ' + lbFacName(l, ld) + ' ahead' : '');
-}
-// The House words of the Command Center (lcc-model.js WORDS), used by the classic list too so the two views say the same (#1073): a House a faction has claimed is Pledged to it; one no faction has claimed is
+// The House words of the Command Center (lcc-model.js WORDS) (#1073): a House a faction has claimed is Pledged to it; one no faction has claimed is
 // Undecided, or Wavering when both factions have progress on it (the save holds the progress of each faction).
 // the House words are the model's (lcc-model.js WORDS); a page without the Command Center scripts says the same words from this copy (a test holds the two together)
 const LB_WORDS = Object.freeze({ pledged: 'Pledged', pledgedTo: 'Pledged to', undecided: 'Undecided', wavering: 'Wavering' });
@@ -2070,7 +2048,7 @@ function lbRemoveLine(t) {
   }
 }
 // what a tier click does. withGrant: the sentence that says what a raise grants goes into the tip too (the tier box shows it as text, so its accessible name carries it as well)
-// what the Command Center board says when a click on a lower reached tier cannot remove it: the board removes tiers with Set tier and Apply tier, one at a time, the highest first (the Classic list: click the highest reached tier)
+// what the Command Center board says when a click on a lower reached tier cannot remove it: the board removes tiers with Set tier and Apply tier, one at a time, the highest first
 const lbBoardRemove = (h) => 'choose tier ' + (h.reached - 1) + ' in Set tier and press Apply tier: tiers come off one at a time, the highest first.';
 const lbRemoveHint = (h, board) => (board ? 'To remove tiers of House ' + h.name + ', ' + lbBoardRemove(h) : `To remove tiers of House ${h.name}, click the highest reached tier (tier ${h.reached}).`);
 function lbTierTip(h, t, i, can, l, withGrant, F, board) {
@@ -2081,13 +2059,11 @@ function lbTierTip(h, t, i, can, l, withGrant, F, board) {
   return i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}. ${lbBackSay(t)} ${LB_REMOVE_NOTE}`
     : board ? `Tier ${i} is reached. To remove tiers, ${lbBoardRemove(h)}` : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
 }
-// The mouse-over text of one tier box, built once for the Classic list and for the cards of the board (#938): the reward, and what a click does or why the box is off. tip is what lbTierTip said.
+// The mouse-over text of one tier box, built once for the cards, the rows and the Inspector of the board (#938): the reward, and what a click does or why the box is off. tip is what lbTierTip said.
 function lbTierTitle(h, t, i, tip, off) {
   const rid = 'Reward: ' + lbRText(t) + (t.swatch ? ' (the house swatch, as the character does not hold it yet)' : '') + '.'; // the display name only: the game's internal name is shown nowhere (#977)
   return off ? tip : rid + ' ' + tip;
 }
-// the row's meter is a picture of the state: the tier clicks are the boxes of the opened row, where each box shows its reward and what it grants before the click
-const lbMeter = (h) => html`<span class="meter mb${h.tiers.length && h.reached === h.tiers.length ? ' full' : ''}" role="img" aria-label="${h.reached} of ${h.tiers.length} tiers reached">${h.tiers.map((t, i) => html`<i class="${t.reached ? 'on' : ''}${i === h.tiers.length - 1 ? ' top' : ''}"></i>`)}</span>`;
 // The quick peek draws the real picture of the House's map (#1069): a window of that picture around the pin and, in a corner, the whole map with the same pin and the window marked. The pictures are the ones the Saved map draws, one fixed
 // list by the map key of the read (a key is never turned into a path), with the map space of internal/ops/livemap.go (Width x Height): the read gives the pin as a fraction of the picture (x * Width, y * Height on the Saved map),
 // so the pin is the same fraction here, and a test keeps this list in step with livemap.go. The files are the program's own and lazy (a picture inside a hidden peek is not asked for until it is shown).
@@ -2124,7 +2100,7 @@ function lbMiniMap(h) {
 }
 // the quick peek on the place (mouse hover only, see the .pop rules): the same lines as the opened row, drawn once per row; the opened row is the way in for a touch screen and the keyboard
 const lbPeek = (h) => (h.loc.known ? html`<span class="pop" aria-hidden="true"><h4>House ${h.name}</h4>${lbPlaceDetails(h)}<span class="fine">Quick peek. ${lbLocHint(h)}</span></span>` : '');
-// The House hover card, one builder for the Classic list and the Command Center list (#940, #951). The Place line is a real button that opens the same Saved map view as the place link of the row (same data-lb="map"),
+// The House hover card, one builder for the cards and the List of the Command Center board (#940, #951). The Place line is a real button that opens the same Saved map view as the place link of the row (same data-lb="map"),
 // with the same quick peek (the map picture) under it, and it stays inside the card, which stays open while the pointer or the keyboard focus is on it (the CSS keeps it open on :hover and :focus-visible of anything inside).
 function lbPlaceLine(h) {
   if (!h.loc.known) return 'not mapped yet';
@@ -2149,7 +2125,7 @@ function lbNode(safe) {
   lbStyles(n);
   return n.childElementCount === 1 ? n.firstElementChild : n;
 }
-// The mouse-over of the item a reward tier gives (#937, #977): what the editor holds about it, in the words of the Classic tier box (the reward and the state; never the game's internal name), and nothing it does not know: what kind of item it is
+// The mouse-over of the item a reward tier gives (#937, #977): what the editor holds about it, in the board’s words (the reward and the state; never the game's internal name), and nothing it does not know: what kind of item it is
 // (a schematic, a resource, a part) is not in the save or the editor's item list, so it is not said. Solari has none (the amount is the whole story).
 const LB_SOLARI = 'SolarisCoin';
 function lbItemInfo(h, t, i) {
@@ -2163,7 +2139,7 @@ function lbRewardRow(h, t, i) {
   const solari = t.tmpl === LB_SOLARI;
   return { item: solari ? '' : String(t.tmpl), name: lbItemName(t.tmpl), qty: lbF(t.amount), swatch: !!t.swatch, tier: i, need: lbF(t.th), state: lbTierWord(t) };
 }
-// The mouse-overs of the cells of the Command Center list, in the words of the Classic list (one source): your progress, the tiers, the next tier and the rewards waiting.
+// The mouse-overs of the cells of the Command Center list, in one source of words: your progress, the tiers, the next tier and the rewards waiting.
 function lbListTips(h) {
   const n = h.tiers.length;
   return {
@@ -2188,7 +2164,7 @@ function lbFromYouText(h) {
 }
 const LB_FROM_YOU_WHY = 'Your character is on another map, or has no saved position.'; // the reason the distance is not known: the hover text, not the standing line
 const lbFromYou = (h) => (h.loc.from_you_cm == null ? html`<span class="mut" title="${LB_FROM_YOU_WHY}">${lbFromYouText(h)}</span>` : lbFromYouText(h));
-// The place line of a house as the Classic list says it and as the board's House Intelligence says it, one builder (#939): the words of the link, its accessible name and its mouse-over. hint is the mouse-over:
+// The place line of a house as the board says it in its List and in House Intelligence, one builder (#939): the words of the link, its accessible name and its mouse-over. hint is the mouse-over:
 // "Click the place to open the Saved map." or the reason the place cannot be opened.
 const lbLocAria = (h) => 'House ' + h.name + ': ' + (h.loc.known ? lbAreaFull(h) + (lbSub(h) ? ', ' + lbSub(h) : '') + '. ' + (lbOnMap(h) ? 'Open in the Saved map' : lbLocWhy(h)) : 'not mapped yet. ' + lbNoMark);
 function lbLocModel(h) {
@@ -2199,21 +2175,7 @@ function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
   return html`${lbMiniMap(h)}<dl><dt>Place</dt><dd>${lbAreaFull(h)}${h.loc.place ? ' · ' + h.loc.place : ''}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
 }
-const LB_ICON = {
-  fill: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 10V2M2.5 5.5 6 2l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  complete: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M2 6.5 5 9.5 10 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  reopen: html`<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M3 5h5a2.5 2.5 0 0 1 0 5H5M5 2.5 2.5 5 5 7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-};
-// the line under the tiers of an opened row: what Fill (and Fill faction goal) and the next tier click grant, and that it is written at once and not checked in the game yet
-function lbGrantCaption(fillGr, nextGr, h, other) {
-  const p = [];
-  if (fillGr) p.push('Fill and Fill faction goal: ' + lbGrantSay(fillGr));
-  if (nextGr) p.push('Next tier (tier ' + (h.reached + 1) + '): ' + lbGrantSay(nextGr));
-  if (other) return `Fill and the tiers are off while ${other[0]} is chosen: they change your own contribution, which counts for ${other[1]}. Complete and Fill faction goal act for ${other[0]}.`;
-  if (!p.length) return 'Nothing to write on this house: your contribution is at the top tier, or no faction is chosen for it.';
-  return p.join(' ') + ' Written at once. ' + GRANT_UNCHECKED;
-}
-// What the quick actions of one house say, and which are off, for the faction chosen. The opened row of the classic list and the Inspector of the Command Center board both draw from this,
+// What the quick actions of one house say, and which are off, for the faction chosen. The Inspector and the quick actions of a row of the Command Center board all draw from this,
 // so the two views cannot tell two stories about one click.
 function lbQa(h, l, F) {
   const can = lbCan(l), fn = lbFacName(l, F), ownF = can && F == l.character.faction_id;
@@ -2223,63 +2185,6 @@ function lbQa(h, l, F) {
   const goalTip = goalOff ? 'Nothing to change for ' + fn : `Fill faction goal for ${fn}: progress to the goal, house taken by ${fn}` + (ownF ? ', your contribution to the top tier. ' + lbGrantSay(fillGr) + ' Written at once.' : '; your own contribution row is skipped');
   const crTip = h.taken ? LB_REOPEN_TIP : `Complete for ${fn}: taken by ${fn}, progress to the goal`;
   return { can, fn, ownF, fillOff, fillGr, nextGr, fillTip, doneF, goalOff, goalTip, crTip };
-}
-function lbRow(h, l, hue, noLocs, pos) {
-  const ids = (l.factions || []).map((f) => f.id), open = LB.open.has(h.id), F = lbFacId(l), { can, fn, ownF, fillOff, fillGr, nextGr, fillTip, doneF, goalOff, goalTip, crTip } = lbQa(h, l, F);
-  const off = (b) => (b ? 'true' : 'false');
-  const tierBoxes = h.tiers.map((t, i) => {
-    const isTop = i === h.tiers.length - 1, st = t.state;
-    const tip = lbTierTip(h, t, i + 1, can, l, true, F), tOff = !ownF, word = lbTierWord(t), gr = ownF && i + 1 > h.reached ? lbGrantOf(h, l, h.mine, t.th) : null;
-    return html`<button type="button" class="tc${isTop ? ' top' : ''}${t.reached ? ' on' : ''}${t.reached && st === 'waiting' ? ' wt' : ''}${t.reached && st === 'delivered' ? ' dv' : ''}" data-lb="tier" data-id="${h.id}" data-t="${i + 1}" data-fk="tc:${h.id}:${i + 1}" aria-pressed="${t.reached ? 'true' : 'false'}" aria-disabled="${ownF ? 'false' : 'true'}" aria-label="Tier ${i + 1}, ${lbF(t.th)}, reward ${lbRText(t)}, ${word}${tOff ? ', off' : '. ' + tip}" ${tOff ? html`aria-describedby="lsg-${h.id}" data-why="${tip}"` : ''} title="${lbTierTitle(h, t, i + 1, tip, tOff)}"><span class="tv">${lbF(t.th)}</span><span class="rw">${lbRText(t)}</span><span class="pl">${LB_STW[st]}</span>${gr ? html`<span class="gr">${lbGrantShort(gr)}</span>` : ownF && i + 1 === h.reached ? html`<span class="gr rm">${lbRemoveLine(t)}</span>` : ''}</button>`;
-  });
-  const topT = h.tiers[h.tiers.length - 1], swl = !topT ? '' : topT.swatch ? (h.held ? 'Swatch obtained this term: the top tier is the house swatch' : 'Swatch not held yet: the top tier is the house swatch') : 'Swatch held: the top tier is the house’s own item';
-  const hs = lbHsText(h, l), ld = lbLead(h, ids);
-  const fbs = (l.factions || []).map((f, k) => {
-    const p = h.prog[f.id] || 0;
-    return html`<div class="fb ${k === 0 ? 'a' : k === 1 ? 'h' : 's'}${ld == f.id ? ' lead' : ''}"><span class="fl">${f.name}</span><span class="trk"><i data-w="${h.goal ? Math.min(100, Math.round(p / h.goal * 100)) : 0}"></i></span><span class="fv">${lbF(p)}</span></div>`;
-  });
-  const locText = h.loc.known ? html`<span class="ln">${h.loc.area}</span>${lbSub(h) ? html`<span class="lm">${lbSub(h)}</span>` : ''}${lbHub(h) ? html`<span class="lm cue">no map picture</span>` : ''}` : html`<span class="ln mut">not mapped yet</span>`;
-  return html`<li class="hr" role="row" id="lsrow-${h.id}" data-id="${h.id}" data-my="${h.state}" data-hs="${h.taken ? 'taken' : 'open'}"><div class="cw">
-    <input type="checkbox" class="pick" data-lb="pick" data-id="${h.id}" data-fk="pk:${h.id}" aria-label="Choose House ${h.name}" autocomplete="off" ${LP.pick.has(h.id) ? 'checked' : ''}>
-    <input type="checkbox" class="xc vh" id="lsx-${h.id}" aria-label="Show details of House ${h.name}" autocomplete="off" ${open ? 'checked' : ''}>
-    <label for="lsx-${h.id}" class="sum">
-      <span class="c-house" role="rowheader"><span class="hw"><button type="button" class="hn" aria-expanded="false" title="Details: next reward, not collected, faction standing, place">${pos ? html`<span class="hno" title="${pos.words}"><span class="vh">Square </span>${pos.number}</span>` : ''}${lbCrest(h.name, hue)}<b>${h.name}</b></button>${lbHouseCard(h, l, noLocs)}</span></span>
-      <span class="c-loc" role="cell">${noLocs ? html`<span class="mut">not mapped yet</span>` : html`<span class="loc"><button type="button" class="loc-t${lbOnMap(h) ? '' : ' off'}" data-lb="map" data-id="${h.id}" ${lbOnMap(h) ? '' : html`aria-disabled="true" data-why="${lbLocWhy(h)}"`} aria-label="${lbLocAria(h)}" title="${lbOnMap(h) ? 'Open ' + lbAreaFull(h) + ' in the Saved map. Hover for a quick peek.' : lbLocWhy(h)}"><svg viewBox="0 0 12 14" aria-hidden="true" focusable="false"><path d="M6 0C2.7 0 0 2.6 0 5.8 0 10 6 14 6 14s6-4 6-8.2C12 2.6 9.3 0 6 0Zm0 8a2.2 2.2 0 1 1 0-4.4A2.2 2.2 0 0 1 6 8Z" fill="currentColor"/></svg><span>${locText}</span></button>${lbOnMap(h) ? '' : html`<span class="lnote" role="status"></span>`}${lbPeek(h)}</span>`}</span>
-      <span class="c-my" role="cell"><span class="line"><span class="st st-${h.state}"><span aria-hidden="true">${LB_GLYPH[h.state]}</span> ${LB_WORD[h.state]}</span>${lbMeter(h, can)}<span class="mut">${h.reached} of ${h.tiers.length} tiers</span></span><span class="amt"><b class="js-mine${h.mine > 0 ? '' : ' mut'}">${h.mine > 0 ? lbF(h.mine) : '0'}</b>${h.mine > 0 ? html` <span class="mut js-next">· ${lbNextParts(h).map((p, k) => html`${k ? ' ' : ''}<span class="nx">${p}</span>`)}</span>` : ''}</span></span>
-      <span class="c-hs" role="cell"><span class="tag">${hs}</span></span>
-      <span class="c-qa" role="cell"><button type="button" class="qa qa-fill" data-lb="qa" data-do="fill" data-id="${h.id}" data-fk="qf:${h.id}" aria-disabled="${off(fillOff)}" aria-describedby="qg-${h.id}" title="${fillTip}">${LB_ICON.fill}<span class="ql">Fill</span></button><button type="button" class="qa qa-cr" data-lb="qa" data-do="${h.taken ? 'reopen' : 'complete'}" data-id="${h.id}" data-fk="qc:${h.id}" aria-disabled="${off(false)}" title="${crTip}">${h.taken ? LB_ICON.reopen : LB_ICON.complete}<span class="ql">${h.taken ? 'Reopen' : 'Complete'}</span></button><span class="qg" id="qg-${h.id}">${fillGr ? lbGrantShort(fillGr) : ''}</span></span>
-      <span class="chev" aria-hidden="true"></span>
-    </label>
-    <div class="more" role="cell" ${open ? '' : 'hidden'}>
-      <div><h4>Tiers and rewards</h4><div class="tiers">${tierBoxes}</div><p class="cap"><i class="lg lg-dl" aria-hidden="true"></i> collected · <i class="lg lg-wt" aria-hidden="true"></i> not collected · ✓ earned</p><p class="cap swl">${swl}</p><p class="cap grantcap" id="lsg-${h.id}">${lbGrantCaption(fillGr, nextGr, h, can && !ownF ? [fn, lbFacName(l, l.character.faction_id)] : null)}</p></div>
-      <div><h4>House status and faction progress</h4><span class="tag">${hs}</span><div class="fbs">${fbs}</div><p class="cap">of the house goal, ${lbF(h.goal)}</p></div>
-      ${noLocs ? '' : html`<div><h4>Place</h4>${lbPlaceDetails(h)}</div>`}
-      <div class="acts"><button type="button" class="qa act-fill" data-lb="qa" data-do="fillgoal" data-id="${h.id}" data-fk="af:${h.id}" aria-disabled="${off(goalOff)}" aria-describedby="lsg-${h.id}" title="${goalTip}">${LB_ICON.fill}<span class="ql">Fill faction goal</span></button><button type="button" class="qa act-complete" data-lb="qa" data-do="complete" data-id="${h.id}" data-fk="ac:${h.id}" aria-disabled="${off(doneF)}" title="${doneF ? 'Already complete for ' + fn + ': nothing to change' : crTipC(fn)}">${LB_ICON.complete}<span class="ql">Complete</span></button><button type="button" class="qa act-reopen" data-lb="qa" data-do="reopen" data-id="${h.id}" data-fk="ar:${h.id}" aria-disabled="${off(!h.taken)}" title="${h.taken ? LB_REOPEN_TIP : 'The house is open: nothing to change'}">${LB_ICON.reopen}<span class="ql">Reopen</span></button><span class="mut fine">for the faction chosen above the list</span></div>
-    </div>
-  </div></li>`;
-}
-const lbCounts = (hs) => {
-  const c = { new: 0, part: 0, done: 0, taken: 0, open: 0, tiers: 0, tierTotal: 0, total: 0, byFac: {} };
-  for (const h of hs) { c[h.state]++; if (h.taken) { c.taken++; if (h.win != null) c.byFac[h.win] = (c.byFac[h.win] || 0) + 1; } else c.open++; c.tiers += h.reached; c.tierTotal += h.tiers.length; c.total += h.mine; }
-  return c;
-};
-const lbShowOf = (hs, k) => hs.filter((h) => (k === 'all' ? true : k === 'left' ? h.state !== 'done' : h.state === k));
-function lbGlance(hs, l, c) {
-  const n = hs.length || 1, mineF = l.character ? l.character.faction_id : null;
-  const tile = (k, cls, n_, glyph, word) => html`<a class="tile ${cls}" href="#lsb-board" data-lb="show" data-show="${k}" title="${k === 'done' ? 'Top tier (all tiers) earned by your contribution' : ''}" aria-label="${n_} ${k === 'done' ? 'top tier earned' : word.toLowerCase()}: show these houses in the list"><span class="now">showing</span><div class="n">${n_}</div><div class="l"><span aria-hidden="true">${glyph}</span> ${k === 'done' ? 'Top tier earned' : word}</div></a>`;
-  const seg = (k, cls, n_, word) => html`<a class="${cls}" href="#lsb-board" data-lb="show" data-show="${k}" data-w="${n_ / n * 100}" data-tip="${n_} ${word.toLowerCase()}" aria-label="Show the ${n_} ${word.toLowerCase()} houses in the list"></a>`;
-  // houses won by a faction the list does not offer are counted apart (#842), shown only when there are some, so they are in neither faction's count nor in "still open"
-  const known = new Set((l.factions || []).map((f) => String(f.id))), other = Object.entries(c.byFac).reduce((s, [k, v]) => (known.has(k) ? s : s + v), 0);
-  const facItems = (l.factions || []).map((f) => html`${f.name} <b>${c.byFac[f.id] || 0}</b>${mineF != null && f.id == mineF ? ' (your faction)' : ''}`).concat(other && known.size ? [html`Other faction <b>${other}</b>`] : [], [html`<b>${c.open}</b> undecided`]);
-  // each item stays whole when the line wraps (a narrow screen), with its separator at its end
-  const byFac = facItems.map((it, i) => html`<span class="fi">${it}${i < facItems.length - 1 ? ' ·' : ''}</span> `);
-  return html`<section class="card d-panel" aria-labelledby="lsb-glance"><h2 class="d-head" id="lsb-glance">Current term ${(l.term || {}).term_id} at a glance <span class="cnt">${l.character ? html`character in ${l.character.faction_id != null ? lbFacName(l, l.character.faction_id) : 'no faction'}` : 'no character in this save'}</span></h2>
-  <div class="glance grid" role="group" aria-label="Your houses this term: click one to list them">${tile('done', 'done', c.done, '✓', 'Top tier')}${tile('part', 'part', c.part, '◐', 'In progress')}${tile('new', 'new', c.new, '○', 'Not started')}</div>
-  <div class="stack mt12" role="group" aria-label="${c.done} top tier, ${c.part} in progress, ${c.new} not started. Click a segment to list those houses">${seg('done', 'd', c.done, 'Top tier')}${seg('part', 'p', c.part, 'In progress')}${seg('new', 'u', c.new, 'Not started')}</div>
-  <p class="sleg" aria-hidden="true"><span><i class="sw d"></i>Top tier</span><span><i class="sw p"></i>In progress</span><span><i class="sw u"></i>Not started</span></p>
-  <p class="explain">Your contribution, <b>${nn(hs.length, 'house', 'houses')}</b> (${c.done} + ${c.part} + ${c.new}). Click a card or the bar to list them.<span class="back"><a href="#lsb-board" data-lb="show" data-show="all">Show all ${hs.length} houses again</a></span></p>
-  ${lbAbout('lsb.counts', 'the counts', html`<p>The three numbers count the ${hs.length} houses by <b>your contribution in the current term</b>: <b>top tier earned</b> = every tier earned by your contribution, <b>in progress</b> = some contribution but below the top tier, <b>not started</b> = nothing recorded. They add up to ${hs.length}. “Undecided” is used only for a house no faction has the favor of yet, in the “Houses pledged to each faction” line below.</p>`)}
-  <div class="facts grid"><span>Houses pledged to each faction: ${byFac}</span><span>Tiers earned: <b>${c.tiers}</b> of <b>${c.tierTotal}</b></span><span>Contributed in all: <b>${lbF(c.total)}</b></span></div></section>`;
 }
 function lbHistory(l) {
   const e = l.earlier_terms || [], tm = l.terms || [];
@@ -2293,7 +2198,6 @@ function lbHistory(l) {
   ${lbAbout('lsb.hist', 'earlier terms', html`<p>Terms with no row of yours are not listed. If a save holds only the current term this card says so instead. A term's rows say what the contribution was; they do not say which terms paid out. The last payout is the time of the last reward row written for the House, kept as one time per House: a reward collected in a later term moves it out of the earlier term, so "not in this term" does not always mean nothing was paid then.</p>`)}
   ${rows}</section>`;
 }
-const LB_SHOWS = [['all', 'All'], ['left', 'What is left'], ['new', '○ Not started'], ['part', '◐ In progress'], ['done', '✓ Top tier']];
 // ---- the term and decrees panel (part 4): the term's facts, the Active decree and Reigning faction controls, and the decree pool. A write goes to the save at once, as the other
 // term controls always did; the decree flag stays a button per row (the pool flag is shown as stored, and what the game does with it is not known, #634).
 // A decree is shown by the name the game shows (#608): the server sends display_name and effect from the game's own decree table, name_known is false when the name is not the game's
@@ -2390,7 +2294,7 @@ function lbTerm(l) {
   </div></details></section>`;
 }
 // The Command Center's Term and Decrees section (lcc/lcc-term.js) is drawn from this plain model of the same answer, with the same words and the same states as lbTerm above: the section
-// carries the same data-lb attributes, so lbClick and lbChange (and so the requests) are the ones the classic panel uses. Nothing here sends anything.
+// carries the same data-lb attributes as every control of the page, so lbClick and lbChange (and so the requests) are the page’s own. Nothing here sends anything.
 // The line under the Active decree drop-down while the choice is not the term's active decree yet (#925): the choice is only a draft until Apply or Make active writes it. '' when they agree.
 function lbPendingText(l, ad) {
   const t = l.term;
@@ -2400,7 +2304,7 @@ function lbPendingText(l, ad) {
   const by = (i) => lbDecreeById(l, i), n = (i) => (i === '' || !by(i) ? 'none' : decreeLabel(by(i)));
   return 'Not applied yet: the term still has ' + n(saved) + ' as its active decree. Press Apply to set ' + n(ad) + '.';
 }
-// The line of "Next term's decree" by the state of the Landsraad (#1073), one function for the classic panel and the Command Center. The term row says who reigns (reigning_faction_id) and which decree was chosen
+// The line of "Next term's decree" by the state of the Landsraad (#1073), one function for the Command Center. The term row says who reigns (reigning_faction_id) and which decree was chosen
 // for the next term (elected_decree_id); the two are read apart: a decree chosen -> the decree, as always. None chosen and no reigning faction -> the Landsraad is still divided. None chosen and a reigning faction
 // -> that faction have swayed the Landsraad and the decree is yet to be chosen. A decree chosen that this save's list does not hold, or a faction the list does not name -> a dash: it cannot be read.
 const LB_NEXT = Object.freeze({ divided: 'The Landsraad is still divided', dividedTip: 'No faction is in control of the Landsraad yet.', swayedTail: ' have swayed the Landsraad; their decree is yet to be chosen', swayedTip: 'The controlling faction has not selected next term’s decree.', dash: '—', dashTip: 'Not recorded in the save.' });
@@ -2466,50 +2370,21 @@ function lbEndsIn(l) {
 }
 const lbTermOn = () => !!window.LCCT;
 function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', LT.bad); } }
-// the switch between the two views, drawn only when the Command Center scripts are loaded
-const lbViewSwitch = () => (window.LCC && window.LCCM && window.LCCB ? html`<div class="viewsw" role="group" aria-label="View of the Landsraad tab" title="Both views read and write the same save in the same way, with the same checks."><span class="lbl">View</span><button type="button" class="qa" data-lb="view" data-view="classic" data-fk="vw:classic" aria-pressed="${lbBoardOn() ? 'false' : 'true'}">Classic list</button><button type="button" class="qa" data-lb="view" data-view="board" data-fk="vw:board" aria-pressed="${lbBoardOn() ? 'true' : 'false'}">Command Center</button></div>` : '');
-// The board view: the board is drawn into #lsb-lcc by the Command Center scripts after this page is drawn (lbMountBoard); the action bar, the term panel and the earlier terms are the same ones the
-// classic list has. The action bar (the choose buttons, the actions on several houses, the faction for Fill and Complete, the count of the chosen houses, the question before a write and the result line)
-// is drawn only for a board that passed its checks: a board that did not is shown read-only, with the classic list as the way to change anything. In this view it is drawn in three parts that are
-// seated in the board's control bar (lbSeat), not under the board (#914).
-function lbBoardInner(l) {
+// The board: it is drawn into #lsb-lcc by the Command Center scripts after this page is drawn (lbMountBoard). The action bar (the choose buttons, the actions on several houses, the faction for Fill and Complete,
+// the count of the chosen houses, the question before a write and the result line) is drawn only for a board that passed its checks: a board that did not is shown read-only, with no control that writes. It is drawn
+// in three parts that are seated in the board's control bar (lbSeat), not under the board (#914).
+function lbInner(l) {
+  if (!lbBoardOn()) return lbBoardMissing();
   const hs = l.tasks.map((r) => lbHouse(r, l)), ready = window.LCCM.readBoard(l).ready;
   const who = l.character ? (lbCan(l) ? '' : 'Your character is in no faction, so there is no contribution of yours to change.') : 'This save has no character.'; // the line that named the faction is gone (#930): Fill and Complete name '(your faction)' where a faction is chosen
-  return html`${lbViewSwitch()}<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h" tabindex="-1">Houses <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
+  return html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h" tabindex="-1">Houses <span class="cnt">${nn(hs.length, 'house', 'houses')}</span></h2>
   ${who ? html`<p class="line1">${who}</p>` : ''}
   <div id="lsb-lcc"></div>
   ${hs.length && ready ? lbActbar(hs, l, true) : ''}</section>${lbTermOn() ? html`<div id="lsb-lcc-term"></div>` : html`${lbTerm(l)}${lbHistory(l)}`}`; // with the Command Center scripts the term section is seated in the board under the plaque (lbSeat), drawn once (#923)
 }
-function lbInner(l) {
-  if (lbBoardOn()) return lbBoardInner(l);
-  const hs = l.tasks.map((r) => lbHouse(r, l)).sort((a, b) => a.name.localeCompare(b.name));
-  const nums = window.LCCM ? window.LCCM.positions(l.tasks) : new Map(); // the House number 01 to 25 (its board position), only from a board that passed its checks (#768)
-  const c = lbCounts(hs), N = hs.length, term = l.term || {};
-  const noLocs = N > 0 && hs.every((h) => !h.loc.known); // no house has a place in the save: say so once, and do not draw a place for every row
-  const hue = (h) => { let x = 0; for (const ch of h.name) x = (x * 31 + ch.charCodeAt(0)) % 360; return x; };
-  const col = (k, label, off) => html`<div role="columnheader" data-col="${k}" aria-sort="${LB.sort === k ? (LB.dir === 'asc' ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sorth" data-lb="sort" data-col="${k}" ${off ? 'disabled' : ''}>${label} <span class="ar" aria-hidden="true"></span></button></div>`;
-  const seg = (k, label, n_) => html`<a href="#lsb-board" data-lb="show" data-show="${k}" ${LB.show === k ? html`aria-current="true"` : ''}><span>${label} <em>${n_}</em></span></a>`;
-  const board = html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Houses <span class="cnt">${nn(N, 'house', 'houses')}</span></h2>
-  <div class="ctl grid" role="group" aria-label="Filter and sort the board">
-    <span><span class="lbl">Show</span><span class="seg">${LB_SHOWS.map(([k, t]) => seg(k, t, lbShowOf(hs, k).length))}</span></span>
-    <span><span class="lbl">House</span><span class="seg">${[['any', 'Any', N], ['open', lbW().undecided, c.open], ['taken', lbW().pledged, c.taken]].map(([k, t, n_]) => html`<label><input type="radio" name="lbhs" data-lb="hs" value="${k}" ${LB.hs === k ? 'checked' : ''}><span>${t} <em>${n_}</em></span></label>`)}</span></span>
-    <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: no place is known for any house"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">Group by region is off: it needs a place for the houses.</span>` : ''}</span>
-    <span><span class="lbl">Rows</span><button type="button" class="btnr" data-lb="expand">Expand all</button> <button type="button" class="btnr" data-lb="collapse">Collapse all</button></span>
-    <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
-    <span class="shown vh" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
-  </div>
-  ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place in the editor yet, so the Place column says “not mapped yet” and the houses cannot be grouped by region.</p>` : ''}
-  ${lbActbar(hs, l)}
-  <p class="onlybar" id="lsb-only" hidden>Showing only House <b id="lsb-onlyname"></b>, opened. The filters are ignored while this is on. <a href="#lsb-board" data-lb="showall">Show all houses</a></p>
-  <p class="nolist" id="lsb-nomatch" hidden>No house matches the filters. <button type="button" class="linkb" data-lb="showall">Show all houses</button></p>
-  <div role="table" aria-label="Houses, current term"><div role="rowgroup"><div class="rowhead" role="row"><span class="pickh" aria-hidden="true">Choose</span><span class="sortlbl">Sort by</span>${col('house', 'House')}${col('location', 'Place', noLocs)}<div class="hc3">${col('state', 'State')}${col('tiers', 'Tiers')}${col('next', 'Next tier')}</div>${col('status', 'Faction status')}<span class="hend">Quick actions</span></div></div>
-  <ul class="rows" role="rowgroup" id="lsb-rows">${hs.map((h) => lbRow(h, l, hue(h), noLocs, nums.get(h.id)))}</ul></div>
-  ${lbAbout('lsb.board', 'the board', html`<p>Every row starts collapsed. Click a row (or press Space on it) to open it; Expand all opens every row, Collapse all closes them again. A <b>tier</b> is reached when your contribution is at least its amount; contribution is cumulative. A reached tier counts as paid when the delivery rows hold its item from this term. <b>Collected</b> then means the save holds the reward as collected (amount 0 in the delivery rows), <b>Not collected</b> that it waits at the house representative (an amount above 0). <b>Reached, no delivery recorded</b> means no such row of this term, so an earlier term's reward is not taken for this tier's. The row is of the item, not of the tier: where two tiers give the same item one row shows both as paid, and a contribution raised by a route that writes no reward (an older build, or the plain Fill routes of the editor's API) can show a tier as delivered when the game or another tier left a row of this term. The top tier shows the house swatch while the character does not hold it, and the house's own item once it is held. A click on a place opens the Saved map at the house, where the Saved map has a picture of it; a place with no picture is shown dimmed and says why. With a mouse, hover a place for a quick look at where the house is; the open row shows the same on touch and keyboard.</p>`)}
-  </section>`;
-  const boardOrNone = N ? board : html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h">Houses <span class="cnt">0 houses</span></h2><p class="nodata">This save has no Landsraad houses in the current term, so there is nothing to show or change here.</p></section>`;
-  return html`${lbViewSwitch()}${lbGlance(hs, l, c)}${lbTerm(l)}${boardOrNone}${lbHistory(l)}`;
-}
-const lbPage = (l) => html`<div class="lsb" id="lsb" data-sort="${LB.sort}" data-dir="${LB.dir}">${lbInner(l)}</div>`;
+// What the page says when the Command Center scripts did not load: there is no other view of the Houses, so this says so and how to get the board back. Nothing can be written from here.
+const lbBoardMissing = () => html`<section class="card d-panel" aria-labelledby="lsb-board-h" id="lsb-board"><h2 class="d-head" id="lsb-board-h" tabindex="-1">Houses</h2><p class="nodata" role="alert">The Landsraad board could not be loaded, so the Houses cannot be shown. Reload the page (Ctrl+F5). If this stays, close the editor and start it again.</p></section>`;
+const lbPage = (l) => html`<div class="lsb" id="lsb">${lbInner(l)}</div>`;
 function lbSumText(hs, l) {
   const sh = lbBoardOn() && window.LCCB ? window.LCCB.visible(l) : null; // chosen AND shown: a House the filters hide is never counted (tau #974)
   const ch = hs.filter((h) => LP.pick.has(h.id) && (!sh || sh.has(h.id))), F = lbFacId(l);
@@ -2517,20 +2392,14 @@ function lbSumText(hs, l) {
   return `Chosen: ${nn(ch.length, 'house', 'houses')}. Fill chosen changes ${ch.filter((h) => !lbFillOffF(h, l, F)).length}, Complete chosen changes ${ch.filter((h) => !lbDoneFor(h, F)).length} for ${lbFacName(l, F)}, Complete and fill chosen changes ${ch.filter((h) => lbOwnF(l, F) && (!lbFillOffF(h, l, F) || !lbDoneFor(h, F))).length}, Reopen chosen changes ${ch.filter((h) => h.taken).length}, Unfill chosen changes ${ch.filter((h) => lbOwnF(l, F) && h.mine > 0 && h.unfill).length}.`;
 }
 const lbLetter = (name) => (/^atreides/i.test(String(name || '')) ? 'a' : /^harkonnen/i.test(String(name || '')) ? 'h' : '');
-function lbActbar(hs, l, split) {
+function lbActbar(hs, l) {
   const F = lbFacId(l), mineF = lbCan(l) ? l.character.faction_id : null, cf = LP.confirm;
-  // The pieces of the bar. The classic list draws them in one bar under its table. The board view (split) draws the same controls as three parts that the page seats in the board's control bar (lbSeat):
-  // the choose buttons next to Jump to House, the actions with the faction box and the count of the chosen houses as the next line of that bar, and the question, the result line and the note on a write
-  // directly under it. The same elements, the same data-lb, data-do and data-fk, so one handler serves both places (#914).
-  const choose = html`<button type="button" class="qa" data-lb="pickall" data-fk="b-all">Choose all houses</button><button type="button" class="qa" data-lb="pickno" data-fk="b-none">Clear the choice</button>`;
+  // The bar is drawn as three parts that the page seats in the board's control bar (lbSeat): the choose buttons next to Jump to House, the actions with the faction box and the count of the chosen houses as the
+  // next line of that bar, and the question, the result line and the note on a write directly under it (#914).
   const bulkWhy = (act) => lbBulkOff(act, l, F), bulkOff = (act) => (bulkWhy(act) ? html`aria-disabled="true" data-why="${bulkWhy(act)}"` : ''), bulkTip = (act, text) => bulkWhy(act) || text;
-  const bulks = html`<button type="button" class="qa btnp" data-lb="bulk" data-do="fill" data-fk="b-fill" title="Raises your contribution on every chosen house to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.">Fill chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="complete" data-fk="b-complete" title="Marks every chosen house complete for the faction below and sets that faction's progress on it to the house goal (never lowered).">Complete chosen</button><button type="button" class="qa btnp" data-lb="bulk" data-do="cfill" data-fk="b-cfill" ${bulkOff('cfill')} title="${bulkTip('cfill', 'Does Fill chosen and Complete chosen in one write, with one backup and one result line: raises your contribution on every chosen house to its highest reward tier (never lowered, and the missions it pays are written as for Fill chosen) and marks the house complete for the faction below with its progress at the goal. Does nothing while another faction is chosen: use Complete chosen for that.')}">Complete and fill chosen</button><button type="button" class="qa" data-lb="bulk" data-do="reopen" data-fk="b-reopen" title="Reopens the chosen houses: clears the completion and the faction that holds their favor. Progress and contributions stay as they are, so this does not set back what Complete wrote.">Reopen chosen</button><button type="button" class="qa" data-lb="bulk" data-do="unfill" data-fk="b-unfill" ${bulkOff('unfill')} title="${bulkTip('unfill', 'Sets your contribution to 0 on every chosen house you have a contribution on, so its tiers go back to 0 of 5. Takes back the rewards of those tiers that still wait at the house representative and that the editor wrote; a reward already collected stays. Takes back no Solari, House Scrip or XP, and does not change whether a house is taken. The question shows what it would take back before anything is written. Unfill removes all tiers at once, so one limit counts for more: a waiting reward of the same item that the game itself added on top of the rows the editor wrote (after a backup is restored or the game goes back) loses the amount the removed tiers gave as well, and can end lower than the game gave it.')}">Unfill chosen</button>`;
   const ask = !cf ? '' : html`<p id="lsb-confirm" class="confirm" data-f="${lbLetter(((l.factions || []).find((x) => x.id == cf.F) || {}).name)}" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">${cf.yes}</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>`;
-  const fac = html`<label for="lsb-fac">Faction for Fill and Complete</label><select id="lsb-fac" data-lb="fac" data-fk="fac" title="The faction of the next Fill faction goal, Complete or bulk click. Choosing it writes nothing.">${(l.factions || []).map((f) => html`<option value="${f.id}" ${f.id == F ? 'selected' : ''}>${f.name}${f.id == mineF ? ' (your faction)' : ''}</option>`)}</select>`; // no standing note beside it (#1045): the option says (your faction), the title says the rest
-  const sum = html`<p id="lsb-sum" aria-live="polite">${lbSumText(hs, l)}</p>`;
-  const res = html`<p id="lsb-result" role="status" tabindex="-1" ${LP.bad ? html`class="bad"` : LP.warn ? html`class="warn"` : ''}>${LP.say}</p>`;
-  if (split) {
-    // The board view (tau #974, the approved design E6 v2): the same controls as the classic bar (the same data-lb, data-do and data-fk, so one handler serves both), drawn as parts that the board seats in its sticky strip (lbSeat):
+  {
+    // The controls of the board (tau #974, the approved design E6 v2), drawn as parts that the board seats in its sticky strip (lbSeat):
     // Choose shown in the filter mode; in the action mode the count of the chosen Houses, the faction crests, Fill, Complete, Reopen (Complete and fill and Unfill are under More) and Clear; and the question. The faction box stays as the
     // engine behind the crests (hidden), so lbFacId and the board's faction path are unchanged. The counts on the keys are filled in by lbBarSync, the icons by the board (lcc-k-icph).
     const facs = l.factions || [], facName = (facs.find((x) => x.id == F) || {}).name || '', ic = (n) => html`<span class="lcc-k-icph" data-ic="${n}"></span>`;
@@ -2555,25 +2424,6 @@ function lbActbar(hs, l, split) {
       <div class="barpart bp-ask" data-bar="ask">${ask}</div>
     </div>`;
   }
-  return html`<div class="actbar" role="group" aria-label="Actions on the board">
-    <div class="actrow" role="group" aria-label="Act on several houses at once">${choose}${bulks}</div>
-    ${ask}
-    <div class="actrow">${fac}</div>
-    ${sum}
-    ${res}
-    ${lbAbout('lsb.tiers', 'tiers', html`<p><b>A tier click pays what its missions pay.</b> Click a tier (the boxes in the opened row) to give your character that tier: your contribution is raised to the tier's threshold, and contribution is cumulative, so <b>click tier 3 and tiers 1 to 3 are reached</b>. Click the highest reached tier again to remove it (the contribution drops to the tier below, or to none for tier 1). The Choose box on each row picks houses for the bulk buttons. Each tier box shows what the click grants before you press it.</p>
-      <p><b>What a raise writes</b>, in one edit with a backup first:</p>
-      <ul><li>your contribution, raised to the tier;</li><li>the same ground added to your faction's progress while the house is open (the house is taken when that reaches the goal);</li><li>one reward for each tier crossed, waiting at the house representative (the 6,000 tier follows the swatch rule);</li><li>for each mission, as a mission with a Recollection turned in pays it: 6,000 Solari and 1,000 House Scrip in your wallet, and 1,500 XP on the specialization line of the house (whether a mission without a Recollection pays the House Scrip and the XP is not known).</li></ul>
-      <p>A mission is 1,000 contribution times <code>LandsraadContributionMultiplier</code>, and the XP is scaled by <code>LandsraadSpecializationXpMultiplier</code>; both are read from the ServerCustomSettings.ini on this computer (1 when the key is absent; the file of the game folder you use here, not necessarily the one a save from another setup was played with), and a click is refused with the reason when a value cannot be used or the file cannot be read. A change counts only the ground you raise from now on: a house raised by an earlier version of the editor already has events that cover its tiers, so a new Fill pays nothing for them, and tiers that version left out stay unpaid. The daily and weekly mission limits of the game are not applied.</p>
-      <p><b>What it does not write:</b> your character's own XP and your faction standing. <b>No progress event is written</b>: the editor adds no event and leaves the game's progress cursor where it is, so the game should find only events of its own at its next cursor step. Whether the game keeps a contribution raised here at that step is not checked in the game. Events an earlier build of the editor wrote stay in the save and still count as ground paid. A second Fill with nothing above your contribution writes nothing, and ground the game's own progress events for the house cover, or that you reached under another faction (a change of faction does not make the old contribution pay again), is never paid again. <b>Removing a tier</b> lowers the contribution and takes back the reward of the removed tier if the editor wrote it and it still waits at the house representative. A reward already collected stays, and so does one that your own missions in the game cover, one the editor has no record of having written, or one that cannot be tied to the tier with certainty; the question says which. The Solari, House Scrip, XP and faction progress the missions of the tier paid are not taken back. It asks first when it takes back or names a reward. Because the editor leaves no event of its own, it remembers the ground it paid in a small file of its own next to its other files (written once the save is written, never in the game's save), and a removal that takes rewards back adds the tier it took them back up to: <b>raising a removed tier again pays no mission a second time</b>, however often you remove and raise it (no Solari, House Scrip, XP or faction progress), and a raise above what was paid pays only the new tiers. What the raise does write again is the reward a removal took back; a collected reward is not written again. The result and the line before a click say how many missions were not paid because that ground was paid before. The tier box is a toggle: clicking the highest reached tier twice removes it and gives it again, and the second click pays no mission. The editor counts that file only as far as the save agrees: ground above the highest tier of the house whose reward the save shows from this term, or above the tier a removal took rewards back up to (for example after a backup was put back), is not counted, and a restored backup counts only as far as its own rewards go (undoing a restore keeps what that file already paid, unless a raise was made on the older file in between: the record then follows that raise, and going back to the later file can pay some of its ground again). If the file is missing, damaged or of another save, nothing is taken as paid, and a raise pays as it did before.</p>`)}
-    ${lbAbout('lsb.fill', 'Fill and Complete', html`<p>Fill, Complete and Reopen act for the faction chosen above. It starts on your character's own faction.</p>
-      <p><b>Fill</b> and <b>Fill chosen</b> raise your own contribution to the top tier (never lowered) and write what the missions that reach it pay (see Tiers). They change nothing while another faction is chosen: your contribution counts for your own faction, so no contribution and no reward is written for another.</p>
-      <p><b>Complete</b> and <b>Complete chosen</b> take the house for the chosen faction: its progress goes to the goal, and the House is recorded as completed with that faction holding its favor. For another faction this records that faction's favor on the House and its progress and skips your own contribution row. <b>Fill faction goal</b> on one house does both in one click: your faction ends at its progress plus what you gained, and at least at the goal.</p>
-      <p><b>Complete and fill chosen</b> does Fill chosen and Complete chosen in one write, with one backup and one result line: your contribution goes to the top tier on every chosen house and each house is taken for the faction chosen. It acts only for your own faction (your contribution counts for it), so it is off while another faction is chosen; Complete chosen is the button for another faction. The missions the fill pays are the same as for Fill chosen, and a request that stands for more than the limit is refused with the reason.</p>
-      <p><b>Unfill chosen</b> sets your own contribution to 0 on every chosen house you have one on: every tier you reached there comes off, and each house is back to 0 of 5. It takes back the rewards of those tiers that still wait at the house representative and that the editor wrote, by the rule of a tier removal (see Tiers); a reward already collected stays. It takes back no Solari, House Scrip or XP and does not change whether a house is taken or its faction's progress. The question names what it takes back and what stays, and the write is refused if that is not what the save says now.</p>
-      <p><b>Reopen</b> clears the completion and the faction that holds the House's favor and leaves progress and contribution as they are. It does not undo a Complete completely: the faction's progress that Complete raised to the goal stays there, and a house that was taken by another faction is left open rather than given back to it. Reopen writes or removes no reward.</p>
-      <p>Each click is written at once, and it is refused if the house is no longer what you were shown. A click that would write ${LB_ASK_MISSIONS} missions or more on one house asks first, and so does every button for several houses ("Complete 7 houses?"); the question says what it writes. Several houses are one edit: either every house is changed or none is.</p>`)}
-  </div>`;
 }
 // Draw the board again from the loaded data and what is staged, and put the focus back on the control that had it.
 function lbRedraw() {
@@ -2589,12 +2439,12 @@ function lbRedraw() {
   lbApply();
   if (fk) { const n = root.querySelector('[data-fk="' + fk + '"]'); if (n && n.focus) n.focus(); }
 }
-// What a click on the board says (a reason, a hint, a cancel): on the Command Center board it is the app's own toast, lower right, one at a time (#943); the Classic list keeps its result line.
+// What a click on the board says (a reason, a hint, a cancel): the app's own toast, lower right, one at a time (#943).
 function lbTell(t, kind) {
   const err = kind === true;
   toast(t, err ? true : 'note', err ? undefined : toastMs(t), null, { one: 'lbd', lines: true, soft: !err });
 }
-function lbSay(t, kind) { if (lbBoardOn()) { lbTell(t, kind); return; } LP.say = t; LP.bad = kind === true; LP.warn = kind === 'warn'; const r = $('#lsb-result'); if (r) { r.textContent = t; r.classList.toggle('bad', LP.bad); r.classList.toggle('warn', LP.warn); } }
+function lbSay(t, kind) { lbTell(t, kind); }
 // One write from the board (#641). The pressed control is marked busy and the board ignores a second click until the answer is in; the page is then read again from the save, so the
 // rows show what is stored. The line that says what happened goes through say(): the board's result line, or the term panel's. An error shows its text as the editor gave it.
 function lbRunning(on, b) {
@@ -2694,7 +2544,7 @@ async function lbSend(b, items, label, hs, focusFk) {
         rows, back, grant, r.completed ? nn(r.completed, 'house', 'houses') + ' completed' : '', r.reopened ? nn(r.reopened, 'house', 'houses') + ' reopened' : ''].filter(Boolean);
       text = label + ': ' + parts.join(', ') + extra + (warn ? '; ' + warn : '') + '.' + tail;
     }
-    // the board's toast says it in lines (#943): what changed, what was not written and why, the warnings, the notes; the Classic list keeps its sentence
+    // the board's toast says it in lines (#943): what changed, what was not written and why, the warnings, the notes
     const dot = (x) => (/[.!?]$/.test(x) ? x : x + '.');
     const h1 = items.length === 1 ? hs.get(items[0].task_id) : null;
     const lines = [h1
@@ -2705,8 +2555,7 @@ async function lbSend(b, items, label, hs, focusFk) {
     if (left) lines.push('Warning: ' + nn(left, 'reward', 'rewards') + (left === 1 ? ' was' : ' were') + ' left out: earlier progress on this house already counted for ' + (left === 1 ? 'it' : 'them') + '.');
     if (r.contribution_lowered) lines.push(LB_REMOVE_NOTE);
     if (r.missions) lines.push(GRANT_UNCHECKED);
-    // the toast of the Classic list is one short line; the whole sentence stays in its result line
-    const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a specialization is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed; ' + back + '.' : '';
+        const short = r.missions ? label + ': ' + nn(r.missions, 'mission', 'missions') + (queued ? ' queued.' : ' written.') + (lbXpLeft(r, queued) ? ' Some XP ' + (queued ? 'will not be added' : 'not added') + ': a specialization is at its last level.' : '') : r.contribution_lowered ? label + ': tier removed; ' + back + '.' : '';
     return { text, short, warn: !!left, lines };
   }, lbSay, focusFk);
   // the result line is at the top of the board and the click may be far below it: bring it into view, and give it the focus when the control that was pressed is no longer there to take it
@@ -2778,7 +2627,7 @@ function lbAskOf(act_, items, hs, F, i, one) {
 }
 // The houses of a request whose win is taken from another faction: Complete (or Fill faction goal) for F on a house that another faction took.
 const lbReplaced = (items, hs, F) => items.filter((it) => it.complete_for != null).map((it) => hs.get(it.task_id)).filter((h) => h && h.win != null && h.win != F);
-// What the Command Center board's question says beyond the classic one (the classic question is kept as it was): whose win a Complete replaces, which houses a question about several is about, and
+// What the Command Center board's question says beyond the plain one: whose win a Complete replaces, which houses a question about several is about, and
 // how many of the chosen houses are left out because nothing would change for them.
 function lbBoardAsk(items, hs, F, one) {
   const p = [], rep = lbReplaced(items, hs, F);
@@ -2807,7 +2656,7 @@ function lbFocusFk(fk) { let n = $('#lsb [data-fk="' + fk + '"]'); if (n && n.cl
 // action bar; the answer sends the request again, worked out from the board as it is then.
 function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const q = lbAskOf(act_, items, hs, F, i, one);
-  // on the board a click that takes a win from another faction asks first too (the classic list writes it at once and says so in the result)
+  // on the board a click that takes a win from another faction asks first too (it is asked, never written at once)
   // (a bulk button with several houses chosen always asks, even when only one of them would change: the question says the others are left alone, #879)
   if (items.length === 1 && (one || LP.pick.size <= 1) && q.missions < LB_ASK_MISSIONS && !q.removal && !(lbBoardOn() && lbReplaced(items, hs, F).length)) { lbSend(b, items, label, hs, backFk); return; }
   LP.confirm = { act: act_, F, i, ids: items.map((x) => x.task_id), n: items.length, q: q.q, yes: q.yes, label, back: backFk, one: !!one };
@@ -2816,15 +2665,10 @@ function lbGo(b, act_, items, hs, F, i, label, backFk, one) {
   const c = $('#lsb-confirm');
   if (c) intoView(c);
 }
-// The ids of the houses the page shows now (the board's filters, or the classic list's visible rows), or null when the page cannot say. The actions on several houses write only houses that are in it (#881): what
+// The ids of the houses the page shows now (the board's filters), or null when the page cannot say. The actions on several houses write only houses that are in it (#881): what
 // is not shown is never written, whatever the choice list holds (a box ticked by a script or left over from an earlier view is dropped here, at the write, not only when a filter changes).
 function lbShownIds() {
-  if (lbBoardOn()) return window.LCCB.visible(LD);
-  const rows = document.querySelectorAll('#lsb-rows > li.hr');
-  if (!rows.length) return null;
-  const s = new Set();
-  rows.forEach((li) => { if (!li.hidden) s.add(+li.dataset.id); });
-  return s;
+  return lbBoardOn() ? window.LCCB.visible(LD) : null;
 }
 // Takes the houses that are not shown out of the choice (and its boxes); how many went.
 function lbDropHidden() {
@@ -2863,77 +2707,10 @@ function lbConfirmYes() {
   }
   lbSend($('#lsb [data-fk="c-yes"]'), items, c.label, hs, c.back);
 }
-// Order, hide and show the rows from LB, and put the counts in step. The rows are drawn once; this only moves and hides them.
-function lbSyncOpen() { document.querySelectorAll('.lsb .hr').forEach((li) => { const x = li.querySelector('.xc'), m = li.querySelector('.more'); if (x && m) m.hidden = !x.checked; }); }
+// Keeps the line that counts the chosen houses right: the board has no rows of its own to order here, its filters and its sort are the Command Center board's (lcc-board.js).
 function lbApply() {
-  const root = $('#lsb'), ul = $('#lsb-rows');
-  if (!root || !LD) return;
-  if (!ul) { lbSumNow(); return; } // the board view has no rows to order: its own filters and sort are the Command Center board's (lcc-board.js); the line that counts the chosen houses is kept right
-  const hs = LD.tasks.map((r) => lbHouse(r, LD)), by = new Map(hs.map((h) => [String(h.id), h]));
-  const key = (h) => {
-    const next = () => { for (const t of h.tiers) if (h.mine < t.th) return t.th - h.mine; return 1e9; };
-    const mineF = LD.character ? LD.character.faction_id : null, ld = lbLead(h, (LD.factions || []).map((f) => f.id));
-    switch (LB.sort) {
-      case 'location': return h.area || '￿'; // a house with no place yet sorts last
-      case 'state': return { new: 0, part: 1, done: 2 }[h.state];
-      case 'tiers': return h.reached;
-      case 'next': return next();
-      case 'status': return h.taken ? (h.win != null && h.win == mineF ? 0 : 1) : ld != null && ld == mineF ? 2 : ld != null ? 3 : 4;
-      default: return h.name;
-    }
-  };
-  ul.querySelectorAll('li.grp').forEach((g) => g.remove()); // the region headings are drawn again below
-  const list = hs.slice().sort((x, y) => {
-    if (LB.group) { const d = (x.region || '￿').localeCompare(y.region || '￿'); if (d) return d; }
-    const a = key(x), b = key(y);
-    let c = typeof a === 'string' ? a.localeCompare(b) : a - b;
-    if (LB.dir === 'desc') c = -c;
-    return c || x.name.localeCompare(y.name);
-  });
-  const only = LB.jump ? by.get(String(LB.jump)) : null;
-  let shown = 0, dropped = false;
-  for (const h of list) {
-    const li = $('#lsrow-' + h.id);
-    if (!li) continue;
-    ul.appendChild(li); // the document order follows the visible order, so the Tab key walks the rows top to bottom
-    const vis = only ? only === h : (LB.show === 'all' || (LB.show === 'left' ? h.state !== 'done' : h.state === LB.show)) && (LB.hs === 'any' || (LB.hs === 'taken') === h.taken);
-    li.hidden = !vis;
-    if (vis) shown++;
-    else if (LP.pick.delete(h.id)) {
-      const pk = li.querySelector('.pick'); if (pk) pk.checked = false;
-      if (LP.confirm && !LP.confirm.one && LP.confirm.ids.includes(h.id)) dropped = true; // the open bulk question named this house
-    }
-  }
-  if (dropped) lbCloseStale();
-  if (LB.group) { // one heading per region, with the number of houses shown in it
-    const count = new Map();
-    for (const h of list) if (!$('#lsrow-' + h.id).hidden) count.set(h.region, (count.get(h.region) || 0) + 1);
-    let last = null;
-    for (const h of list) {
-      const li = $('#lsrow-' + h.id);
-      if (!li || li.hidden || h.region === last) continue;
-      last = h.region;
-      const g = document.createElement('li');
-      g.className = 'grp';
-      const t = document.createElement('h4');
-      t.textContent = (h.region || 'Place unknown') + ' ';
-      const n = document.createElement('em');
-      n.textContent = String(count.get(h.region));
-      t.appendChild(n);
-      g.appendChild(t);
-      ul.insertBefore(g, li);
-    }
-  }
-  root.dataset.sort = LB.sort; root.dataset.dir = LB.dir;
-  if (LB.show !== 'all' && !only) root.setAttribute('data-filtered', ''); else root.removeAttribute('data-filtered');
-  root.toggleAttribute('data-all', LB.all);
-  lbSyncOpen();
-  root.querySelectorAll('[role=columnheader][data-col]').forEach((e) => e.setAttribute('aria-sort', e.dataset.col === LB.sort ? (LB.dir === 'asc' ? 'ascending' : 'descending') : 'none'));
-  root.querySelectorAll('[data-lb=show][data-show]').forEach((e) => { if (e.closest('.seg') || e.classList.contains('tile') || e.closest('.stack')) { if (e.dataset.show === LB.show) e.setAttribute('aria-current', 'true'); else e.removeAttribute('aria-current'); } });
-  const sm = $('#lsb-sum'); if (sm) sm.textContent = lbSumText(hs, LD);
-  const sh = $('#lsb-shown'); if (sh) sh.textContent = `${shown} of ${hs.length} houses shown`;
-  const nm = $('#lsb-nomatch'); if (nm) nm.hidden = shown !== 0;
-  const ob = $('#lsb-only'); if (ob) { ob.hidden = !only; if (only) $('#lsb-onlyname').textContent = only.name; }
+  if (!$('#lsb') || !LD) return;
+  lbSumNow();
 }
 function lbSumNow() { const sm = $('#lsb-sum'); if (sm && LD) sm.textContent = lbSumText(LD.tasks.map((r) => lbHouse(r, LD)), LD); lbBarSync(); if (window.LCCB && window.LCCB.syncStrip) window.LCCB.syncStrip(); }
 // the counts on Fill, Complete and Reopen (how many of the chosen and shown Houses each would change: the figures of the sentence in #lsb-sum); a key that would change none is dimmed (it still answers a click, in words)
@@ -2983,7 +2760,6 @@ function lbSeat(container) {
   const c = $('#lsb-confirm'), ask = lcc.querySelector('.lcc-bd-insp [data-lcc-slot="ask"]'), insp = ask && ask.closest('.lcc-bd-insp'), q = LP.confirm;
   if (c && ask && q && q.one && q.ids.length === 1 && insp.getAttribute('data-id') === String(q.ids[0])) ask.appendChild(c);
 }
-// after a write the Classic list's page is brought to its result line (the board says its results as toasts, #943)
 // Bring the result line or the question into view, clear of the sticky header and of the banner under it however tall that banner is now (intoView measures them; a fixed scroll offset is only
 // right for a banner of one height, #823).
 function lbReveal(res) { if (res) intoView(res); }
@@ -2996,13 +2772,13 @@ function lbMountBoard() {
   const tm = $('#lsb-lcc-term');
   if (tm && LD && window.LCCT) window.LCCT.mount(tm, lbTermModel(LD));
 }
-// A link that opened the Landsraad tab for one House (askReveal): the House's card on the board (the grid or the list of the board), or its row in the Classic list, is brought into view and given the focus,
+// A link that opened the Landsraad tab for one House (askReveal): the House's card on the board (the grid or the list of the board) is brought into view and given the focus,
 // the way Jump to house does. Runs once, after the page is drawn. The board's own Inspector already shows the House; this is the part that moves the page to it.
 function lbRevealHouse(id) {
-  const n = lbBoardOn() ? $('#lsb-lcc [data-fk="ht:' + id + '"]') : $('#lsrow-' + id + ' .hn');
+  const n = $('#lsb-lcc [data-fk="ht:' + id + '"]');
   if (!n) return;
   const at = n.closest('.lcc-bd-cell, .lcc-bd-row, .hr') || n;
-  if (typeof at.scrollIntoView === 'function') at.scrollIntoView({ block: lbBoardOn() ? 'center' : 'start' });
+  if (typeof at.scrollIntoView === 'function') at.scrollIntoView({ block: 'center' });
   if (n.focus) n.focus({ preventScroll: true });
 }
 // After a filter of the board changes: a house the filter leaves out is no longer chosen for the actions on several houses (what is not shown is never written), and a question that named it closes.
@@ -3012,7 +2788,7 @@ function lbBoardFiltered(ids) {
   if (dropped) lbCloseStale();
   lbSumNow();
 }
-// What the Inspector of the board shows and says for one house: the same words and the same on/off as the opened row of the classic list (lbQa, lbTierTip, lbGrantOf), for the faction chosen.
+// What the Inspector of the board shows and says for one house: the words and the on/off of lbQa, lbTierTip and lbGrantOf, for the faction chosen.
 function lbCtl(id) {
   const r = LD && LD.tasks.find((x) => x.id === id);
   if (!r) return null;
@@ -3085,7 +2861,7 @@ function lbClick(e) {
   if (t.closest('.hcard') ) { e.preventDefault(); }
   if (!b) return;
   if (b.classList.contains('hn')) { e.preventDefault(); const hw = b.closest('.hw'), was = hw.classList.contains('open'); lbCloseCards(); if (!was) { hw.removeAttribute('data-esc'); hw.classList.add('open'); b.setAttribute('aria-expanded', 'true'); } return; }
-  if (b.classList.contains('hcl')) { e.preventDefault(); const hb = b.closest('.hw').querySelector('.hn'); lbCloseCards(); hb.focus(); return; }
+  if (b.classList.contains('hcl')) { e.preventDefault(); const hb = b.closest('.hw').querySelector('.hn'); lbCloseCards(); if (hb) hb.focus(); return; }
   const k = b.dataset.lb;
   if (k === 'tier' || k === 'qa') {
     e.preventDefault(); // a button inside the row's label must not open or close the row
@@ -3099,14 +2875,12 @@ function lbClick(e) {
     lbGo(b, kind, [it], new Map([[h.id, h]]), F, i, 'House ' + h.name, b.dataset.focusfk || b.dataset.fk, true); // focusfk: a press made on the box's behalf (Apply tier in the panel) keeps the focus on the control that was pressed (#883)
     return;
   }
-  if (k === 'view') { e.preventDefault(); LV.view = b.dataset.view === 'board' ? 'board' : 'classic'; browserStore.set('lsb.view', LV.view); lbCancelConfirm(); lbRedraw(); return; }
   if (k === 'pickall') {
     lbCancelConfirm();
     if (lbBoardOn()) { const ids = window.LCCB.visible(LD); document.querySelectorAll('#lsb .lcc-bd-pick').forEach((pk) => { if (ids.has(+pk.dataset.id)) { LP.pick.add(+pk.dataset.id); pk.checked = true; } }); } // the houses the board shows now: a filtered-out house is not chosen
-    else document.querySelectorAll('#lsb-rows > li.hr:not([hidden])').forEach((li) => { LP.pick.add(+li.dataset.id); const pk = li.querySelector('.pick'); if (pk) pk.checked = true; });
     lbApply(); return;
   }
-  if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .pick, #lsb .lcc-bd-pick').forEach((pk) => { pk.checked = false; }); lbApply(); if (lbBoardOn()) lbFocusFk('b-all'); return; }
+  if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .lcc-bd-pick').forEach((pk) => { pk.checked = false; }); lbApply(); if (lbBoardOn()) lbFocusFk('b-all'); return; }
   if (k === 'bulk') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } if (b.getAttribute('aria-disabled') === 'true') { lbSay(b.dataset.why || b.title || 'Nothing to change'); return; } lbBulk(b, b.dataset.do); return; }
   if (k === 'cyes') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbConfirmYes(); return; }
   if (k === 'cno') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } const a = LP.confirm && LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); if (a) lbFocusFk(a); return; }
@@ -3135,26 +2909,13 @@ function lbClick(e) {
     lbShowOnMap(h, b);
     return;
   }
-  if (k === 'show') { e.preventDefault(); LB.show = b.dataset.show; LB.jump = ''; lbApply(); const j = $('#lsb-jump'); if (j) j.value = ''; const bd = $('#lsb-board'); if (bd && bd.scrollIntoView) bd.scrollIntoView(); return; }
-  if (k === 'showall') { e.preventDefault(); LB.show = 'all'; LB.hs = 'any'; LB.jump = ''; const j = $('#lsb-jump'); if (j) j.value = ''; const a = document.querySelector('.lsb [data-lb=hs][value=any]'); if (a) a.checked = true; lbApply(); return; }
-  if (k === 'sort') { const c = b.dataset.col; LB.dir = LB.sort === c && LB.dir === 'asc' ? 'desc' : 'asc'; LB.sort = c; lbApply(); return; }
-  if (k === 'expand' || k === 'collapse') { LB.all = k === 'expand'; document.querySelectorAll('.lsb .xc').forEach((x) => { x.checked = LB.all; x.dispatchEvent(new Event('change', { bubbles: true })); }); lbApply(); }
 }
 function lbChange(e) {
   const t = e.target, k = t.dataset ? t.dataset.lb : '';
-  if (t.classList && t.classList.contains('xc')) { const id = +t.id.replace('lsx-', ''); if (t.checked) LB.open.add(id); else LB.open.delete(id); lbSyncOpen(); return; }
   if (k === 'pick') { const id = +t.dataset.id; lbCancelConfirm(); if (t.checked) { const shown = lbShownIds(); if (t.disabled || (shown && !shown.has(id))) { t.checked = false; LP.pick.delete(id); lbApply(); lbSay('That House is not in the current filter, so it cannot be chosen.'); return; } } if (t.checked) LP.pick.add(id); else LP.pick.delete(id); lbApply(); return; }
   if (k === 'fac') { lbCancelConfirm(); LP.fac = +t.value; lbRedraw(); return; }
   if (k === 'tad') { LT.ad = t.value; const pn = $('#lcc-tm-pending'); if (pn && LD) pn.textContent = lbPendingText(LD, t.value); const d = lbDecreeById(LD, t.value), l = t.closest('label'); if (l) { const e2 = l.querySelector('.de'), u = l.querySelector('.du'); if (e2) e2.textContent = d && d.effect ? d.effect : ''; if (u) u.textContent = decreeNote(d); } return; }
   if (k === 'trf') { LT.rf = t.value; lbRedraw(); return; }
-  if (k === 'hs') { LB.hs = t.value; lbApply(); }
-  else if (k === 'group') { LB.group = t.checked; lbApply(); }
-  else if (k === 'jump') {
-    if (LB.jump) { const prev = document.getElementById('lsx-' + LB.jump); if (prev && !LB.open.has(+LB.jump)) prev.checked = false; }
-    LB.jump = t.value;
-    if (LB.jump) { const x = document.getElementById('lsx-' + LB.jump); if (x) x.checked = true; }
-    lbApply();
-  }
 }
 // The few measured values (a bar's width, a pin's place, a house symbol's colour) are set through the style object after the page is drawn: the page's policy allows no style attribute.
 function lbStyles(root) {
@@ -3175,7 +2936,7 @@ function lbWire() {
     if (LP.confirm && !LP.busy) { const a = LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); lbFocusFk(a); return; }
     const a = document.activeElement, w = a && a.closest ? a.closest('.hw') : null;
     const pw = a && a.closest ? a.closest('.loc') : null; if (pw && pw.querySelector(':scope > .pop')) pw.setAttribute('data-esc', ''); // Escape puts a place peek away while the focus stays on its link (#1069)
-    lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn, [data-lcb="sel"]'); // the name button: the Classic row's, or the Command Center list's
+    lbCloseCards(); if (w) { w.setAttribute('data-esc', ''); const hb = w.querySelector('.hn, [data-lcb="sel"]'); // the name button of the Command Center list
     if (hb && a !== hb) hb.focus(); }
   });
   const clearEsc = (e) => { const w = e.target.closest ? e.target.closest('.hw') : null, pw = e.target.closest ? e.target.closest('.loc') : null; root.querySelectorAll('.hw[data-esc]').forEach((x) => { if (x !== w) x.removeAttribute('data-esc'); }); root.querySelectorAll('.loc[data-esc]').forEach((x) => { if (x !== pw) x.removeAttribute('data-esc'); }); };

@@ -181,7 +181,7 @@
 .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact { width: 28px; min-height: 28px; padding: 0; justify-content: center; margin-right: 2px; }
 .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact:last-child { margin-right: 0; }
 .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact .lcc-k-ic { color: var(--lcc-gold-text); }
-.lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact[aria-disabled="true"] { cursor: not-allowed; }
 @media (pointer: coarse), (max-width: 900px) { .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact { width: 36px; min-height: 36px; } } /* the touch floors of the page: 36 px, and 44 px on a phone */
 @media (max-width: 640px) { .lcc-bd-c-qa .lcc-bd-act.lcc-bd-rowact { width: 44px; min-height: 44px; } }
 .lcc-bd-c-owner .lcc-owner { white-space: nowrap; } /* one mark on one line: a wrapped cell once read as a second H over HARKONNEN (#950) */
