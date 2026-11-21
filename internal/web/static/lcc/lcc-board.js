@@ -147,6 +147,24 @@
   const listWords = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
 
   // ---- the panel head, the filters and the legend ----------------------------------------------------------------------------------------------------------------------------
+  // The summary line of the term (#440): how many Houses are at the top tier, in progress and not started, counted from the same House state the Show tabs filter by (M().matches); each count is a key that sets that Show tab.
+  // Nothing is drawn for a character in no faction (every House would read as not started). It writes nothing: it only changes which Houses are shown.
+  function summary(board) {
+    if (board.me.factionId === null || !board.houses.length) return null;
+    const n = { done: 0, part: 0, new: 0 };
+    for (const k of Object.keys(n)) n[k] = board.houses.filter((h) => M().matches(h, { show: k })).length;
+    const names = Object.fromEntries(M().SHOWS);
+    const w = el('div', 'lcc-bd-sum', '', { role: 'group', 'aria-label': 'Your progress this term, by House' });
+    ['done', 'part', 'new'].forEach((k, i) => {
+      if (i) w.appendChild(el('span', 'lcc-bd-sum-sep', '·', { 'aria-hidden': 'true' }));
+      const b = btn('lcc-bd-linkb lcc-bd-sumb', '', { 'data-lcb': 'filter', 'data-key': 'show', 'data-val': k, 'data-fk': 'sm:' + k, 'aria-pressed': state.show === k ? 'true' : 'false',
+        title: 'Show only the ' + n[k] + (n[k] === 1 ? ' House' : ' Houses') + ' at ' + names[k] + '. The same as the Show tab ' + names[k] + '. It changes nothing in the save.' });
+      b.appendChild(el('b', '', String(n[k])));
+      b.appendChild(root.document.createTextNode(' ' + names[k].toLowerCase()));
+      w.appendChild(b);
+    });
+    return w;
+  }
   function panelHead(board) {
     const head = el('div', 'lcc-bd-panel-head');
     const t = el('div', 'lcc-bd-panel-title');
@@ -155,6 +173,8 @@
     // just "Term N" (#1033): that the board is a fixed 5 by 5 read from board_index is in Help (The Landsraad board), not in the header
     const subline = board.ready ? (board.term ? 'Term ' + board.term.id : '') : (board.term ? 'Term ' + board.term.id + ' · ' : '') + 'The save gives no 5 by 5 board, so the Houses are listed';
     if (subline) t.appendChild(el('p', 'lcc-bd-subline', subline));
+    const sum = summary(board);
+    if (sum) t.appendChild(sum);
     head.appendChild(t);
     const act = el('div', 'lcc-bd-panel-actions');
     const gridOk = board.ready;
