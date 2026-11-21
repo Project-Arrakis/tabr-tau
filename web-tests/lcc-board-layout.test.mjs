@@ -22,17 +22,14 @@ async function open(answer = synthetic()) {
 const look = (ui, a, name) => click(ui, '[data-fk="ht:' + idOf(a, name) + '"]');
 const pick = (ui, a, names) => { for (const n of names) { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + idOf(a, n) + '"]'); c.checked = true; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); } };
 
-test('the whole action bar is in the sticky strip above the 5 by 5 (tau #974, was #914): the choose key with the filters, the count, crests, keys and Clear in the action bar, the question and the result line under the strip', async () => {
+test('the whole action bar is in the sticky strip above the 5 by 5 (tau #974, was #914): the filters, the count, crests, keys and Clear in the action bar, the question and the result line under the strip', async () => {
   const ui = await open();
   const grid = ui.doc.querySelector('.lcc-bd-grid');
   assert.deepEqual([...grid.children].map((c) => c.className.split(' ')[0]), ['lcc-bd-surface', 'lcc-bd-side'], 'nothing is drawn between the board panel and the side column any more');
   const bar = ui.doc.querySelector('.lcc-k-strip');
   assert.ok(bar, 'the sticky strip is the control bar');
-  // choose: in the filter row of the strip, the key that chooses what is shown
-  const choose = bar.querySelector('.lcc-k-lens [data-lcc-slot="choose"] .barpart[data-bar="choose"]');
-  assert.ok(choose, 'the choose key is in the filter row');
-  assert.deepEqual([...choose.querySelectorAll('button')].map((b) => [text(b.querySelector('[data-lk="chooselabel"]')), b.dataset.lb, b.dataset.fk]), [['Choose shown (25)', 'pickall', 'b-all']], 'the same data attributes as before');
-  assert.equal(choose.getAttribute('role'), 'group');
+  // no choose key in the filter row of the strip (#1116): choosing the shown Houses is All in the Filter menu
+  assert.equal(bar.querySelector('[data-bar="choose"], [data-lcc-slot="choose"]'), null, 'no choose part and no choose slot');
   // act: the action bar holds the count, the two crests, Fill, Complete, Reopen (and under More the other two), Clear, the faction box behind the crests, the count sentence for a screen reader
   const act = bar.querySelector('.lcc-k-cmd [data-lcc-slot="act"] .barpart[data-bar="act"]');
   assert.ok(act, 'the actions are in the action bar');
@@ -62,9 +59,9 @@ test('the whole action bar is in the sticky strip above the 5 by 5 (tau #974, wa
   assert.equal(home.getAttribute('role'), null, 'the empty wrapper is not a named group');
   assert.equal(home.getAttribute('aria-label'), null);
   assert.ok(/\.lsb \.actbar\[hidden\]\s*\{\s*display:\s*none/.test(fs.readFileSync(new URL('../internal/web/static/app.css', import.meta.url), 'utf8')), 'the hidden bar is display: none in the stylesheet');
-  // the focusable controls come in the order they are drawn: the Show tabs, the Filter key, Find House, the choose key, the action bar (crest, Fill, Complete, Reopen, Clear, faction), then the cards, then the panel
+  // the focusable controls come in the order they are drawn: the Show tabs, the Filter key, Find House, the action bar (crest, Fill, Complete, Reopen, Clear, faction), then the cards, then the panel
   look(ui, synthetic(), 'Wallach');
-  const names = ['[data-fk="bf:show:all"]', '[data-lk="fbtn"]', '[data-lk="findbtn"]', '[data-fk="b-all"]', '[data-lk="seat"]', '[data-fk="b-fill"]', '[data-fk="b-complete"]', '[data-fk="b-reopen"]', '[data-fk="b-none"]', '#lsb-fac', '.lcc-bd-pick', '.lcc-bd-insp button'];
+  const names = ['[data-fk="bf:show:all"]', '[data-lk="fbtn"]', '[data-lk="findbtn"]', '[data-lk="seat"]', '[data-fk="b-fill"]', '[data-fk="b-complete"]', '[data-fk="b-reopen"]', '[data-fk="b-none"]', '#lsb-fac', '.lcc-bd-pick', '.lcc-bd-insp button'];
   const nodes = names.map((n) => ui.doc.querySelector(n));
   assert.ok(nodes.every(Boolean));
   for (let i = 1; i < nodes.length; i++) assert.ok(nodes[i - 1].compareDocumentPosition(nodes[i]) & ui.w.Node.DOCUMENT_POSITION_FOLLOWING, names[i - 1] + ' comes before ' + names[i]);
@@ -102,10 +99,11 @@ test('each control of the action bar in the control bar asks first and then send
     if (kind === 'complete') for (const h of r.posted[0].body.houses) assert.equal(h.complete_for, faction === undefined ? a.character.faction_id : faction, label + ': completed for the faction chosen');
     assert.match(r.q, kind === 'fill' ? /^Fill / : kind === 'complete' ? /^Complete / : /^Reopen /, label + ': the question names the action');
   }
-  // choose all and clear the choice
+  // choose all (All in the Filter menu) and clear the choice
   const ui = await open(a);
-  click(ui, '.lcc-k-strip [data-fk="b-all"]');
-  assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 25, 'Choose all houses chooses the houses shown');
+  click(ui, '.lcc-k-strip [data-lk="fbtn"]');
+  click(ui, '#lcc-bd-menu [data-lk="hall"]');
+  assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 25, 'All chooses the houses shown');
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 25 houses\./);
   click(ui, '.lcc-k-cmd [data-fk="b-none"]');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 0);
@@ -117,15 +115,15 @@ test('the bar and what is chosen survive a redraw of the board (a select, a filt
   const a = synthetic();
   const ui = await open(a);
   pick(ui, a, ['Sor', 'Kenola']);
-  const parts = ['choose', 'act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]'));
+  const parts = ['act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]'));
   assert.ok(parts.every(Boolean));
   click(ui, '[data-fk="bf:hs:open"]');
   look(ui, a, 'Wallach');
   click(ui, '[data-fk="bf:layout:list"]');
   click(ui, '[data-fk="bf:layout:grid"]');
-  for (const k of ['choose', 'act', 'ask']) assert.equal(ui.doc.querySelectorAll('[data-bar="' + k + '"]').length, 1);
-  assert.deepEqual(['choose', 'act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]').parentNode.getAttribute('data-lcc-slot')), ['choose', 'act', 'askbar'], 'each part is in its own place of the strip');
-  assert.deepEqual(['choose', 'act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]')), parts, 'the same elements: nothing in them was drawn again');
+  for (const k of ['act', 'ask']) assert.equal(ui.doc.querySelectorAll('[data-bar="' + k + '"]').length, 1);
+  assert.deepEqual(['act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]').parentNode.getAttribute('data-lcc-slot')), ['act', 'askbar'], 'each part is in its own place of the strip');
+  assert.deepEqual(['act', 'ask'].map((k) => ui.doc.querySelector('[data-bar="' + k + '"]')), parts, 'the same elements: nothing in them was drawn again');
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: /);
 });
 

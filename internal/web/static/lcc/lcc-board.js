@@ -190,9 +190,9 @@
   }
   // ---- the control area (tau #974, the approved design "E6 v2") ----------------------------------------------------------------------------------------------------------------
   // ONE sticky strip at the top of the board panel, in two modes in the same place. Nothing chosen: the Show tabs, the Filter key (a categorized menu: House with the pledge row and the 25 Houses as tickable items,
-  // Specialization, Group), the Find House key, one chip per active filter category (never one per House: a House in the menu TICKS its square), the count and Choose shown. Houses chosen: the action bar (the count with
+  // Specialization, Group), the Find House key, one chip per active filter category (never one per House: a House in the menu TICKS its square) and the count. Houses chosen: the action bar (the count with
   // "chosen", the faction crests, Fill, Complete, Reopen, Clear); the Filter key and the chips are away until the choice is cleared, and the filters stay applied. The question before a write takes the whole bar.
-  // The controls that write are the page's own (data-lb "pickall", "pickno", "bulk", "cyes", "cno" and the faction box): this file only places and restyles them (host.seat) and shows the mode. The strip swaps when the Filter menu
+  // The controls that write are the page's own (host.pickShown, data-lb "pickno", "bulk", "cyes", "cno" and the faction box): this file only places and restyles them (host.seat) and shows the mode. The strip swaps when the Filter menu
   // CLOSES (Done, Escape, a click outside, Tab out) or at once when a square is ticked on the board; a House the filters hide is never counted and never written (the page's rule, lbDropHidden).
   const NS = 'http://www.w3.org/2000/svg';
   const ICONS = Object.freeze({
@@ -274,7 +274,7 @@
     return c;
   }
   const letterOf = (name) => (/^atreides/i.test(String(name)) ? 'a' : /^harkonnen/i.test(String(name)) ? 'h' : '');
-  // The count line (#1116). With no filter narrowing the board it says plainly "All 25 shown": a fraction "25 / 25" next to Choose shown read as if all 25 Houses were already chosen (the number of chosen Houses is in the
+  // The count line (#1116). With no filter narrowing the board it says plainly "All 25 shown": a fraction "25 / 25" read as if all 25 Houses were already chosen (the number of chosen Houses is in the
   // action bar, never here). When a filter narrows the board it says "9 / 25 shown". The number of shown Houses keeps its data-lk "shown".
   function countNums(nums, n, total) {
     const all = n === total, d = root.document;
@@ -323,7 +323,6 @@
     count.appendChild(el('span', 'lcc-k-sr', shownSr(matchIds.size, board.houses.length), { 'data-lk': 'shownsr' }));
     cg.appendChild(count);
     cg.appendChild(el('span', 'lcc-k-hid', '', { 'data-lk': 'hid', hidden: '' }));
-    cg.appendChild(el('span', 'lcc-bd-barslot lcc-k-chooseslot', '', { 'data-lcc-slot': 'choose' }));
     lens.appendChild(cg);
     s.appendChild(lens);
     const cmd = el('section', 'lcc-k-cmd lcc-k-fr lcc-k-pane lcc-k-pane-a', '', { 'data-part': 'action', role: 'group', 'aria-label': 'Actions on the chosen Houses' });
@@ -374,7 +373,7 @@
     ph.appendChild(el('input', 'lcc-k-search', '', { type: 'search', 'data-lk': 'hsearch', 'data-fk': 'mn:search', 'aria-label': 'Search Houses', placeholder: 'Search Houses', autocomplete: 'off', value: ui.q }));
     ph.appendChild(el('p', 'lcc-k-p5-n', '', { role: 'status', 'data-lk': 'hn' }));
     const hl = el('div', 'lcc-k-p5-list', '', { role: 'group', 'aria-label': 'Houses', 'aria-describedby': 'lcc-bd-houses-h', 'data-list': 'h' });
-    // All is the first choice of the list (#1114): it ticks every House that is shown (the page's own Choose shown) and, when every shown House is already ticked, clears the choice (the page's own Clear)
+    // All is the first choice of the list (#1114): it ticks every House that is shown (the page's own pickShown) and, when every shown House is already ticked, clears the choice (the page's own Clear)
     hl.appendChild(btn('lcc-k-opt lcc-k-opt-all', 'All', { role: 'checkbox', 'aria-checked': 'false', tabindex: '-1', 'data-lk': 'hall', 'data-fk': 'hp:all' }));
     for (const h of board.houses.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'en'))) hl.appendChild(btn('lcc-k-opt', L().houseTitle(h.name), { role: 'checkbox', 'aria-checked': 'false', tabindex: '-1', 'data-lk': 'hpick', 'data-id': h.id, 'data-fk': 'hp:' + h.id }));
     ph.appendChild(hl);
@@ -1052,7 +1051,6 @@
     if (hid2) { hid2.textContent = c.hidden ? c.hidden + ' not shown' : ''; hid2.hidden = !c.hidden; }
     setText(panel, '[data-lk="n"]', String(c.chosen));
     setText(panel, '[data-lk="nsr"]', c.chosen + (c.chosen === 1 ? ' House' : ' Houses') + ' chosen' + (c.hidden ? ' (' + c.hidden + ' not shown)' : ''));
-    setText(panel, '[data-lk="chooselabel"]', 'Choose shown (' + c.shown.size + ')');
     const m = last.container.querySelector('#lcc-bd-menu');
     if (m) {
       setText(m, '[data-lk="pcnt"]', c.chosen + ' chosen' + (c.hidden ? ', ' + c.hidden + ' not shown' : ''));
@@ -1242,11 +1240,11 @@
       if (cb && !cb.disabled && t.getAttribute('aria-disabled') !== 'true') { ui.ticking = true; try { cb.click(); } finally { ui.ticking = false; } } // the click of the square must not close the menu it came from
       return true;
     }
-    if (k === 'hall') { // the page's own Choose shown, or its own Clear when every shown House is ticked already: the same choice the board gives, nothing is hidden
+    if (k === 'hall') { // the page's own choice of every shown House (host.pickShown), or its own Clear when every shown House is ticked already: the same choice the board gives, nothing is hidden
       e.preventDefault();
       if (t.getAttribute('aria-disabled') === 'true') return true;
-      const c = counts(), btn_ = last.container.querySelector(c.shown.size > 0 && c.chosen === c.shown.size ? '[data-lb="pickno"]' : '[data-lb="pickall"]');
-      if (btn_) { ui.ticking = true; try { btn_.click(); } finally { ui.ticking = false; } }
+      const c = counts(), clear = c.shown.size > 0 && c.chosen === c.shown.size, btn_ = clear ? last.container.querySelector('[data-lb="pickno"]') : null;
+      if (clear ? btn_ : last.host && last.host.pickShown) { ui.ticking = true; try { if (clear) btn_.click(); else last.host.pickShown(); } finally { ui.ticking = false; } }
       return true;
     }
     if (k === 'spick') {

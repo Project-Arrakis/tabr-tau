@@ -2369,7 +2369,7 @@ function lbEndsIn(l) {
 }
 const lbTermOn = () => !!window.LCCT;
 function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', LT.bad); } }
-// The board: it is drawn into #lsb-lcc by the Command Center scripts after this page is drawn (lbMountBoard). The action bar (the choose buttons, the actions on several houses, the faction for Fill and Complete,
+// The board: it is drawn into #lsb-lcc by the Command Center scripts after this page is drawn (lbMountBoard). The action bar (the actions on several houses, the faction for Fill and Complete,
 // the count of the chosen houses, the question before a write and the result line) is drawn only for a board that passed its checks: a board that did not is shown read-only, with no control that writes. It is drawn
 // in three parts that are seated in the board's control bar (lbSeat), not under the board (#914).
 function lbInner(l) {
@@ -2393,20 +2393,19 @@ function lbSumText(hs, l) {
 const lbLetter = (name) => (/^atreides/i.test(String(name || '')) ? 'a' : /^harkonnen/i.test(String(name || '')) ? 'h' : '');
 function lbActbar(hs, l) {
   const F = lbFacId(l), mineF = lbCan(l) ? l.character.faction_id : null, cf = LP.confirm;
-  // The bar is drawn as three parts that the page seats in the board's control bar (lbSeat): the choose buttons next to Jump to House, the actions with the faction box and the count of the chosen houses as the
-  // next line of that bar, and the question, the result line and the note on a write directly under it (#914).
+  // The bar is drawn as two parts that the page seats in the board's control bar (lbSeat): the actions with the faction box and the count of the chosen houses, and the question, the result line and the note on a
+  // write directly under it (#914). Choosing every shown House is the Filter menu's All (lbPickShown, through the host).
   const bulkWhy = (act) => lbBulkOff(act, l, F), bulkOff = (act) => (bulkWhy(act) ? html`aria-disabled="true" data-why="${bulkWhy(act)}"` : ''), bulkTip = (act, text) => bulkWhy(act) || text;
   const ask = !cf ? '' : html`<p id="lsb-confirm" class="confirm" data-f="${lbLetter(((l.factions || []).find((x) => x.id == cf.F) || {}).name)}" role="group" aria-label="Confirm: ${cf.q}"><b>${cf.q}</b> <button type="button" class="qa btnp" data-lb="cyes" data-fk="c-yes">${cf.yes}</button><button type="button" class="qa" data-lb="cno" data-fk="c-no">Cancel</button></p>`;
   {
     // The controls of the board (tau #974, the approved design E6 v2), drawn as parts that the board seats in its sticky strip (lbSeat):
-    // Choose shown in the filter mode; in the action mode the count of the chosen Houses, the faction crests, Fill, Complete, Reopen (Complete and fill and Unfill are under More) and Clear; and the question. The faction box stays as the
+    // The action mode: the count of the chosen Houses, the faction crests, Fill, Complete, Reopen (Complete and fill and Unfill are under More) and Clear; and the question. The faction box stays as the
     // engine behind the crests (hidden), so lbFacId and the board's faction path are unchanged. The counts on the keys are filled in by lbBarSync, the icons by the board (lcc-k-icph).
     const facs = l.factions || [], facName = (facs.find((x) => x.id == F) || {}).name || '', ic = (n) => html`<span class="lcc-k-icph" data-ic="${n}"></span>`;
     const seats = facs.map((f) => html`<button type="button" role="radio" class="lcc-k-seat lcc-k-fr lcc-k-tipped" data-lk="seat" data-fid="${f.id}" data-f="${lbLetter(f.name)}" aria-checked="${f.id == F ? 'true' : 'false'}" tabindex="${f.id == F ? '0' : '-1'}" aria-label="${f.name}${f.id == mineF ? ', your faction' : ''}" data-fk="seat:${f.id}"><span class="lcc-k-crest" aria-hidden="true"></span><span class="lcc-k-sl" aria-hidden="true">${f.name}</span><span class="lcc-k-lamp" aria-hidden="true"></span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${f.name}${f.id == mineF ? ', your faction' : ''}. Fill and Complete act for this faction. It starts on your own faction. Choosing it writes nothing.</span></button>`);
     const key = (act, cls, label, icn, tip, pos) => html`<button type="button" class="lcc-k-btn lcc-k-fr ${cls} lcc-k-tipped ${pos}" data-lk="act" data-lb="bulk" data-do="${act}" data-fk="b-${act}" aria-label="${label}">${ic(icn)}<span class="lcc-k-bl">${act === 'fill' ? 'Fill' : act === 'complete' ? 'Complete' : 'Reopen'}</span><span class="lcc-k-n" data-lk="chg" hidden></span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${tip}</span></button>`;
     const more = (act, label, tip) => html`<button type="button" class="lcc-k-btn lcc-k-fr lcc-k-tipped" data-lb="bulk" data-do="${act}" data-fk="b-${act}" ${bulkOff(act)}>${label}<span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${bulkTip(act, tip)}</span></button>`;
     return html`<div class="actbar">
-      <div class="barpart bp-choose" data-bar="choose" role="group" aria-label="Choose Houses"><button type="button" class="lcc-k-link lcc-k-tipped lcc-k-tip-end lcc-k-tip-below" data-lb="pickall" data-fk="b-all"><span data-lk="chooselabel">Choose shown</span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">Chooses the Houses that are shown now. Show, House and the filters change only what is shown.</span></button></div>
       <div class="barpart bp-act" data-bar="act" role="group" aria-label="Act on the chosen Houses">
         <div class="lcc-k-zone lcc-k-zone-sel"><div class="lcc-k-med lcc-k-fr lcc-k-tipped lcc-k-tip-below lcc-k-tip-start" role="status"><b data-lk="n" aria-hidden="true">0</b><span class="lcc-k-sr" data-lk="nsr">No Houses chosen</span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">Houses chosen and shown. A House that a filter hides is never counted and never acted on.</span></div><span class="lcc-k-chosen" aria-hidden="true"><span>chosen</span><span class="lcc-k-hid" data-lk="hid2" hidden></span></span></div>
         <i class="lcc-k-orn" aria-hidden="true"></i>
@@ -2725,12 +2724,12 @@ function lbBarSync() {
   }
 }
 // ---- where the parts of the board sit (presentation only: nothing here asks, answers or writes) ----
-// The action bar is drawn after the board's box in three parts (data-bar) and the parts are seated in the board's control bar, the bar above the 5 by 5: the choose buttons in the line of Jump to House, the
-// actions with the faction box and the count of the chosen houses as the next line of the bar, and the question, the result line and the note on a write directly under the bar, before the cards. So the
+// The action bar is drawn after the board's box in two parts (data-bar) and the parts are seated in the board's control bar, the bar above the 5 by 5: the
+// actions with the faction box and the count of the chosen houses, and the question, the result line and the note on a write directly under the bar, before the cards. So the
 // order of the keys is the order of the eyes. The question about one house is drawn in the Actions block of the House Intelligence panel while that panel is on the same house, and the panel shows a copy
 // of the result line next to its buttons. The board draws itself again on a select or a filter, so what was put into it goes back to its own place before (lbUnseat) and is put in its place again after
-// (lbSeat). The parts and their slots: choose, act and bar (the slot of the question and the result line).
-const LB_PARTS = [['choose', 'choose'], ['act', 'act'], ['ask', 'askbar']];
+// (lbSeat). The parts and their slots: act and bar (the slot of the question and the result line).
+const LB_PARTS = [['act', 'act'], ['ask', 'askbar']];
 const lbPart = (k) => $('#lsb [data-bar="' + k + '"]');
 const lbBarNode = () => $('#lsb-board > #lsb-result, #lsb .lcc-bd-slot > #lsb-result');
 function lbUnseat() {
@@ -2814,6 +2813,7 @@ window.LCC_HOST = {
   loc: (id) => { const r = LD && LD.tasks.find((x) => x.id === id); return r ? lbLocModel(lbHouse(r, LD)) : null; }, say: (m) => lbTell(m), decree: lbDecreeNow, picks: () => LP.pick, filtered: lbBoardFiltered, goPath: specGoPath,
   // the character's level in each specialization, from the answer the Specializations tab read (no request of its own, #646): null until that tab has been opened, and again after a write that gave specialization XP
   specLevels: () => spvLevels(),
+  pickShown: lbPickShown, // the Filter menu's All chooses every shown House
   unseat: lbUnseat, seat: lbSeat, // presentation only: where the parts of the action bar, the question and a copy of the result line are drawn
   // the faction box of the Inspector's actions drives the board's own faction box (choosing a faction writes nothing)
   setFac: (v) => { const s = $('#lsb-fac'); if (!s || s.disabled) return false; s.value = String(v); s.dispatchEvent(new Event('change', { bubbles: true })); return true; }, // true when the board's own faction box took it (#882)
@@ -2850,6 +2850,12 @@ function lbShowOnMap(h, b) {
   window.liveMapShow(h.loc.map_key, Number(h.loc.x), Number(h.loc.y), h.name, h.id);
   tab = 'livemap'; browserStore.set('tab', tab); render();
 }
+// Chooses every House the board shows now (the Filter menu's All, through LCC_HOST.pickShown): a House a filter hides is not chosen.
+function lbPickShown() {
+  lbCancelConfirm();
+  if (lbBoardOn()) { const ids = window.LCCB.visible(LD); document.querySelectorAll('#lsb .lcc-bd-pick').forEach((pk) => { if (ids.has(+pk.dataset.id)) { LP.pick.add(+pk.dataset.id); pk.checked = true; } }); }
+  lbApply();
+}
 function lbClick(e) {
   const t = e.target.closest ? e.target : null;
   if (!t) return;
@@ -2874,12 +2880,7 @@ function lbClick(e) {
     lbGo(b, kind, [it], new Map([[h.id, h]]), F, i, 'House ' + h.name, b.dataset.focusfk || b.dataset.fk, true); // focusfk: a press made on the box's behalf (Apply tier in the panel) keeps the focus on the control that was pressed (#883)
     return;
   }
-  if (k === 'pickall') {
-    lbCancelConfirm();
-    if (lbBoardOn()) { const ids = window.LCCB.visible(LD); document.querySelectorAll('#lsb .lcc-bd-pick').forEach((pk) => { if (ids.has(+pk.dataset.id)) { LP.pick.add(+pk.dataset.id); pk.checked = true; } }); } // the houses the board shows now: a filtered-out house is not chosen
-    lbApply(); return;
-  }
-  if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .lcc-bd-pick').forEach((pk) => { pk.checked = false; }); lbApply(); if (lbBoardOn()) lbFocusFk('b-all'); return; }
+  if (k === 'pickno') { lbCancelConfirm(); LP.pick.clear(); document.querySelectorAll('#lsb .lcc-bd-pick').forEach((pk) => { pk.checked = false; }); lbApply(); if (lbBoardOn() && !$('#lsb [data-lk="fbtn"][aria-expanded="true"]')) lbFocusFk('fbtn'); return; } // Clear brings the Filter key back and the focus goes to it; from the open Filter menu (All with every shown House ticked) the focus stays in the menu
   if (k === 'bulk') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } if (b.getAttribute('aria-disabled') === 'true') { lbSay(b.dataset.why || b.title || 'Nothing to change'); return; } lbBulk(b, b.dataset.do); return; }
   if (k === 'cyes') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } lbConfirmYes(); return; }
   if (k === 'cno') { e.preventDefault(); if (LP.busy) { lbSay(LB_WAIT); return; } const a = LP.confirm && LP.confirm.back; lbCancelConfirm(); lbSay('Cancelled. Nothing was written.'); if (a) lbFocusFk(a); return; }

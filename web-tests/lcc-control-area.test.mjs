@@ -1,5 +1,5 @@
 // The Command Center control area of the 5x5 board (tau #974, "E6 v2"): one sticky strip with two modes in the same place. Nothing chosen: the Show tabs, the Filter key, the Find House key, one chip per
-// active filter category, the count and Choose shown. Houses chosen: the action bar (count, the two crests, Fill, Complete, Reopen, Clear). Real page code and the synthetic answer of M1; layout is not
+// active filter category and the count. Houses chosen: the action bar (count, the two crests, Fill, Complete, Reopen, Clear). Real page code and the synthetic answer of M1; layout is not
 // measured here (jsdom has none), the sizes are read from the style file and the headless pictures in the pull request.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +29,7 @@ const tick = (ui, n) => { for (let i = 0; i < n; i++) { const b = picks(ui).filt
 const openMenu = (ui) => click(ui, '[data-lk="fbtn"]');
 const done = (ui) => click(ui, '[data-lk="popclose"]');
 
-test('nothing chosen: the strip shows Show tabs, Filter, Find House, the count and Choose shown, and no action bar', async () => {
+test('nothing chosen: the strip shows Show tabs, Filter, Find House and the count, and no action bar', async () => {
   const ui = await open();
   const p = panel(ui);
   assert.equal(p.dataset.mode, 'filters');
@@ -40,7 +40,6 @@ test('nothing chosen: the strip shows Show tabs, Filter, Find House, the count a
   assert.ok(strip.querySelector('[data-lk="fbtn"]'), 'no Filter key');
   assert.ok(strip.querySelector('[data-lk="findbtn"]'), 'no Find House key');
   assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), 'All 25 shown', 'nothing narrows the board: no fraction that looks like a choice (#1116)');
-  assert.match(text(strip), /Choose shown \(25\)/);
   assert.equal(ui.doc.querySelectorAll('.lcc-k-strip [data-lk="chips"] .lcc-k-chip').length, 0, 'a chip with nothing filtered');
 });
 
@@ -217,8 +216,9 @@ test('style: the phone has a sticky filter row of about 56 px and an action bar 
   assert.match(CSS, /\.lcc-k-e6 \.lcc-k-strip \{ top: calc\(var\(--hdr-h, 56px\)/);
 });
 
-test('style: at 320 px the filter row fits the window (the label of Choose shown takes two short lines under 380 px)', () => {
-  assert.match(CSS, /@media \(max-width: 380px\) \{\s*\.lcc-k-e6 \.lcc-k-lens > \.lcc-k-cg \{ flex: 0 1 auto; min-width: 0; \}\s*\.lcc-k-e6 \.lcc-k-cg \.lcc-k-link \{ white-space: normal;/);
+test('style: the 320 px rule that wrapped the label of Choose shown is gone with the key (#1116)', () => {
+  assert.doesNotMatch(CSS, /@media \(max-width: 380px\)/);
+  assert.doesNotMatch(CSS, /lcc-k-cg \.lcc-k-link/);
 });
 
 // ---- the review of the real-browser pass (tau #974): Cancel, the whole question, the Show tabs while Houses are chosen, a fresh board, the More disclosure ----

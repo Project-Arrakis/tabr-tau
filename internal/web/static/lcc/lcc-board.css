@@ -70,7 +70,6 @@
 /* The parts of the page's action bar once they are seated in the control bar (tau 914). The controls are the same elements as in the classic list (same data-lb, data-do and data-fk); this only gives them
    the look of the bar they stand in: the square edge, the gold stroke and the letters of the chips and buttons beside them. Letters are 12 px or more, a control is 36 px tall (44 px on a phone or a touch
    screen), and everything wraps instead of shrinking. The question, the result line and the note on a write stand directly under the bar. */
-.lcc-bd .barpart.bp-choose { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 9px; min-width: 0; }
 .lcc-bd .barpart.bp-act { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 18px; min-width: 0; }
 .lcc-bd .barpart.bp-ask { min-width: 0; }
 .lcc-bd .barpart .actrow { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 0; min-width: 0; }
@@ -981,7 +980,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 @supports (container-type: inline-size) { @container kA (min-width: 521px) and (max-width: 959px) { .lcc-k-e6 .lcc-k-cmd { padding: 12px 10px; gap: 10px 6px; } .lcc-k-e6 .lcc-k-orn { display: none; } .lcc-k-e6 .lcc-k-zone-do { gap: 6px; } .lcc-k-e6 .lcc-k-zone-sel { gap: 6px; } .lcc-k-e6 .lcc-k-findbar { padding: 0 8px; gap: 6px; } .lcc-k-e6 .lcc-k-med { width: 46px; height: 46px; } .lcc-k-e6 .lcc-k-cmd .lcc-k-spacer { display: none; } .lcc-k-e6 .lcc-k-cmd .lcc-k-ghost { margin-left: auto; } } }
 @supports (container-type: inline-size) { @container kA (max-width: 520px) { .lcc-k-e6 .lcc-k-findbar { flex-direction: row; min-height: var(--lcc-k-h); padding: 0 12px; gap: 8px; } } }
 
-/* a phone: the sticky part is one 56 px row (Filter, Find House, count, Choose shown) or the action bar (about 110 px); the Show tabs and the title scroll away */
+/* a phone: the sticky part is one 56 px row (Filter, Find House, count) or the action bar (about 110 px); the Show tabs and the title scroll away */
 .lcc-k-e6 .lcc-k-tray-out { margin-top: 16px; }
 @media (max-width: 700px) {
   .lcc-k-e6 .lcc-k-chips, .lcc-k-e6 .lcc-k-brk { display: none; }
@@ -1022,17 +1021,12 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-k-e6 .lcc-k-qbtn { flex: 1 1 100%; }
   .lcc-k-e6 .lcc-k-qbtn .lcc-k-btn { flex: 1 1 0; }
 }
-/* the narrowest phones (320 px): the filter row was 12 px wider than the window, so the label of Choose shown takes two short lines there */
-@media (max-width: 380px) {
-  .lcc-k-e6 .lcc-k-lens > .lcc-k-cg { flex: 0 1 auto; min-width: 0; }
-  .lcc-k-e6 .lcc-k-cg .lcc-k-link { white-space: normal; text-align: right; line-height: 1.15; max-width: 6.5em; min-width: 0; }
-}
 
 /* ---- the control area as built in the app (tau #974): what the mock did with its own page frame is done here for the board's panel ---- */
 .lcc-bd-panel.lcc-k-page { container-name: kA; }
 .lcc-k-e6 .lcc-k-strip { top: calc(var(--hdr-h, 56px) + var(--lsb-warn-room, 0px)); }
-.lcc-bd .lcc-k-cmd .barpart, .lcc-bd .lcc-k-cg .barpart { display: contents; }
-.lcc-k-actslot, .lcc-k-askslot, .lcc-k-chooseslot { display: contents; }
+.lcc-bd .lcc-k-cmd .barpart { display: contents; }
+.lcc-k-actslot, .lcc-k-askslot { display: contents; }
 .lcc-k-opt[hidden] { display: none; }
 .lcc-k-icph:empty { display: none; }
 .lcc-k-btn[data-zero="true"]:not([aria-disabled="true"]) { color: var(--lcc-dim); }

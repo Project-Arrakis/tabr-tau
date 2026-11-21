@@ -24,7 +24,7 @@ test('Landsraad: the explanations of the board are tooltips of its keys, not tex
   assert.equal(main.querySelectorAll('details.about').length, 0, 'no About this on the board');
   const tip = (fk) => ui.doc.querySelector(`[data-fk="${fk}"] .lcc-k-tip`);
   // the long sentences of the keys are in their tooltips (aria-hidden: the key's own aria-label is what a screen reader says)
-  for (const [fk, s] of [['b-fill', 'The question shows the totals before anything is written.'], ['b-complete', 'Marks every chosen House complete for the faction chosen'], ['b-reopen', 'Progress and contributions stay as they are'], ['b-all', 'Chooses the Houses that are shown now.'], ['b-none', 'Clears the choice']]) {
+  for (const [fk, s] of [['b-fill', 'The question shows the totals before anything is written.'], ['b-complete', 'Marks every chosen House complete for the faction chosen'], ['b-reopen', 'Progress and contributions stay as they are'], ['b-none', 'Clears the choice']]) {
     const t = tip(fk);
     assert.ok(t && t.textContent.includes(s), fk + ' has its explanation as a tooltip: ' + s);
     assert.equal(t.getAttribute('aria-hidden'), 'true', fk + ': the tooltip is not read twice');
@@ -35,7 +35,7 @@ test('Landsraad: the explanations of the board are tooltips of its keys, not tex
   assert.equal(text(ui.doc.querySelector('[data-fk="b-fill"] .lcc-k-bl')), 'Fill');
   assert.equal(text(ui.doc.querySelector('[data-fk="b-complete"] .lcc-k-bl')), 'Complete');
   assert.equal(text(ui.doc.querySelector('[data-fk="b-reopen"] .lcc-k-bl')), 'Reopen');
-  assert.equal(text(ui.doc.querySelector('[data-fk="b-all"]')).startsWith('Choose shown'), true);
+  assert.equal(ui.doc.querySelector('[data-fk="b-all"]'), null, 'no Choose shown key (#1116)');
   assert.ok(ui.doc.querySelector('[aria-label="Faction for Fill and Complete"]'), 'the faction for Fill and Complete');
   assert.ok(ui.doc.querySelector('[data-fk="b-none"]'), 'Clear');
   ui.dom.window.close();

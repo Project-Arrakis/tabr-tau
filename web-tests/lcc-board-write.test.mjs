@@ -264,10 +264,11 @@ test('a filter drops the Houses it hides from the choice, and a question about t
   assert.equal(writes(ui).length, 0);
 });
 
-test('Choose all houses chooses what the board shows, not what a filter dims; Clear the choice clears the boxes', async () => {
+test('All in the Filter menu chooses what the board shows, not what a filter dims; Clear the choice clears the boxes', async () => {
   const ui = await open('board');
   click(ui, '[data-fk="bf:hs:open"]');
-  click(ui, '[data-fk="b-all"]');
+  click(ui, '[data-lk="fbtn"]');
+  click(ui, '#lcc-bd-menu [data-lk="hall"]');
   const boxes = [...ui.doc.querySelectorAll('.lcc-bd-pick')];
   assert.equal(boxes.filter((b) => b.checked).length, 9, 'the nine open Houses');
   assert.match(text(ui.doc.querySelector('#lsb-sum')), /^Chosen: 9 houses\./);

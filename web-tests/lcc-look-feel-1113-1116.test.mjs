@@ -118,19 +118,44 @@ test('#1115: the Inspector section and the list column say Location', async () =
   assert.ok(!heads2.includes('PLACE'), 'no PLACE heading: ' + heads2.join(' | '));
 });
 
-test('#1116: nothing narrows the board: "All 25 shown", never "25 / 25"; a narrowing filter says "n / 25 shown"; Choose shown is still there', async () => {
+test('#1116: nothing narrows the board: "All 25 shown", never "25 / 25"; a narrowing filter says "n / 25 shown"', async () => {
   const ui = await open();
   const count = () => text(ui.doc.querySelector('#lcc-bd-shown [data-lk="nums"]'));
   assert.equal(count(), 'All 25 shown');
   assert.doesNotMatch(count(), /\//, 'no fraction');
   assert.equal(text(ui.doc.querySelector('[data-lk="shownsr"]')), 'All 25 Houses shown');
-  assert.match(text(ui.doc.querySelector('.lcc-k-strip')), /Choose shown \(25\)/, 'the offer to choose the shown Houses is unchanged');
   click(ui, '[data-lcb="filter"][data-key="show"][data-val="part"]');
   const n = Number(ui.doc.querySelector('[data-lk="shown"]').textContent);
   assert.ok(n > 0 && n < 25, 'a filter narrows the board: ' + n);
   assert.equal(count(), n + ' / 25 shown');
   assert.equal(text(ui.doc.querySelector('[data-lk="shownsr"]')), n + ' of 25 Houses shown');
-  assert.ok(text(ui.doc.querySelector('.lcc-k-strip')).includes('Choose shown (' + n + ')'));
   click(ui, '[data-lcb="filter"][data-key="show"][data-val="all"]');
   assert.equal(count(), 'All 25 shown', 'and back');
+});
+
+test('#1116: the filter-mode strip has no Choose shown key; All in the Filter menu is the one way to choose every shown House (and it clears when all are ticked)', async () => {
+  const ui = await open();
+  const strip = ui.doc.querySelector('.lcc-k-strip');
+  // nothing of the removed key is left: its words, its data attributes, its part and its slot
+  assert.doesNotMatch(text(ui.doc.body), /Choose shown/, 'no Choose shown anywhere on the page');
+  assert.equal(strip.querySelector('[data-lb="pickall"], [data-fk="b-all"], [data-lk="chooselabel"], .bp-choose, [data-bar="choose"], [data-lcc-slot="choose"]'), null, 'no key, part or slot of Choose shown');
+  assert.equal(ui.doc.querySelector('.lcc-k-lens [data-lb]'), null, 'the filter row has no key of the page that writes or chooses');
+  // the count line is as it was
+  assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), 'All 25 shown');
+  // the Filter menu's All is reachable and named, and chooses the shown Houses with no request
+  click(ui, '[data-lk="fbtn"]');
+  const first = ui.doc.querySelector('#lcc-bd-menu [data-lk="hall"]');
+  assert.equal(text(first), 'All');
+  assert.equal(first.getAttribute('role'), 'checkbox', 'named and announced as a check box');
+  assert.equal(first.getAttribute('aria-checked'), 'false');
+  click(ui, '[data-lcb="filter"][data-key="show"][data-val="part"]');
+  const shown = Number(ui.doc.querySelector('[data-lk="shown"]').textContent);
+  assert.ok(shown > 0 && shown < 25, 'a filter narrows the board: ' + shown);
+  const all = ui.doc.querySelector('#lcc-bd-menu [data-lk="hall"]'); // the menu is drawn again with the filter
+  click(ui, all);
+  assert.equal(ticked(ui), shown, 'All chooses the shown Houses only');
+  assert.equal(all.getAttribute('aria-checked'), 'true', 'and reads as ticked when every shown House is ticked');
+  click(ui, all);
+  assert.equal(ticked(ui), 0, 'ticked again it clears the choice');
+  assert.equal(ui.posted.length, 0, 'nothing was written');
 });
