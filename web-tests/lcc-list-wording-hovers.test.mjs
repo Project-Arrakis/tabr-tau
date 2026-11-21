@@ -84,7 +84,7 @@ test('#952: the words are written once, in the wording table of lcc-model.js, an
   assert.deepEqual([W.pledgeBy, W.square, W.specialization, W.undecided, W.pledged, W.wavering, W.pledgedTo], ['Pledged to', 'Square', 'Specialization', 'Undecided', 'Pledged', 'Wavering', 'Pledged to']);
   for (const gone of ['wonBy', 'notWon', 'favorWon', 'favorNotWon', 'noFavor']) assert.equal(W[gone], undefined, gone + ' is gone (#1073)');
   assert.ok(Object.isFrozen(W));
-  assert.equal(JSON.stringify(ui.w.LCCM.HOUSE_FILTERS.map((f) => f[1])), JSON.stringify(['Any', 'Undecided', 'Pledged']));
+  assert.equal(JSON.stringify(ui.w.LCCM.HOUSE_FILTERS.map((f) => f[1])), JSON.stringify(['All', 'Undecided', 'Pledged']));
   for (const f of ['lcc-board.js', 'lcc.js']) {
     const s = src('lcc', f);
     for (const old of ["'Owner'", "'Path'", "'No.'", "'Claimed'", "'CLAIMED", "NOT CLAIMED", "'By path'", "'No path'", "Taken - no"]) assert.ok(!s.includes(old), f + ' still has ' + old);

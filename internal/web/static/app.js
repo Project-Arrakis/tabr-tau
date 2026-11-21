@@ -2172,7 +2172,7 @@ function lbLocModel(h) {
 }
 function lbPlaceDetails(h) {
   if (!h.loc.known) return html`<p class="cap">This house is not mapped yet: the save holds no map marker for its representative and the editor has no fixed place for it. Nothing to fix: the editor does not guess a place.</p>`;
-  return html`${lbMiniMap(h)}<dl><dt>Place</dt><dd>${lbAreaFull(h)}${h.loc.place ? ' · ' + h.loc.place : ''}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
+  return html`${lbMiniMap(h)}<dl><dt>Location</dt><dd>${lbAreaFull(h)}${h.loc.place ? ' · ' + h.loc.place : ''}</dd>${h.loc.cell ? html`<dt>Grid cell</dt><dd>${h.loc.cell}</dd>` : ''}${lbHub(h) ? '' : html`<dt>From you</dt><dd>${lbFromYou(h)}</dd>`}</dl>${h.loc.unconfirmed ? html`<p class="pnote">This place is from public guides and is not confirmed in the game.</p>` : ''}${lbHub(h) ? html`<p class="pnote">${lbHubNote(h)} There is no pin or map link for this house.</p>` : ''}`;
 }
 // What the quick actions of one house say, and which are off, for the faction chosen. The Inspector and the quick actions of a row of the Command Center board all draw from this,
 // so the two views cannot tell two stories about one click.

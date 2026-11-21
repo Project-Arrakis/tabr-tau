@@ -997,7 +997,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
   .lcc-k-e6 .lcc-k-findwrap .lcc-k-bl, .lcc-k-e6 .lcc-k-findbar .lcc-k-bl { display: none; }
   .lcc-k-e6 .lcc-k-findbar, .lcc-k-e6 .lcc-k-findwrap .lcc-k-fbtn { padding: 0; width: 44px; justify-content: center; }
   .lcc-k-e6 .lcc-k-cg { order: 3; gap: 6px; }
-  .lcc-k-e6 .lcc-k-count .lcc-k-ic { display: none; }
+  .lcc-k-e6 .lcc-k-count .lcc-k-ic, .lcc-k-e6 .lcc-k-count .lcc-k-cw { display: none; }
   .lcc-k-e6 .lcc-k-cg .lcc-k-hid { display: none; }
   .lcc-k-e6 .lcc-k-cmd { display: flex; flex-wrap: wrap; align-content: center; align-items: center; gap: 4px 8px; padding: 4px 8px; }
   .lcc-k-e6 .lcc-k-cmd .lcc-k-seats { margin-bottom: 0; }
