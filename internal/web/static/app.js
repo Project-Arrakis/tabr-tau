@@ -2374,7 +2374,7 @@ function lbTerm(l) {
   };
   return html`<section class="card d-panel" aria-labelledby="lsb-term-h"><details class="tdp" id="lsb-tdp" ${LT.open ? 'open' : ''}><summary><h2 class="d-head" id="lsb-term-h">Term and decrees <span class="cnt">Term ${t.term_id} · ${rfName} · ${a ? nm(a) : 'no active decree'}</span></h2></summary>
   <div class="tbody">
-  <div class="tkv"><div><span class="mut">Term</span><b>${t.term_id}</b></div><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b></div><div><span class="mut">Reigning faction</span><b>${rfName}</b></div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn" data-next="${nx.kind}" title="${nx.tip}">${nx.text}</span>`}${decreeUnsure(e)}</div></div>
+  <div class="tkv"><div><span class="mut">Ends in</span><b title="${LB_ENDS_TIP}">${lbEndsIn(l)}</b></div><div><span class="mut">Reigning faction</span><b>${rfName}</b></div><div><span class="mut">Active decree</span>${a ? decreeNameEl(a) : html`<span class="dn">—</span>`}${decreeUnsure(a)}</div><div><span class="mut">Next term's decree</span>${e ? decreeNameEl(e) : html`<span class="dn" data-next="${nx.kind}" title="${nx.tip}">${nx.text}</span>`}${decreeUnsure(e)}</div></div>
   <div class="tctl" role="group" aria-label="Set the term's active decree and reigning faction">
     <label class="fld"><span class="lbl">Active decree</span><select id="lsb-tad" data-lb="tad"><option value="">none</option>${lbDecreeOptions(l, sel).map((d) => html`<option value="${d.id}" ${String(d.id) === sel.ad ? 'selected' : ''}>${decreeFull(d)}</option>`)}</select>${decreeSelInfo(by(sel.ad))}</label>
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf" title="Any faction can be chosen.">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select></label>
@@ -2495,7 +2495,7 @@ function lbInner(l) {
     <span><span class="lbl">Group</span><label class="btnl" ${noLocs ? html`title="Off: no place is known for any house"` : ''}><input type="checkbox" data-lb="group" ${noLocs ? 'disabled' : ''} ${LB.group && !noLocs ? 'checked' : ''}><span>By region</span></label>${noLocs ? html`<span class="note" id="lsb-grp-hint">Group by region is off: it needs a place for the houses.</span>` : ''}</span>
     <span><span class="lbl">Rows</span><button type="button" class="btnr" data-lb="expand">Expand all</button> <button type="button" class="btnr" data-lb="collapse">Collapse all</button></span>
     <span class="f"><label class="lbl" for="lsb-jump">Jump to house</label><select id="lsb-jump" data-lb="jump"><option value="">Choose a house</option>${hs.map((h) => html`<option value="${h.id}" ${String(LB.jump) === String(h.id) ? 'selected' : ''}>${h.name}</option>`)}</select></span>
-    <span class="shown" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
+    <span class="shown vh" id="lsb-shown" aria-live="polite">${N} of ${N} houses shown</span>
   </div>
   ${noLocs ? html`<p class="line1" id="lsb-nolocs">No house has a place in the editor yet, so the Place column says “not mapped yet” and the houses cannot be grouped by region.</p>` : ''}
   ${lbActbar(hs, l)}
