@@ -25,7 +25,8 @@ test('the term section has no source label (#1057), and says nothing of what the
   assert.doesNotMatch(text(s), /NOT IN THE SAVE/, 'the box of what the save does not hold is gone (#973): the Help tab says it');
   assert.doesNotMatch(text(s), /\bwins?\b|Dominion/i, 'no claim of a result');
   assert.equal(s.querySelector('h3#lcc-tm-h').getAttribute('tabindex'), '-1');
-  assert.ok(s.querySelector('#lsb-tresult[role="status"]'));
+  assert.equal(s.querySelector('#lsb-tresult'), null, 'no result line stays in the section: Apply says what it did in a toast (#1120)');
+  assert.ok(s.querySelector('#lcc-tm-pending[role="status"]'), 'the draft hint is still a live region');
 });
 
 test('every decree of the pool has a text alternative for its picture, its effect or the plain words that it is not in the save, and its pool flag as a button', async () => {

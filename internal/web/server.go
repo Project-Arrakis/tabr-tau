@@ -676,6 +676,8 @@ func (s *Server) routes() {
 	// The countdown before the automatic pass at launch (#460): its state (the first ask starts the clock), Skip, and "run the pass now".
 	s.get("/api/autopass/launch", func(r *http.Request) (any, error) { return s.launchStatus(), nil })
 	s.post("/api/autopass/skip", func(ops.Args) (any, error) { return s.SkipLaunchPass(), nil })
+	// Cancel the refill that waits for the game (#1123): it stops waiting. Nothing is written and no setting changes; the next launch asks again.
+	s.post("/api/autopass/cancel", func(ops.Args) (any, error) { return map[string]any{"cancelled": s.cancelWaitingPass()}, nil })
 	s.post("/api/autopass/run", func(ops.Args) (any, error) {
 		s.RunPassNow()
 		note, warn := s.takeStartup()
@@ -688,7 +690,14 @@ func (s *Server) routes() {
 	s.kitRoutes()
 	s.baseBackupRoutes()
 	s.get("/api/catalog/items", func(r *http.Request) (any, error) { return catalog.All(), nil })
-	s.get("/api/save/state", func(r *http.Request) (any, error) { return o.State() })
+	// The status the page polls, plus the automatic refill that waits for the game, so the queue view can list it (#1123): it is a job of its own, not one of the queued edits.
+	s.get("/api/save/state", func(r *http.Request) (any, error) {
+		v, err := o.State()
+		if m, ok := v.(map[string]any); ok && err == nil {
+			m["autoRefill"] = s.autoRefillWait()
+		}
+		return v, err
+	})
 
 	// players
 	s.get("/api/player", func(r *http.Request) (any, error) { return o.Player() })
@@ -1087,6 +1096,22 @@ func autoPassWanted(cur settings.Settings) bool {
 		}
 	}
 	return false
+}
+
+// autoRefillWait is what the status says of the automatic refill that waits for the game: whether it waits and what for (the words of waitWhy, as of the last check).
+func (s *Server) autoRefillWait() map[string]any {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	return map[string]any{"waiting": s.autoWaiting, "why": s.autoWaitWhy}
+}
+
+// cancelWaitingPass is the Cancel button of the queue view: the refill that waits for the game stops waiting, and says whether there was one. It writes nothing and changes no setting.
+func (s *Server) cancelWaitingPass() bool {
+	s.startupMu.Lock()
+	was := s.autoWaiting
+	s.startupMu.Unlock()
+	s.stopWaitingPass()
+	return was
 }
 
 // stopWaitingPass ends the wait of a pass that is not going to run: the person switched it off while it waited. The note that said it was queued is dropped with it, since

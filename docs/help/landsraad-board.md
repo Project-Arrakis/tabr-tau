@@ -41,7 +41,7 @@ In the House Intelligence panel the ledger rows show the same three states witho
 ## Filters and the list
 
 - One line under the term counts your Houses by the same three states as the Show tabs: "3 top tier · 5 in progress · 17 not started". Press a count to show only those Houses (it sets the Show tab; nothing is written). The line is not drawn when your character is in no faction.
-- Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed, and while a filter is on a line says how many Houses are shown (it is not there when nothing is filtered).
+- Show, House and Specialization filters narrow what the board shows. A House the filters leave out is dimmed, and a line always says how many Houses are shown, as 25 / 25 shown when nothing is filtered. While Houses are chosen, the action bar says how many are chosen, as 3 / 25 chosen.
 - Jump to House opens one House and clears the filters that would hide it.
 - A button that does nothing right now (there is nothing to change, or another faction is chosen) looks the same as every other control that is off, on every page of the editor: quiet text, a quiet edge, no fill and a not-allowed pointer (never a dashed edge and never faded); pressing it says why.
 - The Grid and List buttons switch between the board and a sortable list of the same Houses. Where the list is crowded the Next tier cell shows the number alone (for example 1,200): how many more it needs is in the hover and is still read out by a screen reader. The Location shows the area and the cell (for example Deep Desert · B8).

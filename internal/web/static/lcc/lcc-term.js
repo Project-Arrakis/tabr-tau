@@ -3,7 +3,7 @@
 //
 // What this file is: a drawing. It builds elements with createElement and textContent only, so a decree name or a House name from a save is never markup. It holds no request, no route and no save
 // logic. Every control that changes the save is a plain button or select that carries the same data-lb attributes and the same focus key as the classic panel's control (data-lb="tapply", "tmk",
-// "tflag", "tad", "trf"), so the page's one click handler, one request builder, one write function and one result line (#lsb-tresult) serve both views. Choosing a decree in a select or pressing a
+// "tflag", "tad", "trf"), so the page's one click handler, one request builder, one write function and one result toast (#1120) serve both views. Choosing a decree in a select or pressing a
 // button here changes nothing by itself: only Apply, Make active and Set flag write, exactly as before.
 // Time (#981): one row, ENDS IN, in hours and minutes (the page works the value out: the term's end on the play clock minus where the play clock stood when the save was written; the clock stops while the game is closed).
 // No start, no date, no seconds are shown. What the save does not hold (missions on offer, a ranking of the contributors) and how each control works are in the Help tab, not in standing text here (#980).
@@ -94,7 +94,6 @@
     ap.appendChild(btn('lcc-tm-btn is-primary', 'Apply', { 'data-lb': 'tapply', 'data-fk': 'tapply' }));
     row.appendChild(ap);
     g.appendChild(row);
-    g.appendChild(el('p', 'lcc-tm-result' + (vm.bad ? ' bad' : ''), vm.say || '', { id: 'lsb-tresult', role: 'status' }));
     return g;
   }
 

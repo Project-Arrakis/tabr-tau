@@ -48,7 +48,7 @@ async function play(name, view) {
   const out = {
     sent: ui.posted.filter((p) => WRITES.includes(p.path)).map((p) => ({ path: p.path, body: p.body })),
     others: ui.posted.filter((p) => !WRITES.includes(p.path)).map((p) => p.path),
-    result: text(ui.doc.querySelector('#lsb-tresult')),
+    result: text(([...ui.doc.querySelectorAll('#toast [data-one="lbd"]')].at(-1) || { querySelector: () => null }).querySelector('span')), // the term panel's result is a toast of the page (#1120): the recorded text is what the toast says
     focus: act && act.dataset ? act.dataset.fk || null : null,
     chose: { decree: ui.doc.querySelector('#lsb-tad') ? ui.doc.querySelector('#lsb-tad').value : null, faction: ui.doc.querySelector('#lsb-trf') ? ui.doc.querySelector('#lsb-trf').value : null },
   };

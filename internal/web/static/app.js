@@ -48,7 +48,7 @@ const FX_SHAPE = { water: 'M12 2.5C12 2.5 5.5 9.4 5.5 14a6.5 6.5 0 0 0 13 0C18.5
 const FX_OF = { fillWater: 'water', refill: 'water', fillBlood: 'water', fillLiquids: 'all', refillWater: 'water', refillGen: 'fuel', refuelV: 'fuel', repair: 'repair', repairOne: 'repair', repairV: 'repair', repairB: 'repair', repairAll: 'repair' };
 // Motion = Full is the only mode that plays the fill icons (the setting, or the system's reduced motion, makes it Calm). A page without /motion-boot.js has no limit of its own.
 const fullMotion = () => { const m = window.TauMotion; return !m || m.mode() === 'full'; };
-const MARK_PATHS = { ok: ['M5 12.5l4.5 4.5L19 7.5'], warn: ['M12 4l9 16H3z', 'M12 10v4.5M12 17.4v.3'], bad: ['M6 6l12 12M18 6L6 18'] };
+const MARK_PATHS = { ok: ['M5 12.5l4.5 4.5L19 7.5'], warn: ['M12 4l9 16H3z', 'M12 10v4.5M12 17.4v.3'], bad: ['M6 6l12 12M18 6L6 18'], queued: ['M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16z', 'M12 8v4.5l3 1.8'] };
 let fxUid = 0;
 function svgEl(tag, attrs, parent) {
   const e = document.createElementNS(SVGNS, tag);
@@ -94,7 +94,8 @@ function toast(msg, err, ms = 3500, fx = null, opts = null) {
   if (one) { for (const o of [...$('#toast').children]) if (o.getAttribute('data-one') === one && !(opts.soft && stays(o))) o.remove(); d.setAttribute('data-one', one); }
   if (opts && opts.lines) d.setAttribute('data-lines', 'true');
   const part = err === 'part', note = err === 'note';
-  const kind = !err ? 'ok' : part || note ? 'warn' : 'bad';
+  const queued = !err && !!(opts && opts.queued); // work that waits (a refill queued behind the game): a neutral clock, never the check of a result that went through (#1123)
+  const kind = queued ? 'queued' : !err ? 'ok' : part || note ? 'warn' : 'bad';
   d.setAttribute('role', err && !part && !note ? 'alert' : 'status');
   d.className = 'd-toast' + (kind === 'ok' ? '' : ' ' + kind) + (err ? (part ? ' part' : note ? ' note' : ' err') : '');
   const fxKind = kind === 'ok' && fx && Object.hasOwn(FX_SHAPE, fx.kind) && fullMotion() ? fx.kind : '';
@@ -113,6 +114,13 @@ function toast(msg, err, ms = 3500, fx = null, opts = null) {
     d.append(x);
   } else setTimeout(() => leaveToast(d), note ? Math.max(ms, 6000) : ms);
   $('#toast').append(d);
+}
+// The note the editor leaves about the automatic pass. A refill that is only queued behind the game is said in one short sentence with a neutral queued mark; the whole reason is in the banner and in the
+// list "What is queued" (#1123). Every other note is shown as it is.
+const REFILL_QUEUED = 'Automatic refill queued: ';
+function startupToast(r) {
+  if (!r.warn && String(r.note).startsWith(REFILL_QUEUED)) { toast('Refill queued; it runs when the save is free.', false, 6000, null, { queued: true }); return; }
+  toast(r.note, !!r.warn, 15000);
 }
 // The same icon on the button that was pressed (Motion = Full only). The button has no icon of its own to take the place of, so for a moment the icon sits in a round chip in the middle of the button
 // and the label is made clear (colour only: the words, the title and the aria are untouched), then the button is as it was. The chip is out of the flow (absolute), so nothing moves. The motion is
@@ -607,7 +615,8 @@ async function status() {
   const schemaNote = o.schemaNote ? String(o.schemaNote) : '';
   // Waiting to be written with nothing listed (#592): said as a plain fact. There is nothing to discard, so no Discard button is offered for it.
   const unlisted = !!o.dirty && !q && !o.held;
-  gw.className = saveBlocked || q || unlisted || changed || restored || o.writeLogProblem || o.notesProblem || o.recordNotice ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
+  const refill = o.autoRefill && o.autoRefill.waiting ? o.autoRefill : null; // an automatic refill that waits for the game (#1123); listed below with the queue
+  gw.className = saveBlocked || q || refill || unlisted || changed || restored || o.writeLogProblem || o.notesProblem || o.recordNotice ? 'warn' : schemaNote || notLive ? 'info' : 'hide';
   const gameFile = notLive ? 'the file' : 'the game file';
   const notLiveMsg = notLive ? html`<div><b>This is a copy, not the game's save:</b> edits are written at once and do not reach the game unless this file is installed as its game.db. <span class="mono" title="${o.path}">${String(o.path || '').split(/[\\/]/).pop()}</span></div>` : html``;
   const changedMsg = changed ? html`<div><b>The game saved since this editor opened.</b> What you see here is out of date. <button class="b sm d-btn primary sm" data-act="reload">Reload now</button></div>` : html``;
@@ -640,18 +649,23 @@ async function status() {
   // the editor's own record of the Landsraad ground it paid was not usable and the old file was kept aside (#838): the file is named, the folder is the editor's own
   const recordMsg = o.recordNotice ? html`<div class="mut">${capFirst(o.recordNotice)}. The game's file is not touched; a raise now counts only the ground the new record holds.</div>` : html``;
   const lines = o.pending.map(queueLine);
-  const listMsg = q ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${q})</summary><ul>${lines.map((l, i) => html`<li title="${queueTip(o.pending[i])}">${l}</li>`)}</ul></details>` : html``;
+  // An automatic refill that waits for the game (#1123) is a job of its own, not an edit: it is listed with the edits (what it is, what it waits for, a way to cancel it) and counted by the chip, but it is not one of the
+  // q queued changes (the banner sentences above count edits) and Discard queue does not touch it.
+  const nq = q + (refill ? 1 : 0);
+  const refillWhy = refill ? (refill.why ? capFirst(refill.why) : 'The game may still hold the save') + '.' : '';
+  const refillLi = refill ? html`<li class="bn-refill"><b>Automatic refill.</b> The jobs switched on in Settings, run as one edit. ${refillWhy} It runs by itself, on the file as the game left it, as soon as that clears. <button class="b sm d-btn sm" data-act="cancelRefill" title="Cancel this refill. Nothing is written and no setting changes; the editor asks again the next time it opens.">Cancel refill</button></li>` : html``;
+  const listMsg = nq ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${nq})</summary><ul>${lines.map((l, i) => html`<li title="${queueTip(o.pending[i])}">${l}</li>`)}${refillLi}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
   const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${notesMsg}${recordMsg}${listMsg}${rawMsg}`;
   // redrawn only when it changed: a redraw every few seconds would take the keyboard focus off its buttons
   const key = String(banner).replace(/ ?open>/g, '>').replace(/ >/g, '>'); // a toggle the person opened is already open in the page: that alone is no reason to redraw
   if (key !== gwKey) { gwKey = key; setHTML(gw, banner); }
-  $('#pending').textContent = q ? `${q} queued` : '';
-  $('#pending').setAttribute('aria-label', q ? `${q} queued, show the queued changes` : 'Show the queued changes'); // starts with the visible words and carries the count (#619 D9-2)
-  $('#pending').title = q ? lines.join('\n') + '\n(click to open the list)' : '';
-  if (lastQueued !== null && q > lastQueued) playMark($('#pending'), 'x-bump', 450); // a change joined the queue: the count bumps once (Full only)
-  lastQueued = q;
+  $('#pending').textContent = nq ? `${nq} queued` : '';
+  $('#pending').setAttribute('aria-label', nq ? `${nq} queued, show the queued changes` : 'Show the queued changes'); // starts with the visible words and carries the count (#619 D9-2)
+  $('#pending').title = nq ? lines.concat(refill ? ['Automatic refill: ' + refillWhy] : []).join('\n') + '\n(click to open the list)' : '';
+  if (lastQueued !== null && nq > lastQueued) playMark($('#pending'), 'x-bump', 450); // a change joined the queue: the count bumps once (Full only)
+  lastQueued = nq;
   const wroteAt = last && last.saved && last.at ? String(last.at) : '';
   if (wroteAt) { if (lastWriteAt !== null && lastWriteAt !== wroteAt) showWritten(); lastWriteAt = wroteAt; } else if (lastWriteAt === null) lastWriteAt = '';
   $('#btnDiscard').hidden = !(q > 0 || o.held); // only when something is listed to drop (or a held queue); a queue with nothing listed has the notice above instead
@@ -2250,7 +2264,7 @@ const lbDecreeOptions = (l, sel) => {
   return [...decreeSorted(lbShownDecrees(l)), ...hid.map(lbMasked)];
 };
 const LB_NEED_FACTION = 'Choose a reigning faction first: a decree is only in force because a faction won the term. Nothing was changed.';
-const LT = { ad: undefined, rf: undefined, say: '', bad: false, open: false, histOpen: false, flags: false }; // what the two drop-downs were set to (kept over a redraw), and the line that says what was written
+const LT = { ad: undefined, rf: undefined, open: false, histOpen: false, flags: false }; // what the two drop-downs were set to (kept over a redraw); what Apply or Make active did is a toast, not a line that stays (#1120)
 // the two drop-downs: what was chosen, else the term's active decree and the character's own faction (the term's reigning faction when the character has none); a faction the list does not offer is shown as none
 function lbTermSel(l) {
   const t = l.term || {}, facs = (l.factions || []).map((f) => String(f.id)), decs = (l.decrees || []).map((d) => String(d.id));
@@ -2284,7 +2298,6 @@ function lbTerm(l) {
     <label class="fld"><span class="lbl">Reigning faction</span><select id="lsb-trf" data-lb="trf" title="Any faction can be chosen.">${sel.rf === '' ? html`<option value="" disabled selected>Choose a faction</option>` : ''}${(l.factions || []).map((f) => html`<option value="${f.id}" ${String(f.id) === sel.rf ? 'selected' : ''}>${f.name}${own != null && f.id == own ? ' (your faction)' : ''}</option>`)}</select></label>
     <span class="tapply"><button type="button" class="qa btnp" data-lb="tapply" data-fk="tapply">Apply</button></span>
   </div>
-  <p id="lsb-tresult" role="status" ${LT.bad ? html`class="bad"` : ''}>${LT.say}</p>
   <h3 class="d-head">Decree pool</h3>
   ${dec.length ? html`<p class="advrow"><button type="button" class="qa" data-lb="tflags" data-fk="tflags" aria-expanded="${LT.flags ? 'true' : 'false'}">${LT.flags ? 'Advanced: hide pool flags' : 'Advanced: show pool flags'}</button></p>` : ''}
   <ul class="dp" id="lsb-dp" role="list"><li class="dh" aria-hidden="true"><span class="dc">Decree</span><span class="tg">In this term</span><span class="mkc">Make active</span></li>${dec.map(row)}</ul>
@@ -2344,7 +2357,7 @@ function lbTermModel(l) {
     active: one(by(t.active_decree_id)), elected: one(by(t.elected_decree_id)), next: (({ kind, text, tip }) => ({ kind, text, tip }))(lbNextWord(l)),
     pool: dec.map(row), options: lbDecreeOptions(l, sel).map((d) => ({ id: d.id, label: decreeFull(d) })),
     factions: (l.factions || []).map((f) => ({ id: f.id, label: f.name + (own != null && f.id == own ? ' (your faction)' : '') })),
-    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), say: LT.say, bad: LT.bad, open: LT.open, histOpen: LT.histOpen, flags: LT.flags,
+    sel, selD: one(by(sel.ad)), pending: lbPendingText(l, sel.ad), open: LT.open, histOpen: LT.histOpen, flags: LT.flags,
     history: { note: tm.length < 2 ? 'This save holds only the current term.' : e.length ? '' : 'No earlier term has a row of yours.', terms },
   };
 }
@@ -2368,7 +2381,9 @@ function lbEndsIn(l) {
   return (h ? h + ' h ' : '') + (m % 60) + ' m';
 }
 const lbTermOn = () => !!window.LCCT;
-function lbTSay(t, kind) { LT.say = t; LT.bad = kind === true; const r = $('#lsb-tresult'); if (r) { r.textContent = t; r.classList.toggle('bad', LT.bad); } }
+// What the term panel says (Apply, Make active, the pool flag): a toast like every other result of the Landsraad page (#1120), never a line that stays. The partial-draft hint under the Active decree box
+// ("Not applied yet: ...", lbPendingText) is not a result: it is drawn from the choice and stays until the choice is applied.
+function lbTSay(t, kind) { lbTell(t, kind); }
 // The board: it is drawn into #lsb-lcc by the Command Center scripts after this page is drawn (lbMountBoard). The action bar (the actions on several houses, the faction for Fill and Complete,
 // the count of the chosen houses, the question before a write and the result line) is drawn only for a board that passed its checks: a board that did not is shown read-only, with no control that writes. It is drawn
 // in three parts that are seated in the board's control bar (lbSeat), not under the board (#914).
@@ -2407,7 +2422,7 @@ function lbActbar(hs, l) {
     const more = (act, label, tip) => html`<button type="button" class="lcc-k-btn lcc-k-fr lcc-k-tipped" data-lb="bulk" data-do="${act}" data-fk="b-${act}" ${bulkOff(act)}>${label}<span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${bulkTip(act, tip)}</span></button>`;
     return html`<div class="actbar">
       <div class="barpart bp-act" data-bar="act" role="group" aria-label="Act on the chosen Houses">
-        <div class="lcc-k-zone lcc-k-zone-sel"><div class="lcc-k-med lcc-k-fr lcc-k-tipped lcc-k-tip-below lcc-k-tip-start" role="status"><b data-lk="n" aria-hidden="true">0</b><span class="lcc-k-sr" data-lk="nsr">No Houses chosen</span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">Houses chosen and shown. A House that a filter hides is never counted and never acted on.</span></div><span class="lcc-k-chosen" aria-hidden="true"><span>chosen</span><span class="lcc-k-hid" data-lk="hid2" hidden></span></span></div>
+        <div class="lcc-k-zone lcc-k-zone-sel"><div class="lcc-k-med lcc-k-fr lcc-k-tipped lcc-k-tip-below lcc-k-tip-start" role="status"><b data-lk="n" aria-hidden="true">0</b><span class="lcc-k-sr" data-lk="nsr">0 of ${hs.length} Houses chosen</span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">Houses chosen and shown. A House that a filter hides is never counted and never acted on.</span></div><span class="lcc-k-chosen" aria-hidden="true"><span data-lk="ntotal">/ ${hs.length} chosen</span><span class="lcc-k-hid" data-lk="hid2" hidden></span></span></div>
         <i class="lcc-k-orn" aria-hidden="true"></i>
         <div class="lcc-k-zone lcc-k-zone-do"><div class="lcc-k-seats" role="radiogroup" aria-label="Faction for Fill and Complete">${seats}</div>
           ${key('fill', 'lcc-k-pri', 'Fill for ' + facName, 'fill', 'Raises your contribution on every chosen House to its highest reward tier (never lowered) and writes what the missions pay: Solari, House Scrip and specialization XP. The question shows the totals before anything is written. Does nothing while another faction is chosen.', '')}
@@ -2454,7 +2469,7 @@ function lbRunning(on, b) {
   root.querySelectorAll('#lsb-fac, #lcc-bd-fac, #lcc-bd-tierset, #lsb-tad, #lsb-trf').forEach((x) => { x.disabled = on; });
 }
 async function lbRun(b, call, say, focusFk) {
-  const inToast = say === lbSay && lbBoardOn(); // the results of the board are toasts, not a line on the page (#943)
+  const inToast = (say === lbSay && lbBoardOn()) || say === lbTSay; // the results of the board are toasts, not a line on the page (#943), and so are the term panel's (#1120)
   if (LP.busy) { say('A write is still running. Wait for it to finish, then click again.'); return false; }
   LP.busy = true;
   lbRunning(true, b);
@@ -2887,7 +2902,7 @@ function lbClick(e) {
   if (k === 'tapply' || k === 'tmk') {
     e.preventDefault();
     if (LP.busy) { lbTSay(LB_WAIT); return; } // first, before the button's own refusal too: the running Apply or Make active is drawn aria-disabled, and its title must not replace 'Writing...' (#1019); and before the choice is stored: a click on another row during a write changes nothing, so the drop-downs keep showing what the save holds (#904)
-    if (b.getAttribute('aria-disabled') === 'true') { LT.say = b.title; const r = $('#lsb-tresult'); if (r) r.textContent = b.title; return; }
+    if (b.getAttribute('aria-disabled') === 'true') { lbTSay(b.title); return; }
     const sel = lbTermSel(LD), ad = k === 'tmk' ? String(b.dataset.id) : sel.ad, rf = sel.rf, dn = (id) => { const d = lbDecreeById(LD, id); return d ? decreeFull(d) : 'none'; };
     // the save holds a reigning faction the list does not offer and the drop-down was left alone: the request leaves the faction as it is (the server refuses to set such a faction)
     // The same when the decree is cleared (none) on a term that has no faction: the request names the decree only, so a save the game wrote with a decree and no faction can still have its decree cleared (#960).
@@ -3273,6 +3288,12 @@ const A = {
   }, null),
   dismissRestored: () => act(async () => { await api('/api/save/restored/dismiss', {}); }, null),
   discardQueue: () => $('#btnDiscard').click(),
+  // Cancel refill (#1123): the automatic refill that waits for the game stops waiting. Nothing is written and no setting changes; the page is told at once.
+  cancelRefill: () => act(async () => {
+    const r = await api('/api/autopass/cancel', {});
+    toast(r.cancelled ? 'Automatic refill cancelled. Nothing was written.' : 'No automatic refill was waiting.');
+    try { await status(); } catch (e) { /* the poll reports a lost connection */ }
+  }, null, true, true),
   // Check again: the game check is made at once (the process list is read again, never taken from the cache) and the answer is said in a sentence. The banner is redrawn from
   // that answer, so one that said the check could not be made goes away as soon as a check works.
   checkAgain: () => act(async () => {
@@ -3765,7 +3786,7 @@ async function launchPoll() {
       const was = launchMode;
       launchHide();
       if (was) { // the countdown ended: the pass ran (or was switched off); say what it did
-        try { const r = await api('/api/startup'); if (r.note) { toast(r.note, !!r.warn, 15000); await status(); await render(true); } } catch (e) { /* the note is optional */ }
+        try { const r = await api('/api/startup'); if (r.note) { startupToast(r); await status(); await render(true); } } catch (e) { /* the note is optional */ }
       }
       return;
     }
@@ -3819,7 +3840,7 @@ async function openAbout() {
 $('#verlabel').onclick = openAbout;
 loadAbout();
 status().then(render).then(async () => {
-  try { const r = await api('/api/startup'); if (r.note) toast(r.note, !!r.warn, 15000); } catch (e) { /* the note is optional */ }
+  try { const r = await api('/api/startup'); if (r.note) startupToast(r); } catch (e) { /* the note is optional */ }
   launchPoll();
 }).catch((e) => { // the editor did not answer: "Loading the save..." would stay for ever
   if ($('#loading')) setHTML($('#main'), html`<div class="card d-panel bad">The editor did not answer: ${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);

@@ -222,8 +222,8 @@ test('a save with no houses in the term says so in place of the board', async ()
 test('the stylesheet styles the status lines by the ids the board draws, and keeps the term facts apart from the Player tab\'s .kv cards', async () => {
   const js = fs.readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8');
   const sheet = css();
-  // the board has no result line (its results are toasts, #943): the count of the chosen Houses and the term panel's line are what is left
-  for (const id of ['lsb-sum', 'lsb-tresult']) {
+  // the board has no result line (its results are toasts, #943) and neither has the term panel (#1120): the count of the chosen Houses is what is left
+  for (const id of ['lsb-sum']) {
     assert.ok(js.includes('id="' + id + '"') || fs.readFileSync(new URL('../internal/web/static/lcc/lcc-term.js', import.meta.url), 'utf8').includes("id: '" + id + "'"), id + ' is drawn');
     assert.ok(sheet.includes('.lsb #' + id + '{'), id + ' is styled');
   }

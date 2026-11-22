@@ -18,6 +18,7 @@ On a phone (a window 640 px wide or less) the section comes after the board, so 
 - A decree is only in force for the faction that reigns, so the faction cannot be left empty. Atreides and Harkonnen can both be chosen, and any faction the box offers can be. The box starts on your own faction and asks you to choose when you are in neither and the term has no reigning faction.
 - Apply needs no choice in two cases: the save holds a faction the list does not offer and you leave the box alone (the decree changes and that faction stays), and none for the decree on a term with no faction (the decree is cleared and no faction is written).
 - Nothing changes until you press Apply, Make active or Set flag. A choice you have not applied is marked as not applied yet.
+- What Apply, Make active or Set flag did is said in a message at the lower right, as every result of the Landsraad page is. It goes away by itself; a refusal stays until you close it. Nothing is left on the panel.
 
 ## The decree pool
 

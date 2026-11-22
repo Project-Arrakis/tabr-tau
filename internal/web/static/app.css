@@ -18,6 +18,7 @@ header .savename .cap{flex:none}
 header .path{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 header #pending{margin-left:auto;font:inherit;font-weight:600;cursor:pointer}
 header #pending:empty{display:none}
+#btnDiscard[hidden]{display:none} /* the module's .d-btn sets display, which beat the hidden attribute: the button showed with nothing queued (#1123) */
 header #pending:not(:empty){color:var(--c-warn);border-color:var(--c-warn)}
 header #notlive{flex:none;font-weight:700;letter-spacing:.04em;white-space:nowrap}
 header #notlive.hide{display:none}
@@ -78,6 +79,11 @@ ul.tight{margin:6px 0}
 #toast .d-toast[data-lines] span{white-space:pre-line}
 #toast .d-toast .d-i{color:var(--ok)}
 #toast .d-toast.warn .d-i{color:var(--warn)}
+/* a result that went through is not drawn in the Atreides green on the Landsraad page (#1120): its check and edge are the gold of the page; a refill that only waits (#1123) is neutral */
+#toast .d-toast[data-one="lbd"]:not(.warn):not(.bad){border-left-color:var(--c-gold)}
+#toast .d-toast[data-one="lbd"]:not(.warn):not(.bad) .d-i{color:var(--c-gold)}
+#toast .d-toast.queued{border-left-color:var(--c-dim)}
+#toast .d-toast.queued .d-i{color:var(--c-dim)}
 #toast .d-toast.bad .d-i{color:var(--bad)}
 #toast button.x{background:none;border:0;color:var(--fg);cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
 .modal{position:fixed;inset:0;background:var(--c-scrim);z-index:8;overflow:auto;padding:4vh 16px}
@@ -515,7 +521,6 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .lsb .tctl select{min-height:var(--hit);min-width:12rem;max-width:100%;padding:0 10px;border:1px solid var(--c-rule);border-radius:var(--r-2);background:var(--c-sunken);color:var(--c-text);font:var(--t-md) var(--t-body)}
 .lsb .tctl select:focus-visible{outline:2px solid var(--c-focus);outline-offset:1px}
 .lsb .tapply{display:inline-flex;align-items:center;gap:var(--s-2)}
-.lsb #lsb-tresult{margin:0 0 var(--s-2);font-size:var(--t-sm);color:var(--c-ok);min-height:1.2em}
 .lsb .dp{list-style:none;margin:0;padding:0}
 .lsb .dp li{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.2fr) 14rem;grid-template-areas:"d t m" "f f f";gap:var(--s-2) var(--s-4);align-items:center;padding:6px 8px;border-bottom:1px solid var(--c-hair)}
 .lsb .dp .dc{grid-area:d;min-width:0}
@@ -581,7 +586,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 @media (max-width:640px){.lsb .d-head .cnt{white-space:normal}} /* after the base rule, which is nowrap */
 
 /* Every click writes at once: the board while a write runs, the bulk question, and the closed list of the hidden decree */
-.lsb #lsb-result.bad,.lsb #lsb-tresult.bad{color:var(--c-bad)}
+.lsb #lsb-result.bad{color:var(--c-bad)}
 .lsb.running{cursor:progress}
 .lsb.running .qa,.lsb.running .tc,.lsb.running select{cursor:progress}
 .lsb .qa.busy,.lsb .tc.busy{opacity:.9;cursor:progress}
@@ -599,7 +604,7 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 
 /* the result line in the warning colour */
 
-.lsb #lsb-result.warn,.lsb #lsb-tresult.warn{color:var(--c-warn)}
+.lsb #lsb-result.warn{color:var(--c-warn)}
 .lsb #lsb-result:focus-visible{outline:2px solid var(--c-focus);outline-offset:2px}
 #vcwait[hidden]{display:none}
 #vcpreview td select{width:100%;min-width:0;max-width:18rem}

@@ -53,6 +53,9 @@ async function open(data = board(), post = {}, layout = 'grid') {
   return ui;
 }
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
+// #1120: what the term panel says is a toast of the page (never a line that stays): the text of the Landsraad toast on screen
+const toastOf = (ui) => [...ui.doc.querySelectorAll('#toast [data-one="lbd"]')].at(-1) || null;
+const said = (ui) => { const t = toastOf(ui); return t ? t.querySelector('span').textContent.replace(/\s+/g, ' ').trim() : ''; };
 const click = (ui, el) => { if (typeof el === 'string') el = ui.doc.querySelector(el); assert.ok(el, 'no element'); el.focus(); el.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true, cancelable: true })); };
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
 const writes = (ui) => ui.posted.filter((p) => p.path === '/api/landsraad/apply');
@@ -362,13 +365,13 @@ test('the term controls write at once with the same busy handling and a result l
   click(ui, apply);
   await new Promise((r) => ui.w.setTimeout(r, 5));
   assert.equal(apply.getAttribute('aria-disabled'), 'true');
-  assert.equal(text(ui.doc.querySelector('#lsb-tresult')), 'Writing…');
+  assert.equal(ui.doc.querySelector('#lsb-tresult'), null, 'the term panel keeps no result line: what it says is a toast (#1120)');
   assert.equal(ui.doc.querySelector('#lsb-trf').disabled, true);
   release(); await ui.settle();
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Applied: active decree'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).startsWith('Applied: active decree'), said(ui));
   assert.equal(ui.posted.filter((p) => p.path === '/api/landsraad/term').length, 1);
   click(ui, ui.doc.querySelector('[data-lb=tflag]')); await ui.settle();
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Decree 1: pool flag set to'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).startsWith('Decree 1: pool flag set to'), said(ui));
 });
 
 test('after a write the House is drawn from the saved data, and the focus stays on the pressed control even when Complete has turned into Reopen', async () => {
