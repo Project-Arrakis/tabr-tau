@@ -38,7 +38,7 @@ function checkBlock(box, { prefix, grade, slots }) {
   assert.equal(labels.length, slots, 'one line for each slot');
   labels.forEach((l, i) => {
     assert.equal(l.tagName, 'LABEL');
-    assert.match(text(l), new RegExp('^Slot ' + (i + 1) + ' '), 'labelled Slot ' + (i + 1));
+    assert.ok(text(l).startsWith('Slot ' + (i + 1) + ' '), 'labelled Slot ' + (i + 1)); // no RegExp built from a variable: the security scan blocks it
     assert.equal(l.querySelectorAll('select').length, 1);
     assert.equal(l.querySelector('select').id, prefix + i);
   });
