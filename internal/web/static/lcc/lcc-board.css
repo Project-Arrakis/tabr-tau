@@ -714,6 +714,7 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-k-tipped { position: relative; }
 .lcc-k-tip { position: absolute; z-index: 30; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); padding: 5px 10px; font: 500 12px/1.3 var(--lcc-sans); color: var(--lcc-strong); background: var(--lcc-tier-bg); border: 1px solid var(--lcc-gold); box-shadow: 0 4px 12px rgba(0, 0, 0, .4); white-space: nowrap; pointer-events: none; display: none; }
 .lcc-k-tipped:hover > .lcc-k-tip, .lcc-k-tipped:focus-visible > .lcc-k-tip, .lcc-k-tipped:focus-within > .lcc-k-tip { display: block; }
+.lcc-k-tipped.lcc-k-tip-quiet > .lcc-k-tip { display: none !important; } /* a key that got its focus back from a closed dialog: no mouse-over text until the next mouse-over or key press (#1134) */
 .lcc-k-tip-below > .lcc-k-tip { bottom: auto; top: calc(100% + 8px); }
 .lcc-k-tip-right > .lcc-k-tip { left: calc(100% + 8px); bottom: auto; top: 50%; transform: translateY(-50%); }
 .lcc-k-tip-end > .lcc-k-tip { left: auto; right: 0; transform: none; }
