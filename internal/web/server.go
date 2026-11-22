@@ -55,6 +55,7 @@ type Server struct {
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
 	autoWaiting  bool   // the automatic pass is waiting because a game process exists or may still hold the save's rows (#419, #499, #612); RunAutosave runs it once that clears
 	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.UnattendedStateFor); empty when it is not waiting
+	autoWaitHand bool   // the wait began as "Run the automatic pass now" (#1135): the person asked for it, so it runs with the master switch off too; it has the rules of the pass at launch all the same
 	cancelGen    uint64 // bumped by Cancel in the queue view: a retry that started before it must not run the pass, or arm the wait again (#1124)
 	afterReload  func() // test hook: called by retryWaitingPass between the re-read of the save and the pass; nil in production
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
@@ -1053,7 +1054,7 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 // the card shows up to date.
 func (s *Server) retryWaitingPass() {
 	s.startupMu.Lock()
-	waiting := s.autoWaiting
+	waiting, byHand := s.autoWaiting, s.autoWaitHand
 	gen := s.cancelGen // a Cancel after this point wins over this retry (#1124)
 	s.startupMu.Unlock()
 	if !waiting {
@@ -1061,7 +1062,7 @@ func (s *Server) retryWaitingPass() {
 	}
 	// The switches may have been turned off while the pass waited (the master switch, or every job). Look before the file is read again: the reload below decodes the whole
 	// save under its lock, and with nothing left to run it would be repeated at every tick for as long as the editor runs (#441).
-	if !autoPassWanted(settings.Load(s.SettingsPath)) {
+	if cur := settings.Load(s.SettingsPath); !autoJobsWanted(cur) || (!byHand && !cur.AutoRefillOnOpen) { // a pass asked for by hand does not depend on the master switch (#1135)
 		s.stopWaitingPass()
 		return
 	}
@@ -1092,10 +1093,10 @@ func (s *Server) retryWaitingPass() {
 func waitWhy(g save.GameState) string { return strings.TrimSuffix(g.Reason, save.QueuedUntilClears) }
 
 // autoPassWanted says whether the settings ask for an automatic pass at all: the master switch is on and at least one job that can run is switched on.
-func autoPassWanted(cur settings.Settings) bool {
-	if !cur.AutoRefillOnOpen {
-		return false
-	}
+func autoPassWanted(cur settings.Settings) bool { return cur.AutoRefillOnOpen && autoJobsWanted(cur) }
+
+// autoJobsWanted says whether at least one job that can run is switched on, whatever the master switch says (a pass asked for by hand ignores the master switch).
+func autoJobsWanted(cur settings.Settings) bool {
 	for _, j := range ops.AutoJobs() {
 		if j.Ready && cur.JobOn(j.Key, j.Default) {
 			return true
@@ -1119,7 +1120,7 @@ func (s *Server) cancelWaitingPass() bool {
 	was := s.autoWaiting
 	s.cancelGen++
 	if was {
-		s.autoWaiting, s.autoWaitWhy = false, ""
+		s.autoWaiting, s.autoWaitWhy, s.autoWaitHand = false, "", false
 		s.startupNote, s.startupWarn = "", false
 	}
 	return was
@@ -1131,7 +1132,7 @@ func (s *Server) stopWaitingPass() {
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
 	if s.autoWaiting {
-		s.autoWaiting, s.autoWaitWhy = false, ""
+		s.autoWaiting, s.autoWaitWhy, s.autoWaitHand = false, "", false
 		s.startupNote, s.startupWarn = "", false
 	}
 }
@@ -1166,6 +1167,16 @@ const (
 	passNotRunOnCopyWhy = "This is a copy, not the game's save: the automatic pass only runs on the game's own save."
 )
 
+// What "Run the automatic pass now" says when the gate blocks it: it is queued, and the card and the queue view carry the reason (#1135).
+const passQueuedByHand = "Queued: runs by itself once the game is closed and the save is free."
+
+// waitingByHand says whether the pass that waits was asked for by hand ("Run the automatic pass now", #1135).
+func (s *Server) waitingByHand() bool {
+	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
+	return s.autoWaiting && s.autoWaitHand
+}
+
 // RunStartupTasks does what the editor's settings ask for when it opens; it is the pass at launch, which the countdown (launchpass.go) starts. See runPass.
 func (s *Server) RunStartupTasks() { s.runPass(false) }
 
@@ -1173,7 +1184,7 @@ func (s *Server) RunStartupTasks() { s.runPass(false) }
 // job that is switched on (base water and power, repairs, fills; see ops.AutoJobs) runs as ONE edit, which is written straight away like every
 // other edit, so it takes effect the next time the game loads. At launch it waits while any game process exists, and while save.GameStateFor says the game may still hold the save's
 // rows (the gate of an edit made by hand, #499): nobody watches an unattended write, so it does not rest on the game's log alone (#612; #419 had it wait for every game process, #499
-// dropped that, #612 restored it for the pass at launch only). A pass asked for by hand has the gate of an edit made by hand. A pass that finds nothing
+// dropped that, #612 restored it for the pass at launch only). A pass asked for by hand has the gate of an edit made by hand when it runs at once; when that gate blocks it, it is queued like the pass at launch and has the unattended rules from then on (#1135). A pass that finds nothing
 // to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
 func (s *Server) runPass(manual bool) { s.runPassGuarded(manual, false, 0) }
 
@@ -1181,7 +1192,7 @@ func (s *Server) runPass(manual bool) { s.runPassGuarded(manual, false, 0) }
 // waits again. The check is made under startupMu at the two places where the pass would act on the wait, so a Cancel is atomic with them (#1124).
 func (s *Server) runPassGuarded(manual, guarded bool, gen uint64) {
 	cur := settings.Load(s.SettingsPath)
-	if !manual && !cur.AutoRefillOnOpen {
+	if !manual && !cur.AutoRefillOnOpen && !(guarded && s.waitingByHand()) { // the retry of a pass that was asked for by hand does not depend on the master switch (#1135)
 		s.stopWaitingPass() // a pass that waited and was then switched off must not stay waiting (#441)
 		return
 	}
@@ -1228,8 +1239,13 @@ func (s *Server) runPassGuarded(manual, guarded bool, gen uint64) {
 	}
 	if g := state(s.Save.Path, true); g.Blocked {
 		why := waitWhy(g)
-		if manual { // asked for by hand: answered now, not queued for later
-			set("The automatic pass was not run: "+why+". Run it again once that clears.", true)
+		if manual { // asked for by hand (#1135): queued like the pass at launch, not refused. Nobody watches when it runs later, so it runs under the unattended rules of the pass at launch
+			// (retryWaitingPass: every game process gone, the gate clear; the edit is named "automatic pass", save.AutoPassDesc): the person is looking now, but not then. A pass the gate lets
+			// through is not queued and keeps the gate of an edit made by hand (below).
+			s.startupMu.Lock()
+			s.autoWaiting, s.autoWaitWhy, s.autoWaitHand = true, why, true
+			s.startupMu.Unlock()
+			set(passQueuedByHand, false)
 			return
 		}
 		// The pass at launch has the gate of an edit made by hand (#499) and, on top of it, waits for every game process (#612): it writes nothing while the game is open, nor while
@@ -1251,7 +1267,7 @@ func (s *Server) runPassGuarded(manual, guarded bool, gen uint64) {
 		s.startupMu.Unlock()
 		return
 	}
-	s.autoWaiting, s.autoWaitWhy = false, ""
+	s.autoWaiting, s.autoWaitWhy, s.autoWaitHand = false, "", false
 	s.startupMu.Unlock()
 	if len(s.Save.Pending()) > 0 { // edits from an earlier run are still waiting: the refill is not mixed into them
 		set("Automatic refill skipped: edits from before are still waiting to be written."+off, true)
