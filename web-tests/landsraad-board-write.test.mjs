@@ -72,8 +72,9 @@ const grant = (b) => { const g = b.querySelector('.lcc-bd-tier-gr'); return g ? 
 // the rows of the List layout hold Fill and Complete or Reopen (rf:ID, rc:ID)
 const row = (ui, name, which) => ui.doc.querySelector(`.lcc-bd-list tr.lcc-bd-row[data-id="${ID[name]}"] [data-fk="${which}:${ID[name]}"]`);
 const pick = (ui, id, on = true) => { const c = ui.doc.querySelector('.lcc-bd-pick[data-id="' + id + '"]'); c.checked = on; c.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
-const pickFour = (ui) => { for (const n of Object.keys(ID)) pick(ui, ID[n]); }; // the four Houses of the cases (Choose shown would choose the 21 others too)
+const pickFour = (ui) => { for (const n of Object.keys(ID)) pick(ui, ID[n]); }; // the four Houses of the cases (All in the Filter menu would choose the 21 others too)
 const bulk = (ui, which) => click(ui, `[data-fk="b-${which}"]`);
+const chooseShown = (ui) => { click(ui, '[data-lk="fbtn"]'); click(ui, '#lcc-bd-menu [data-lk="hall"]'); }; // All in the Filter menu (#1116: the Choose shown key is gone)
 // the House filter (Open / Pledged) and the specialization filter hide Houses, and drop them from the choice; the Show tabs are off while Houses are chosen, so they cannot do it
 // (Show tabs work only with nothing chosen)
 const show = (ui, k) => click(ui, `[data-fk="bf:show:${k}"]`);
@@ -186,7 +187,7 @@ test('while a write runs the control is busy and disabled, a second click is ign
   assert.equal(ui.doc.querySelector('#lsb').getAttribute('aria-busy'), 'true');
   assert.equal(ui.doc.querySelector('#lsb-fac').disabled, true, 'the faction cannot change mid-write');
   assert.equal(ui.doc.querySelector('.lcc-bd-insp #lcc-bd-fac').disabled, true, 'nor the faction box of the actions');
-  click(ui, btn); click(ui, act(ui, 'Thorvald', 'fill')); bulk(ui, 'all'); bulk(ui, 'complete');
+  click(ui, btn); click(ui, act(ui, 'Thorvald', 'fill')); chooseShown(ui); bulk(ui, 'complete');
   await new Promise((r) => ui.w.setTimeout(r, 5));
   assert.equal(h.started, 1, 'a second click did not start a second write');
   assert.ok(result(ui).includes('still running'), result(ui));
@@ -918,7 +919,7 @@ test('a re-read that makes a named house drop out of the filter closes the quest
   const data = board();
   const ui = await open(data, { '/api/landsraad/apply': { ...OK, changed: 2, houses: 2 } });
   show(ui, 'part'); await ui.settle(); // In progress: Thorvald and Hurata
-  bulk(ui, 'all');
+  chooseShown(ui);
   bulk(ui, 'fill'); await ui.settle();
   assert.equal(text(ui.doc.querySelector('#lsb-confirm b')), 'Fill 2 houses?');
   assert.equal(ui.doc.activeElement.getAttribute('data-fk'), 'c-no', 'the safe answer has the focus');
