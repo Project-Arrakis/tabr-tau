@@ -35,6 +35,9 @@ async function open(data = landsraad(), post = {}) {
 
 const poolRow = (ui, id) => ui.doc.querySelector(`#lsb-tdp li.lcc-tm-row[data-decree="${id}"]`);
 const text = (el) => el.textContent.replace(/\s+/g, ' ').trim();
+// #1120: what the term panel says is a toast of the page (never a line that stays): the text of the Landsraad toast on screen
+const toastOf = (ui) => [...ui.doc.querySelectorAll('#toast [data-one="lbd"]')].at(-1) || null;
+const said = (ui) => { const t = toastOf(ui); return t ? t.querySelector('span').textContent.replace(/\s+/g, ' ').trim() : ''; };
 const dc = (row) => [row.querySelector('.lcc-tm-dn'), row.querySelector('.lcc-tm-de')].map(text).join(' '); // the name and the effect line of a pool row
 const posted = (ui, path) => ui.posted.filter((p) => p.path === path);
 const select = (ui, sel, v) => { const el = ui.doc.querySelector(sel); el.value = String(v); el.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
@@ -135,7 +138,7 @@ test('the buttons of a pool row carry the decree name in their accessible name, 
   assert.equal(text(ui2.doc.querySelector('[data-fact="active"] .lcc-tm-du')), 'no game name for this id');
   select(ui2, '#lsb-tad', 99);
   ui2.click('[data-lb="tapply"]'); await ui2.settle();
-  assert.ok(text(ui2.doc.querySelector('#lsb-tresult')).includes("Applied: active decree Brand New Decree: FromAPatch (no game name)"), text(ui2.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui2).includes("Applied: active decree Brand New Decree: FromAPatch (no game name)"), said(ui2));
 });
 
 test('only the decree the term has active is marked Active in the pool, and it is the Vehicles variant, not SpecialVendorActive', async () => {
@@ -193,7 +196,7 @@ test('the reigning faction drop-down starts on the character\'s own faction; App
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].body, { active_decree_id: '6', reigning_faction_id: '2' });
   assert.ok(ui.doc.querySelector('#lsb-tdp').open, 'the panel stays open after the write');
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('Applied: active decree CHOAM Refining Contract, reigning faction Harkonnen'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).includes('Applied: active decree CHOAM Refining Contract, reigning faction Harkonnen'), said(ui));
 });
 
 test('none clears the decree and keeps the faction; the faction drop-down has no none (#960)', async () => {
@@ -214,9 +217,9 @@ test('no faction chosen: the drop-down shows a neutral placeholder that cannot b
   assert.ok(!opts.some((o) => /none/i.test(text(o))), 'no option says none');
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term'), [], 'nothing is written');
-  const r = ui.doc.querySelector('#lsb-tresult');
-  assert.ok(text(r).startsWith('Choose a reigning faction first'), text(r));
-  assert.ok(r.classList.contains('bad'), 'shown as a refusal');
+  assert.ok(said(ui).startsWith('Choose a reigning faction first'), said(ui));
+  assert.ok(toastOf(ui).classList.contains('err'), 'shown as a refusal: an error toast, which stays until it is dismissed');
+  assert.equal(ui.doc.querySelector('#lsb-tresult'), null, 'no line of the page holds it');
   // choosing a faction removes the placeholder and Apply writes again
   select(ui, '#lsb-trf', 2);
   assert.deepEqual([...ui.doc.querySelectorAll('#lsb-trf option')].map((o) => text(o)), ['Atreides (your faction)', 'Harkonnen']);
@@ -244,7 +247,7 @@ test('Make active follows the faction drop-down, and with none chosen it is disa
   assert.equal(b.getAttribute('aria-disabled'), 'true');
   ui.click('#lsb-tdp [data-lb="tmk"][data-id="9"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term'), []);
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('Choose a reigning faction'));
+  assert.ok(said(ui).includes('Choose a reigning faction'));
 });
 
 test('a reigning faction the list does not offer is shown as none, and Apply leaves it alone: the request names no faction and no button names it', async () => {
@@ -258,14 +261,14 @@ test('a reigning faction the list does not offer is shown as none, and Apply lea
   select(ui, '#lsb-tad', 6);
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '6' }], 'the faction is not part of the request');
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('reigning faction left as it is'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).includes('reigning faction left as it is'), said(ui));
   // choosing a faction that is offered sends it; no faction chosen on purpose is no longer a request at all (a decree needs a faction, #960)
   select(ui, '#lsb-trf', 2);
   ui.click('[data-lb="tapply"]'); await ui.settle();
   select(ui, '#lsb-trf', '');
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term').slice(1).map((p) => p.body), [{ active_decree_id: '6', reigning_faction_id: '2' }]);
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Choose a reigning faction first'));
+  assert.ok(said(ui).startsWith('Choose a reigning faction first'));
 });
 
 test('a save with a decree and no faction can still have its decree cleared: none sends the decree only, and a decree still needs a faction (#960)', async () => {
@@ -276,12 +279,12 @@ test('a save with a decree and no faction can still have its decree cleared: non
   // keeping the decree with no faction chosen is still refused
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term'), []);
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).startsWith('Choose a reigning faction first'));
+  assert.ok(said(ui).startsWith('Choose a reigning faction first'));
   // none for the decree: the request names the decree only, so no faction is written
   select(ui, '#lsb-tad', '');
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '' }]);
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('active decree none, reigning faction left as it is'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).includes('active decree none, reigning faction left as it is'), said(ui));
 });
 
 test('a save without a term says so, and a hostile decree name is shown as text', async () => {
@@ -320,7 +323,7 @@ test('a term whose active decree is the plain row says "Another decree" with no 
   assert.equal(text(sel.querySelector('option[value="7"]')), 'Another decree');
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body), [{ active_decree_id: '7', reigning_faction_id: '1' }], 'the row is written as the save holds it, never as none');
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('Applied: active decree Another decree'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).includes('Applied: active decree Another decree'), said(ui));
 });
 
 test('a save without the plain vendor decree draws the same page', async () => {
@@ -339,7 +342,7 @@ test('Make active on another row during a pending Apply sends nothing and leaves
   ui.click('[data-lb="tapply"]'); await ui.settle();
   assert.ok(release, 'the Apply request is held');
   ui.click('#lsb-tdp [data-lb="tmk"][data-id="9"]'); await ui.settle();
-  assert.ok(text(ui.doc.querySelector('#lsb-tresult')).includes('A write is still running'), text(ui.doc.querySelector('#lsb-tresult')));
+  assert.ok(said(ui).includes('A write is still running'), said(ui));
   release(); await ui.settle();
   assert.deepEqual(posted(ui, '/api/landsraad/term').map((p) => p.body.active_decree_id), ['2'], 'one request, for the decree that was applied');
   assert.equal(ui.doc.querySelector('#lsb-tad').value, '2', 'the drop-down shows the decree of the write that ran, not the row that was clicked meanwhile');
@@ -357,8 +360,8 @@ test('a second click on the running Apply says a write is running, not the title
   assert.equal(b.getAttribute('aria-disabled'), 'true', 'the running button is drawn off');
   b.title = 'THE BUTTON TITLE'; // what the old order would have shown instead of the wait line
   ui.click('[data-lb="tapply"]'); await ui.settle();
-  const said = text(ui.doc.querySelector('#lsb-tresult'));
-  assert.ok(said.includes('A write is still running') && !said.includes('THE BUTTON TITLE'), said);
+  const line = said(ui);
+  assert.ok(line.includes('A write is still running') && !line.includes('THE BUTTON TITLE'), line);
   release(); await ui.settle();
   assert.equal(posted(ui, '/api/landsraad/term').length, 1, 'one request');
 });

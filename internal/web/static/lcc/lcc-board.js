@@ -274,18 +274,21 @@
     return c;
   }
   const letterOf = (name) => (/^atreides/i.test(String(name)) ? 'a' : /^harkonnen/i.test(String(name)) ? 'h' : '');
-  // The count line (#1116). With no filter narrowing the board it says plainly "All 25 shown": a fraction "25 / 25" read as if all 25 Houses were already chosen (the number of chosen Houses is in the
-  // action bar, never here). When a filter narrows the board it says "9 / 25 shown". The number of shown Houses keeps its data-lk "shown".
+  // The count line (#1118, after #1116): always a plain count, "N / 25 shown", and "25 / 25 shown" when no filter narrows the board. The Houses that are chosen are counted in the action bar ("N / 25 chosen"),
+  // never here. The number of shown Houses keeps its data-lk "shown".
   function countNums(nums, n, total) {
-    const all = n === total, d = root.document;
-    if (nums.getAttribute('data-all') !== String(all) || !nums.firstChild) {
-      nums.setAttribute('data-all', String(all)); nums.textContent = '';
-      const b = el('b', '', String(n), { 'data-lk': 'shown' });
-      if (all) { nums.appendChild(d.createTextNode('All ')); nums.appendChild(b); } else { nums.appendChild(b); nums.appendChild(d.createTextNode(' / ')); nums.appendChild(el('b', '', String(total))); }
+    const d = root.document;
+    if (!nums.firstChild) {
+      nums.textContent = '';
+      nums.appendChild(el('b', '', String(n), { 'data-lk': 'shown' })); nums.appendChild(d.createTextNode(' / ')); nums.appendChild(el('b', '', String(total), { 'data-lk': 'total' }));
       nums.appendChild(el('span', 'lcc-k-cw', ' shown')); // the word is not drawn on a phone (a style rule), where the row has no room for it; the live region says the whole sentence
-    } else { const b = nums.querySelector('[data-lk="shown"]'); if (b && b.textContent !== String(n)) b.textContent = String(n); }
+    } else {
+      const b = nums.querySelector('[data-lk="shown"]'), t = nums.querySelector('[data-lk="total"]');
+      if (b && b.textContent !== String(n)) b.textContent = String(n);
+      if (t && t.textContent !== String(total)) t.textContent = String(total);
+    }
   }
-  const shownSr = (n, total) => (n === total ? 'All ' + total + ' Houses shown' : n + ' of ' + total + ' Houses shown');
+  const shownSr = (n, total) => n + ' of ' + total + ' Houses shown';
   function strip(board, matchIds) {
     const s = el('div', 'lcc-k-strip', '', { 'data-part': 'strip' });
     const lens = el('div', 'lcc-k-lens lcc-k-pane lcc-k-pane-f', '', { 'data-part': 'lens' });
@@ -762,9 +765,11 @@
     const head = el('div', 'lcc-bd-editor-head');
     head.appendChild(secHead('ACTIONS', 'lcc-bd-s4'));
     s4.appendChild(head);
-    const r1 = el('div', 'lcc-bd-erow', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
+    // #1119: the block is a two-column grid of equal-width keys and every row ends at the panel's right edge: the Faction box over the whole width, Fill and Fill faction goal side by side (Fill is the one accent key),
+    // Complete House next to Reopen (the quieter one), then Set tier and Apply tier a little below. Layout and style only: the same controls, words, keys and requests.
+    const r1 = el('div', 'lcc-bd-erow lcc-bd-egrid', '', { role: 'group', 'aria-label': 'Actions on House ' + h.name });
     if (c.factions && c.factions.length) {
-      const lab = el('label', 'lcc-bd-elab', 'Faction', { for: 'lcc-bd-fac' });
+      const lab = el('label', 'lcc-bd-elab lcc-bd-efield', 'Faction', { for: 'lcc-bd-fac' });
       const fs = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-fac', 'data-lcb': 'fac', 'data-fk': 'fac-i', 'data-was': String(c.F), title: 'Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '') });
       for (const f of c.factions) { const o = el('option', '', f.name, { value: String(f.id) }); if (String(f.id) === String(c.F)) o.selected = true; fs.appendChild(o); }
       if (c.busy) fs.disabled = true; // a redraw during a write: the box is built off, as lbRunning turned it off (#882)
@@ -772,13 +777,13 @@
       lab.appendChild(fs);
       r1.appendChild(lab);
     } else r1.appendChild(el('span', 'lcc-bd-elab', 'Acting for ' + c.facName + (c.ownF ? ' (your faction)' : '')));
-    r1.appendChild(actionBtn(h.tierCount ? 'Fill ' + h.tierCount + ' tiers' : 'Fill', 'fill', h, c.fill, 'qf:' + h.id));
+    r1.appendChild(actionBtn(h.tierCount ? 'Fill ' + h.tierCount + ' tiers' : 'Fill', 'fill', h, c.fill, 'qf:' + h.id, { class: 'lcc-bd-act lcc-bd-act-pri' }));
     r1.appendChild(actionBtn('Fill faction goal', 'fillgoal', h, c.fillgoal, 'af:' + h.id));
     r1.appendChild(actionBtn('Complete House', 'complete', h, c.complete, 'ac:' + h.id));
-    r1.appendChild(actionBtn('Reopen', 'reopen', h, c.reopen, 'ar:' + h.id, { class: 'lcc-bd-act lcc-bd-act-danger' }));
+    r1.appendChild(actionBtn('Reopen', 'reopen', h, c.reopen, 'ar:' + h.id, { class: 'lcc-bd-act lcc-bd-act-quiet' }));
     s4.appendChild(r1);
-    const r2 = el('div', 'lcc-bd-erow');
-    const tl = el('label', 'lcc-bd-elab', 'Set tier', { for: 'lcc-bd-tierset', title: W().pledged + ' ≠ earned ≠ collected: pledged is a faction, earned is your tier, collected is the reward taken. Help, The Landsraad board, explains the three.' }); // the standing line is a hover text (#1062)
+    const r2 = el('div', 'lcc-bd-erow lcc-bd-egrid lcc-bd-eset');
+    const tl = el('label', 'lcc-bd-elab lcc-bd-efield', 'Set tier', { for: 'lcc-bd-tierset', title: W().pledged + ' ≠ earned ≠ collected: pledged is a faction, earned is your tier, collected is the reward taken. Help, The Landsraad board, explains the three.' }); // the standing line is a hover text (#1062)
     const ts = el('select', 'lcc-bd-select lcc-bd-eselect', '', { id: 'lcc-bd-tierset', 'data-fk': 'ts:' + h.id });
     for (let n = 0; n <= h.tierCount; n++) { const o = el('option', '', n === 0 ? '0 — none' : n + ' / ' + h.tierCount, { value: String(n) }); if (n === h.reached) o.selected = true; ts.appendChild(o); }
     if (!h.tierCount || c.busy) ts.disabled = true;
@@ -1050,7 +1055,8 @@
     const hid2 = panel.querySelector('[data-lk="hid2"]');
     if (hid2) { hid2.textContent = c.hidden ? c.hidden + ' not shown' : ''; hid2.hidden = !c.hidden; }
     setText(panel, '[data-lk="n"]', String(c.chosen));
-    setText(panel, '[data-lk="nsr"]', c.chosen + (c.chosen === 1 ? ' House' : ' Houses') + ' chosen' + (c.hidden ? ' (' + c.hidden + ' not shown)' : ''));
+    setText(panel, '[data-lk="ntotal"]', '/ ' + c.board.houses.length + ' chosen'); // the action bar counts against all the Houses of the board, as the count line does (#1118)
+    setText(panel, '[data-lk="nsr"]', c.chosen + ' of ' + c.board.houses.length + ' Houses chosen' + (c.hidden ? ' (' + c.hidden + ' not shown)' : ''));
     const m = last.container.querySelector('#lcc-bd-menu');
     if (m) {
       setText(m, '[data-lk="pcnt"]', c.chosen + ' chosen' + (c.hidden ? ', ' + c.hidden + ' not shown' : ''));

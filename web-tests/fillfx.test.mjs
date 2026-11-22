@@ -195,6 +195,7 @@ const NOT_FILLS = {
   autoNow: 'the automatic pass: runs the jobs that are ticked and reports in its own banner (a later piece of #571)',
   launchSkip: 'ends the countdown of the automatic pass',
   launchOff: 'turns the automatic pass off',
+  cancelRefill: 'stops a waiting automatic refill from waiting (#1123): nothing is filled or written',
 };
 
 test('every action of the editor that fills, refills, refuels or repairs has an animation, and the list in this file is the table of app.js', () => {

@@ -2,7 +2,7 @@
 //   #1113 the mouse-over text of a key in the control strip opens under the whole strip, never under its own key, and keeps to the strip's width (wraps)
 //   #1114 the Filter menu's House list has an All choice; the pledge row says All where it said Any
 //   #1115 the Inspector section and the list column say Location, not Place
-//   #1116 with no filter narrowing the board the count line says "All 25 shown", not "25 / 25"
+//   #1116 the strip has no Choose shown key (All in the Filter menu chooses every shown House); #1118 the count line is always "N / 25 shown" and the action bar "N / 25 chosen"
 // jsdom has no layout: the numbers of #1113 are checked as the rule the code applies (inline style on the tip); the real placement is shown by the headless pictures in the pull request.
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -118,19 +118,28 @@ test('#1115: the Inspector section and the list column say Location', async () =
   assert.ok(!heads2.includes('PLACE'), 'no PLACE heading: ' + heads2.join(' | '));
 });
 
-test('#1116: nothing narrows the board: "All 25 shown", never "25 / 25"; a narrowing filter says "n / 25 shown"', async () => {
+test('#1118: the count line is always "N / 25 shown", 25 / 25 when nothing narrows the board; the action bar says "N / 25 chosen"', async () => {
   const ui = await open();
   const count = () => text(ui.doc.querySelector('#lcc-bd-shown [data-lk="nums"]'));
-  assert.equal(count(), 'All 25 shown');
-  assert.doesNotMatch(count(), /\//, 'no fraction');
-  assert.equal(text(ui.doc.querySelector('[data-lk="shownsr"]')), 'All 25 Houses shown');
+  assert.equal(count(), '25 / 25 shown');
+  assert.doesNotMatch(count(), /\bAll\b/, 'no All special case');
+  assert.equal(text(ui.doc.querySelector('[data-lk="shownsr"]')), '25 of 25 Houses shown');
   click(ui, '[data-lcb="filter"][data-key="show"][data-val="part"]');
   const n = Number(ui.doc.querySelector('[data-lk="shown"]').textContent);
   assert.ok(n > 0 && n < 25, 'a filter narrows the board: ' + n);
   assert.equal(count(), n + ' / 25 shown');
   assert.equal(text(ui.doc.querySelector('[data-lk="shownsr"]')), n + ' of 25 Houses shown');
   click(ui, '[data-lcb="filter"][data-key="show"][data-val="all"]');
-  assert.equal(count(), 'All 25 shown', 'and back');
+  assert.equal(count(), '25 / 25 shown', 'and back');
+  // the action bar: the number of chosen Houses against all of them
+  const first = ui.doc.querySelector('.lcc-bd-pick');
+  assert.ok(first, 'a House can be chosen');
+  click(ui, first);
+  const bar = ui.doc.querySelector('.lcc-k-cmd');
+  assert.equal(text(bar.querySelector('[data-lk="n"]')), '1');
+  assert.equal(text(bar.querySelector('.lcc-k-chosen')), '/ 25 chosen', 'the bar reads 1 / 25 chosen');
+  assert.equal(text(bar.querySelector('[data-lk="nsr"]')), '1 of 25 Houses chosen');
+  assert.equal(text(ui.doc.querySelector('#lcc-bd-shown [data-lk="nums"]')), '25 / 25 shown', 'the count line is not the choice');
 });
 
 test('#1116: the filter-mode strip has no Choose shown key; All in the Filter menu is the one way to choose every shown House (and it clears when all are ticked)', async () => {
@@ -141,7 +150,7 @@ test('#1116: the filter-mode strip has no Choose shown key; All in the Filter me
   assert.equal(strip.querySelector('[data-lb="pickall"], [data-fk="b-all"], [data-lk="chooselabel"], .bp-choose, [data-bar="choose"], [data-lcc-slot="choose"]'), null, 'no key, part or slot of Choose shown');
   assert.equal(ui.doc.querySelector('.lcc-k-lens [data-lb]'), null, 'the filter row has no key of the page that writes or chooses');
   // the count line is as it was
-  assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), 'All 25 shown');
+  assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), '25 / 25 shown');
   // the Filter menu's All is reachable and named, and chooses the shown Houses with no request
   click(ui, '[data-lk="fbtn"]');
   const first = ui.doc.querySelector('#lcc-bd-menu [data-lk="hall"]');

@@ -200,7 +200,7 @@ test('names and paths from a save are only text on the board, the list and the I
 test('Show, House and Path dim the Houses they leave out and keep the board fixed; the count says how many are shown', async () => {
   const ui = await open();
   const said = () => text(ui.doc.querySelector('[data-lk="shownsr"]'));
-  assert.equal(said(), 'All 25 Houses shown', 'the strip always says the count (tau #974, #1116: all of them when nothing narrows the board); the live region stays');
+  assert.equal(said(), '25 of 25 Houses shown', 'the strip always says the count (tau #974, #1118: 25 of 25 when nothing narrows the board); the live region stays');
   assert.equal(ui.doc.querySelector('#lcc-bd-shown').getAttribute('role'), 'status', 'the live region stays');
   click(ui, '[data-lk="fbtn"]');
   click(ui, '[data-fk="bf:hs:open"]');

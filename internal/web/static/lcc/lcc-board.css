@@ -323,7 +323,18 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-elab { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1.3 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-eselect { min-height: 36px; padding: 6px 9px; font-size: 12px; }
 .lcc-bd-erow .lcc-bd-act { padding: 7px 9px; }
-.lcc-bd-act.lcc-bd-act-danger { border-color: var(--lcc-red); color: var(--lcc-red-t); }
+/* #1119: the actions block is a two-column grid of equal-width keys, every row ending at the panel's right edge. Faction is the whole width; Set tier sits a little below the keys. One accent key (Fill), Reopen the quiet one. */
+.lcc-bd-egrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; align-items: stretch; }
+.lcc-bd-egrid > .lcc-bd-elab { min-width: 0; }
+.lcc-bd-egrid:not(.lcc-bd-eset) > .lcc-bd-elab:first-child { grid-column: 1 / -1; }
+.lcc-bd-eset { margin-top: 16px; }
+.lcc-bd-efield { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); align-items: center; gap: 6px; }
+.lcc-bd-efield .lcc-bd-eselect { width: 100%; min-width: 0; }
+.lcc-bd-egrid > .lcc-bd-act { width: 100%; min-width: 0; justify-content: center; text-align: center; }
+.lcc-bd-erow .lcc-bd-act.lcc-bd-act-pri { background: var(--lcc-gold); border-color: var(--lcc-gold); color: var(--lcc-on-gold); }
+.lcc-bd-erow .lcc-bd-act.lcc-bd-act-pri:hover:not([aria-disabled="true"]):not(:disabled) { background: var(--lcc-gold-hi); border-color: var(--lcc-gold-hi); }
+.lcc-bd-erow .lcc-bd-act.lcc-bd-act-quiet { background: transparent; border-color: var(--lcc-stroke-faint); color: var(--lcc-dim); font-weight: 600; }
+.lcc-bd-erow .lcc-bd-act.lcc-bd-act-quiet:hover:not([aria-disabled="true"]):not(:disabled) { border-color: var(--lcc-gold-text); color: var(--lcc-text); }
 .lcc-bd-tip { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--lcc-stroke-faint); font: 10px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-act { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; cursor: pointer; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-act:hover { border-color: var(--lcc-gold-text); }

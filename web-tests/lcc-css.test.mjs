@@ -368,8 +368,8 @@ test('contrast: the rules that paint that text use the text tokens, and the stro
   const use = (sel, tok) => assert.ok(rules.some((r) => r.at === '' && r.sel.split(',').map((s) => s.trim()).includes(sel) && r.body.includes('color: var(--lcc-' + tok + ')')), sel + ' takes color from --lcc-' + tok);
   use('.lcc-hc-a .lcc-hc-owner', 'teal-t'); use('.lcc-hc-h .lcc-hc-owner', 'red-t');
   use('.lcc-bd-editor .lcc-bd-sec-h', 'heading'); use('.lcc-bd-fc-h', 'red-t'); use('.lcc-bd-fc-a', 'teal-t');
-  use('.lcc-bd-tier-s.mk.delivered', 'tier-bg'); use('.lcc-bd-act.lcc-bd-act-danger', 'red-t');
-  assert.match(bare, /\.lcc-bd-act\.lcc-bd-act-danger \{ border-color: var\(--lcc-red\);/, 'the danger button keeps the accent for its stroke');
+  use('.lcc-bd-tier-s.mk.delivered', 'tier-bg'); use('.lcc-bd-erow .lcc-bd-act.lcc-bd-act-quiet', 'dim'); use('.lcc-bd-erow .lcc-bd-act.lcc-bd-act-pri', 'on-gold'); // #1119: Reopen is the quiet key, Fill the one filled key
+  assert.match(bare, /\.lcc-bd-erow \.lcc-bd-act\.lcc-bd-act-pri \{ background: var\(--lcc-gold\); border-color: var\(--lcc-gold\);/, 'the filled key keeps the gold for its fill and stroke');
   assert.match(bare, /\.lcc-hc-a \{ border-color: var\(--lcc-teal\);/, 'the card stroke keeps the accent');
 });
 

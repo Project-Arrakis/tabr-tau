@@ -39,7 +39,7 @@ test('nothing chosen: the strip shows Show tabs, Filter, Find House and the coun
   assert.deepEqual([...strip.querySelectorAll('[role="radio"][data-key="show"]')].map((b) => text(b)), ['All', 'What is left', 'Not started', 'In progress', 'Top tier']);
   assert.ok(strip.querySelector('[data-lk="fbtn"]'), 'no Filter key');
   assert.ok(strip.querySelector('[data-lk="findbtn"]'), 'no Find House key');
-  assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), 'All 25 shown', 'nothing narrows the board: no fraction that looks like a choice (#1116)');
+  assert.equal(text(strip.querySelector('#lcc-bd-shown [data-lk="nums"]')), '25 / 25 shown', 'nothing narrows the board: the plain count, 25 / 25 shown (#1118)');
   assert.equal(ui.doc.querySelectorAll('.lcc-k-strip [data-lk="chips"] .lcc-k-chip').length, 0, 'a chip with nothing filtered');
 });
 

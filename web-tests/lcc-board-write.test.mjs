@@ -296,7 +296,7 @@ test('the grant before the click: the Inspector says what a raise would write, a
   assert.match(text(over.doc.querySelector('.lcc-bd-insp')), /will be refused/);
 });
 
-test('the actions block has the approved layout: Faction and Fill 5 tiers, the House actions with Reopen marked red, Set tier and Apply tier', async () => {
+test('the actions block has the approved layout: Faction, Fill 5 tiers (the one accent key) and Fill faction goal, Complete House and Reopen (the quiet one), Set tier and Apply tier (#1119)', async () => {
   const ui = await open('board');
   const a = synthetic();
   select_(ui, a, 'Kenola');
@@ -305,7 +305,13 @@ test('the actions block has the approved layout: Faction and Fill 5 tiers, the H
   assert.equal(rows.length, 2);
   assert.deepEqual([...rows[0].querySelectorAll('label, .lcc-bd-act')].map((x) => text(x).replace(/ (Atreides|Harkonnen).*$/, '')), ['Faction', 'Fill 5 tiers', 'Fill faction goal', 'Complete House', 'Reopen']);
   assert.deepEqual([...rows[0].querySelectorAll('.lcc-bd-act')].map((x) => x.dataset.do), ['fill', 'fillgoal', 'complete', 'reopen']);
-  assert.ok(rows[0].querySelector('.lcc-bd-act[data-do="reopen"]').classList.contains('lcc-bd-act-danger'));
+  // #1119: a two-column grid of equal-width keys; one accent key (Fill), Reopen the quieter one, no red mark; Set tier a little below
+  for (const r of rows) assert.ok(r.classList.contains('lcc-bd-egrid'), 'each row is a grid row');
+  assert.ok(rows[1].classList.contains('lcc-bd-eset'), 'the Set tier row is set apart');
+  assert.deepEqual([...ed.querySelectorAll('.lcc-bd-act-pri')].map((x) => x.dataset.do), ['fill'], 'one accent key only: the main fill');
+  assert.deepEqual([...ed.querySelectorAll('.lcc-bd-act-quiet')].map((x) => x.dataset.do), ['reopen'], 'Reopen is the quieter one');
+  assert.equal(ed.querySelector('.lcc-bd-act-danger'), null, 'no red mark on Reopen');
+  assert.ok(rows[0].querySelector('.lcc-bd-elab.lcc-bd-efield'), 'the Faction box is a field of its own row');
   assert.deepEqual([...rows[1].querySelectorAll('label, button')].map((x) => text(x).replace(/ 0.*$/, '')), ['Set tier', 'Apply tier']);
   assert.deepEqual([...ed.querySelectorAll('#lcc-bd-tierset option')].map((o) => text(o)), ['0 — none', '1 / 5', '2 / 5', '3 / 5', '4 / 5', '5 / 5']);
   // #948, #980: no badge, no note, no tooltip and no screen-reader sentence in the block: the facts it carried are in the Help tab
