@@ -71,6 +71,8 @@ span.warn,td .warn{display:inline-block;padding:1px 8px;margin:0;border-radius:v
 /* replaces the former inline styles; selectors are as specific as the rules they must beat */
 input.w70{width:70px}input.w80{width:80px}input.w90{width:90px}input.w100{width:100px}input.w150{width:150px}
 input.cfgv{width:100%;min-width:220px}
+/* the Give item picker: its drop-down is as wide as the box, so the box is wide enough for a whole name and its "(schematic)"; on a narrow screen it is at most the width of its row */
+input.pick-wide{width:72ch;max-width:100%}
 .row.mt12{margin-top:12px}.mut.mb8{margin-bottom:8px}
 ul.tight{margin:6px 0}
 .locked{max-width:560px;margin:15vh auto;padding:0 16px}

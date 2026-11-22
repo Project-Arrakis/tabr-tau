@@ -232,18 +232,31 @@ async function editInput(t, fn, okMsg, immediate = false) {
 const val = (id) => $('#' + id).value;
 
 // ---------- item names: one catalog, one picker, used by every place that asks for or shows an item
-let CATALOG = null; // { list: [{ id, label }], byLabel: Map(lower label -> id), byId: Map(id -> name) }
+let CATALOG = null; // { list: [{ id, name, kind, label }], byLabel: Map(lower label -> id), byId: Map(id -> name), kindOf: Map(id -> 'item' | 'schematic'), both: Set(names with an item and a schematic) }
 let EXTRA_IDS = new Set(); // ids in this save that the catalog lacks
+// An item and its schematic are two catalog entries with one name (the catalog files the schematic under the category "schematics"). The picker row of a
+// schematic says so, so that the two rows are never alike: "Item name" and "Item name (schematic)". Several of one kind with one name carry their template id too.
+const itemKind = (it) => (it.category === 'schematics' ? 'schematic' : 'item');
+const pickerLabel = (name, kind, id, ambiguous) => (kind === 'schematic' ? (ambiguous ? `${name} (schematic, ${id})` : `${name} (schematic)`) : (ambiguous ? `${name} (${id})` : name));
 async function loadCatalog(extraIds = []) {
   if (!CATALOG) {
     const items = await api('/api/catalog/items');
-    const count = new Map();
+    const count = new Map(), nameCount = new Map(), kinds = new Map();
     const idsLower = new Map(items.map((it) => [it.id.toLowerCase(), it.id]));
-    for (const it of items) count.set(it.name, (count.get(it.name) || 0) + 1);
-    // A name is ambiguous when several items share it, or when it spells another item's id (a typed id must win).
-    const ambiguous = (it) => count.get(it.name) > 1 || (idsLower.has(it.name.toLowerCase()) && idsLower.get(it.name.toLowerCase()) !== it.id);
-    const list = items.map((it) => ({ id: it.id, name: it.name, label: ambiguous(it) ? `${it.name} (${it.id})` : it.name }));
-    CATALOG = { list, byLabel: new Map(list.map((e) => [e.label.toLowerCase(), e.id])), byId: new Map(list.map((e) => [e.id, e.name])) };
+    for (const it of items) {
+      const k = itemKind(it);
+      count.set(k + '|' + it.name, (count.get(k + '|' + it.name) || 0) + 1);
+      nameCount.set(it.name, (nameCount.get(it.name) || 0) + 1);
+      if (!kinds.has(it.name)) kinds.set(it.name, new Set());
+      kinds.get(it.name).add(k);
+    }
+    // A name is ambiguous when several items of the same kind share it, or when it spells another item's id (a typed id must win).
+    const ambiguous = (it) => count.get(itemKind(it) + '|' + it.name) > 1 || (idsLower.has(it.name.toLowerCase()) && idsLower.get(it.name.toLowerCase()) !== it.id);
+    const list = items.map((it) => ({ id: it.id, name: it.name, kind: itemKind(it), label: pickerLabel(it.name, itemKind(it), it.id, ambiguous(it)) }));
+    const byLabel = new Map(list.map((e) => [e.label.toLowerCase(), e.id]));
+    // a schematic whose name no other entry has is still found by the bare name, as before the rows said what they are
+    for (const e of list) if (e.kind === 'schematic' && nameCount.get(e.name) === 1 && !byLabel.has(e.name.toLowerCase())) byLabel.set(e.name.toLowerCase(), e.id);
+    CATALOG = { list, byLabel, byId: new Map(list.map((e) => [e.id, e.name])), kindOf: new Map(list.map((e) => [e.id, e.kind])), both: new Set([...kinds].filter(([, v]) => v.size > 1).map(([n]) => n)) };
   }
   // ids that exist in this save but not in the catalog stay selectable by their id
   const extra = extraIds.filter((id) => id && !CATALOG.byId.has(id)).map((id) => ({ id, label: id }));
@@ -251,12 +264,19 @@ async function loadCatalog(extraIds = []) {
   return { list: extra.length ? CATALOG.list.concat(extra) : CATALOG.list };
 }
 const itemName = (id) => (CATALOG && CATALOG.byId.get(id)) || id;
+// The name for the queued line and the result of a give: a schematic says so, and an item that also has a schematic says it is the item.
+function itemKindName(id) {
+  const n = itemName(id), k = CATALOG && CATALOG.kindOf.get(id);
+  return k === 'schematic' ? n + ' (schematic)' : k === 'item' && CATALOG.both.has(n) ? n + ' (item)' : n;
+}
+const isSchematicId = (id) => !!(CATALOG && CATALOG.kindOf.get(id) === 'schematic');
 // An item cell: the in-game name, with the template id on hover.
 const itemCell = (id) => html`<span title="${id}">${itemName(id)}</span>`;
 // The picker: a text box with a drop-down of in-game names. Each option also carries its template id as its label, so
 // typing either the name or the id finds it; a name, a label or a raw template id are all accepted.
-function itemPicker(inputId, cat, placeholder = 'Item name, e.g. Spice Melange') {
-  return html`<input id="${inputId}" list="${inputId}-dl" aria-label="${placeholder}" placeholder="${placeholder}" size="34"><datalist id="${inputId}-dl">${cat.list.map((e) => html`<option value="${e.label}" label="${e.id}"></option>`)}</datalist>`;
+// wide: the browser's drop-down is as wide as its box, so the box that is to show whole names (and the kind of the row) is made wide; it never exceeds the screen.
+function itemPicker(inputId, cat, placeholder = 'Item name, e.g. Spice Melange', wide = false) {
+  return html`<input id="${inputId}" list="${inputId}-dl" aria-label="${placeholder}" placeholder="${placeholder}" size="34"${wide ? html` class="pick-wide"` : ''}><datalist id="${inputId}-dl">${cat.list.map((e) => html`<option value="${e.label}" label="${e.id}"></option>`)}</datalist>`;
 }
 // What the picker holds -> the template id to send. An exact template id always wins; otherwise a shown label.
 // The id of the item typed or picked in an item box, or '' when the text is not an item: a catalog name, a catalog id or an id already in
@@ -1027,10 +1047,10 @@ async function playerSection(s) {
       ${tip('augtip', 'Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all.', html`<button class="b d-btn primary" data-act="augApply" data-id="${augItem.item_id}" aria-describedby="augtip">Apply</button>`)}<button class="b sec d-btn" data-act="augCancel">Cancel</button></div></div>` : '';
     h.push(augCard);
     h.push(html`<div class="card d-panel"><h3 class="d-head">Repair</h3><div class="row">${tip('repairtip', 'Everything you wear, everything in your loadout and everything in your backpack is made as good as new: full durability, with a maximum that repairs wore down restored. Chests and the items of other characters are not touched.', html`<button class="b d-btn primary" data-act="repair" aria-describedby="repairtip">Repair all worn items, loadouts and backpack</button>`)}</div></div>`);
-    h.push(html`<div class="card d-panel"><h3 class="d-head">Give item</h3><div class="row">${itemPicker("gt", cat)}
+    h.push(html`<div class="card d-panel"><h3 class="d-head">Give item</h3><div class="row">${itemPicker("gt", cat, undefined, true)}
     Qty<input id="gq" aria-label="Quantity to give" type="number" value="1" min="1">Grade<select id="gg" aria-label="Grade of the item to give">${[0, 1, 2, 3, 4, 5].map((n) => html`<option>${n}</option>`)}</select><button class="b d-btn primary" data-act="give">Give</button><button class="b sec d-btn" data-act="queueAdd">Add to queue</button></div>
     <div class="row" id="gaug"></div>
-    ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm d-btn sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b d-btn primary" data-act="queueGive">Give queued items</button><button class="b sec d-btn" data-act="queueClear">Clear</button></div>` : ''}
+    ${giveQueue.length ? html`<div class="row"><b>Queue (${giveQueue.length})</b>${giveQueue.map((q, i) => html`<span class="tag">${q.quantity} x ${itemKindName(q.template_id)}${q.quality ? ' (grade ' + q.quality + ')' : ''}${q.augments && q.augments.length ? ' + ' + q.augments.map((a) => augName(a)).join(', ') : ''} <button class="b sec sm d-btn sm" data-act="queueDel" data-id="${i}" title="Remove from the queue">x</button></span>`)}<button class="b d-btn primary" data-act="queueGive">Give queued items</button><button class="b sec d-btn" data-act="queueClear">Clear</button></div>` : ''}
     ${about('inventory.give', 'Give item', html`<p class="mut">Pick an item by its in-game name. Items already in your save that the catalog does not know are listed by their template id; any valid template id can also be typed.</p>`)}</div>
     ${invCard}`);
   } else if (c == 'carepackage') {
@@ -3385,12 +3405,12 @@ const A = {
   },
   queueDel: (d) => { giveQueue.splice(+d.id, 1); keepQueue(); render(true); },
   queueClear: () => { giveQueue = []; keepQueue(); render(true); },
-  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); giveQueue = []; keepQueue(); giveToast(r, 'units of the queued items', `Added ${r.count} items`); }, null),
+  queueGive: () => act(async () => { const r = await api('/api/player/give-items', { items: giveQueue }); const sc = giveQueue.filter((q) => isSchematicId(q.template_id)).length; giveQueue = []; keepQueue(); giveToast(r, 'units of the queued items', `Added ${r.count} items` + (sc ? ` (${sc} schematic${sc === 1 ? '' : 's'})` : '')); }, null),
   give: () => act(async () => {
     const ids = augPicked('ga', 3), tid = needItem('gt');
     const r = ids.length ? await api('/api/player/give-items', { items: [{ template_id: tid, quantity: +val('gq'), quality: +val('gg'), augments: ids, grade: +val('gag') }] })
       : await api('/api/player/give', { template_id: tid, quantity: +val('gq'), quality: +val('gg') });
-    giveToast(r, itemName(tid), 'Item added');
+    giveToast(r, itemKindName(tid), isSchematicId(tid) ? 'Schematic added' : 'Item added');
   }, null),
   faction: () => act(async () => { const r = await api('/api/player/faction', { faction_id: +val('facSel') }); toast(`Faction set to ${r.faction}` + NOT_SAVED); }, null),
   repair: () => act(async () => { const r = await api('/api/player/repair', {}); fillToast('repair', (r.repaired || 0) + (r.backpackRepaired || 0) > 0, gearRepairText(r) + NOT_SAVED); }, null),
