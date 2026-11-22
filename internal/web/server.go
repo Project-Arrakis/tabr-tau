@@ -55,6 +55,8 @@ type Server struct {
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
 	autoWaiting  bool   // the automatic pass is waiting because a game process exists or may still hold the save's rows (#419, #499, #612); RunAutosave runs it once that clears
 	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.UnattendedStateFor); empty when it is not waiting
+	cancelGen    uint64 // bumped by Cancel in the queue view: a retry that started before it must not run the pass, or arm the wait again (#1124)
+	afterReload  func() // test hook: called by retryWaitingPass between the re-read of the save and the pass; nil in production
 	lastAutoFail string // why the last automatic pass could not finish, kept for the card
 	settingsNote string // the last "settings.json was damaged, the backup copy is used" note that was written to the log (#442)
 
@@ -1052,6 +1054,7 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 func (s *Server) retryWaitingPass() {
 	s.startupMu.Lock()
 	waiting := s.autoWaiting
+	gen := s.cancelGen // a Cancel after this point wins over this retry (#1124)
 	s.startupMu.Unlock()
 	if !waiting {
 		return
@@ -1078,7 +1081,10 @@ func (s *Server) retryWaitingPass() {
 		return // nothing is queued but the file could not be read, or an edit came in: try again at the next tick
 	}
 	// the file was read again with nothing queued: no edit was dropped, so the ledger stays (#760)
-	s.RunStartupTasks()
+	if s.afterReload != nil {
+		s.afterReload()
+	}
+	s.runPassGuarded(false, true, gen)
 }
 
 // waitWhy is what a blocked game state is waiting for, in the words the banner uses for an edit made by hand (a session is active, the game wrote N seconds ago, the
@@ -1106,11 +1112,16 @@ func (s *Server) autoRefillWait() map[string]any {
 }
 
 // cancelWaitingPass is the Cancel button of the queue view: the refill that waits for the game stops waiting, and says whether there was one. It writes nothing and changes no setting.
+// A retry that is already under way (it re-reads the save before it runs) sees the cancel through cancelGen and does not run: Cancel wins, and "cancelled" is true only when no write follows (#1124).
 func (s *Server) cancelWaitingPass() bool {
 	s.startupMu.Lock()
+	defer s.startupMu.Unlock()
 	was := s.autoWaiting
-	s.startupMu.Unlock()
-	s.stopWaitingPass()
+	s.cancelGen++
+	if was {
+		s.autoWaiting, s.autoWaitWhy = false, ""
+		s.startupNote, s.startupWarn = "", false
+	}
 	return was
 }
 
@@ -1164,7 +1175,11 @@ func (s *Server) RunStartupTasks() { s.runPass(false) }
 // rows (the gate of an edit made by hand, #499): nobody watches an unattended write, so it does not rest on the game's log alone (#612; #419 had it wait for every game process, #499
 // dropped that, #612 restored it for the pass at launch only). A pass asked for by hand has the gate of an edit made by hand. A pass that finds nothing
 // to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
-func (s *Server) runPass(manual bool) {
+func (s *Server) runPass(manual bool) { s.runPassGuarded(manual, false, 0) }
+
+// runPassGuarded is runPass for a retry that captured the cancel generation when it started (guarded, gen): if Cancel has been pressed since, the pass neither runs nor
+// waits again. The check is made under startupMu at the two places where the pass would act on the wait, so a Cancel is atomic with them (#1124).
+func (s *Server) runPassGuarded(manual, guarded bool, gen uint64) {
 	cur := settings.Load(s.SettingsPath)
 	if !manual && !cur.AutoRefillOnOpen {
 		s.stopWaitingPass() // a pass that waited and was then switched off must not stay waiting (#441)
@@ -1222,12 +1237,20 @@ func (s *Server) runPass(manual bool) {
 		// the log cannot be read), and not while the check cannot say. It is not prepared against a file the game is about to rewrite either: it waits, and RunAutosave runs it on
 		// the fresh file as soon as the game is closed and the gate lets a write through.
 		s.startupMu.Lock()
+		if guarded && s.cancelGen != gen { // cancelled while the retry was under way: the wait does not come back
+			s.startupMu.Unlock()
+			return
+		}
 		s.autoWaiting, s.autoWaitWhy = true, why
 		s.startupMu.Unlock()
 		set("Automatic refill queued: "+why+". It runs by itself, on the file as the game left it, as soon as that clears."+off, false)
 		return
 	}
 	s.startupMu.Lock()
+	if guarded && s.cancelGen != gen { // cancelled while the retry was under way: nothing runs and nothing is written
+		s.startupMu.Unlock()
+		return
+	}
 	s.autoWaiting, s.autoWaitWhy = false, ""
 	s.startupMu.Unlock()
 	if len(s.Save.Pending()) > 0 { // edits from an earlier run are still waiting: the refill is not mixed into them

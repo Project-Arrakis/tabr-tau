@@ -201,3 +201,32 @@ test('#1123: the queued-refill note is one short sentence with a neutral queued 
   const ui2 = await boot2(state({}), { '/api/startup': { note: other, warn: true } });
   assert.equal(text(toasts(ui2)[0].querySelector('span')), other);
 });
+
+// ---------------------------------------------------------------- review of #1124: a disabled key must not take the hover fill
+
+test('#1119 review: the hover look of the Fill and Reopen keys leaves a disabled key alone (the shared disabled look of app.css is not overridden by :hover)', async () => {
+  const css = read('../internal/web/static/lcc/lcc-board.css');
+  // the two hover rules tie with the disabled rule of app.css (same specificity, loaded later), so each must not match a disabled key
+  for (const cls of ['pri', 'quiet']) {
+    const rule = css.split('\n').find((l) => l.startsWith('.lcc-bd-erow .lcc-bd-act.lcc-bd-act-' + cls + ':hover'));
+    assert.ok(rule, 'the hover rule of the ' + cls + ' key');
+    const sel = rule.slice(0, rule.indexOf('{')).trim();
+    assert.ok(sel.includes(':not([aria-disabled="true"])') && sel.includes(':not(:disabled)'), cls + ' hover selector has no disabled guard: ' + sel);
+  }
+  // jsdom cannot hover, so the cascade is run with :hover standing in as a class on the key: the same selectors, the same order (app.css first, as index.html loads them)
+  const ui = await boot2(state({}));
+  const doc = ui.doc;
+  const st = doc.createElement('style');
+  st.textContent = (read('../internal/web/static/app.css') + '\n' + css).replace(/:hover/g, '.is-hov').replace(/var\(--lcc-gold-hi\)/g, '#ffe9a8').replace(/var\(--lcc-text\)/g, '#123456'); // literal colours: jsdom does not resolve var() in a shorthand
+  doc.head.appendChild(st);
+  const host = doc.createElement('div');
+  host.className = 'lcc-bd-erow';
+  host.innerHTML = '<button class="lcc-bd-act lcc-bd-act-pri is-hov" id="t-pri-on">Fill</button><button class="lcc-bd-act lcc-bd-act-pri is-hov" id="t-pri-off" aria-disabled="true">Fill</button>'
+    + '<button class="lcc-bd-act lcc-bd-act-quiet is-hov" id="t-q-on">Reopen</button><button class="lcc-bd-act lcc-bd-act-quiet is-hov" id="t-q-off" aria-disabled="true">Reopen</button>';
+  doc.body.appendChild(host);
+  const cs = (id) => ui.w.getComputedStyle(doc.getElementById(id));
+  assert.equal(cs('t-pri-on').backgroundColor, 'rgb(255, 233, 168)', 'an enabled Fill still takes the hover fill');
+  assert.notEqual(cs('t-pri-off').backgroundColor, 'rgb(255, 233, 168)', 'a disabled Fill under hover must not get the hover fill');
+  assert.equal(cs('t-q-on').color, 'rgb(18, 52, 86)', 'an enabled Reopen still takes the hover text');
+  assert.notEqual(cs('t-q-off').color, 'rgb(18, 52, 86)', 'a disabled Reopen under hover must not get the hover text');
+});

@@ -332,9 +332,9 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-bd-efield .lcc-bd-eselect { width: 100%; min-width: 0; }
 .lcc-bd-egrid > .lcc-bd-act { width: 100%; min-width: 0; justify-content: center; text-align: center; }
 .lcc-bd-erow .lcc-bd-act.lcc-bd-act-pri { background: var(--lcc-gold); border-color: var(--lcc-gold); color: var(--lcc-on-gold); }
-.lcc-bd-erow .lcc-bd-act.lcc-bd-act-pri:hover { background: var(--lcc-gold-hi); border-color: var(--lcc-gold-hi); }
+.lcc-bd-erow .lcc-bd-act.lcc-bd-act-pri:hover:not([aria-disabled="true"]):not(:disabled) { background: var(--lcc-gold-hi); border-color: var(--lcc-gold-hi); }
 .lcc-bd-erow .lcc-bd-act.lcc-bd-act-quiet { background: transparent; border-color: var(--lcc-stroke-faint); color: var(--lcc-dim); font-weight: 600; }
-.lcc-bd-erow .lcc-bd-act.lcc-bd-act-quiet:hover { border-color: var(--lcc-gold-text); color: var(--lcc-text); }
+.lcc-bd-erow .lcc-bd-act.lcc-bd-act-quiet:hover:not([aria-disabled="true"]):not(:disabled) { border-color: var(--lcc-gold-text); color: var(--lcc-text); }
 .lcc-bd-tip { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--lcc-stroke-faint); font: 10px/1.4 var(--lcc-sans); color: var(--lcc-dim); }
 .lcc-bd-act { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 36px; padding: 7px 13px; cursor: pointer; font: 700 12px/1.2 var(--lcc-sans); color: var(--lcc-text); background: var(--lcc-raised); border: 1px solid var(--lcc-stroke); }
 .lcc-bd-act:hover { border-color: var(--lcc-gold-text); }
