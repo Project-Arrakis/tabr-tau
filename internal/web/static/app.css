@@ -73,6 +73,8 @@ input.w70{width:70px}input.w80{width:80px}input.w90{width:90px}input.w100{width:
 input.cfgv{width:100%;min-width:220px}
 /* the Give item picker: its drop-down is as wide as the box, so the box is wide enough for a whole name and its "(schematic)"; on a narrow screen it is at most the width of its row */
 input.pick-wide{width:72ch;max-width:100%}
+.augbox{flex:1 1 100%;min-width:0;margin:6px 0}.aug-head{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.aug-slots{display:grid;gap:6px;margin-top:6px;max-width:44rem}
+.augbox .aug-slots label{display:grid;grid-template-columns:4.5rem minmax(0,1fr);gap:6px;align-items:center}.augbox .aug-slots select{width:100%;min-width:0}
 .row.mt12{margin-top:12px}.mut.mb8{margin-bottom:8px}
 ul.tight{margin:6px 0}
 .locked{max-width:560px;margin:15vh auto;padding:0 16px}
