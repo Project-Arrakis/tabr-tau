@@ -638,9 +638,10 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
     .lsb #lsb-board .lcc-bd-grid > .lcc-bd-side { grid-area: sd; margin-top: 0; align-self: stretch; }
     /* the question and the result line stay at the top of the panel while its ledger scrolls under them */
     .lsb #lsb-board .lcc-bd-pin { position: sticky; top: 0; z-index: 3; }
-    /* the Inspector stays in view under the page header, and under the warning and the launch notice when one is shown (their height is text, so the room left for them is a fair allowance) */
-    .lsb #lsb-board .lcc-bd-insp { position: sticky; top: calc(var(--hdr-h) + 12px + var(--lsb-warn-room, 0px)); align-self: flex-start; width: 100%; box-sizing: border-box;
-      max-height: calc(100vh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 24px); max-height: calc(100dvh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 24px);
+    /* the Inspector stays in view under the page header, and under the warning and the launch notice when one is shown (their height is text, so the room left for them is a fair allowance). Its top edge is the board's
+       control strip's top edge (the same offset as `.lcc-k-e6 .lcc-k-strip`), so the two columns start on one line while both are held; it keeps 12 px to the bottom of the window (it was held 12 px lower than the strip before) */
+    .lsb #lsb-board .lcc-bd-insp { position: sticky; top: calc(var(--hdr-h) + var(--lsb-warn-room, 0px)); align-self: flex-start; width: 100%; box-sizing: border-box;
+      max-height: calc(100vh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 12px); max-height: calc(100dvh - var(--hdr-h) - var(--lsb-warn-room, 0px) - 12px);
       overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
   }
   @media (min-width: 721px) {

@@ -255,8 +255,8 @@ test('layout: the page cap, the side-by-side switch and the sticky House Intelli
   // at the switch the board must keep five columns beside the side column: 696 px of panel, its padding (10) and border, the gap and the side column, inside the tab's card (8 px of padding each side)
   const panel = 696 + 2 * 10 + 2, side = 284, gap = 18, shell = 2 * 8;
   assert.ok(1080 - shell >= panel + gap + side, 'the board keeps five columns beside the House Intelligence at the switch width');
-  assert.match(appBare, /position: sticky; top: calc\(var\(--hdr-h\) \+ 12px \+ var\(--lsb-warn-room, 0px\)\)/);
-  assert.match(appBare, /max-height: calc\(100vh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 24px\); max-height: calc\(100dvh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 24px\);/);
+  assert.match(appBare, /position: sticky; top: calc\(var\(--hdr-h\) \+ var\(--lsb-warn-room, 0px\)\)/, 'the Inspector is held at the same offset as the control strip of the board (#1143)');
+  assert.match(appBare, /max-height: calc\(100vh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 12px\); max-height: calc\(100dvh - var\(--hdr-h\) - var\(--lsb-warn-room, 0px\) - 12px\);/, 'and keeps 12 px to the bottom of the window');
   assert.match(appBare, /overscroll-behavior: contain/);
   assert.match(appBare, /body:has\(#gamewarn\.warn, #gamewarn\.info, #launchpass\.info\) \{ --lsb-warn-room: var\(--warn-h, 76px\); \}/, 'the room of the warning bars is measured (--warn-h, #910); 76 px is only its start value');
   assert.match(appBare, /:root\{--warn-h:76px;/);
