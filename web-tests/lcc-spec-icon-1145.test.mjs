@@ -63,7 +63,7 @@ test('#1145: the List\'s Specialization column has the small emblem to the left 
     assert.ok(img && img.classList.contains('lcc-bd-spec-img-s'), 'a small emblem: ' + word);
     assert.equal(img.getAttribute('width'), '20');
     assert.equal(img.getAttribute('alt'), '');
-    assert.match(img.getAttribute('src'), new RegExp('emblems/' + word.toLowerCase() + '\\.png$'));
+    assert.ok(img.getAttribute('src').endsWith('emblems/' + word.toLowerCase() + '.png'), img.getAttribute('src'));
     assert.equal(td.firstChild, img, 'to the left of the name');
     assert.equal(td.querySelectorAll('*').length, 1, 'nothing else in the cell: no new element to wrap');
   }
@@ -87,8 +87,8 @@ test('#1145: a House with no track keeps the dash and gets no icon in the panel 
 });
 
 test('#1145: the style sheet draws the emblem in the card\'s tint with no literal colour, keeps the touch floor of the line and keeps the one word and its icon together', () => {
-  const esc = (s) => s.replace(/[.[\]]/g, (c) => '\\' + c);
-  const rule = (sel) => { const m = CSS.match(new RegExp('(?:^|\\})\\s*' + esc(sel) + '\\s*\\{([^}]*)\\}')); assert.ok(m, 'rule ' + sel); return m[1]; };
+  const rules = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]]);
+  const rule = (sel) => { const r = rules.find(([s]) => s === sel); assert.ok(r, 'rule ' + sel); return r[1]; };
   assert.match(rule('.lcc-bd-spec-img'), /filter: var\(--lcc-crest-filter\)/, 'the same tint token as the card');
   assert.match(rule('.lcc-bd-spec-img'), /width: 28px; height: 28px/);
   assert.match(rule('.lcc-bd-spec-img-s'), /width: 20px; height: 20px/);
