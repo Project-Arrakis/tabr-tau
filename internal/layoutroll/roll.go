@@ -171,17 +171,17 @@ func Roll(o Options) (Result, error) {
 		mode = 0o644
 	}
 	if err := durable.WriteFile(path, []byte(text), mode, writeOptions()); err != nil {
-		return r, fmt.Errorf("Game.ini could not be written (%v); it was left as it was%s", err, backupNote(backup))
+		return r, fmt.Errorf("the file Game.ini could not be written (%v); it was left as it was%s", err, backupNote(backup))
 	}
 	back, _, _, err := readIni(path)
 	if err != nil {
-		return r, fmt.Errorf("Game.ini was written but could not be read back to check it (%v); look at it before the game starts%s", err, backupNote(backup))
+		return r, fmt.Errorf("the file Game.ini was written but could not be read back to check it (%v); look at it before the game starts%s", err, backupNote(backup))
 	}
 	if back != text {
-		return r, fmt.Errorf("Game.ini was written but now holds other text than was written (another program changed it?); look at it before the game starts%s", backupNote(backup))
+		return r, fmt.Errorf("the file Game.ini was written but now holds other text than was written (another program changed it?); look at it before the game starts%s", backupNote(backup))
 	}
 	if got, _, err := CurrentIndex(back); err != nil || got != next {
-		return r, fmt.Errorf("Game.ini was written but does not read back as layout %d; look at it before the game starts%s", next, backupNote(backup))
+		return r, fmt.Errorf("the file Game.ini was written but does not read back as layout %d; look at it before the game starts%s", next, backupNote(backup))
 	}
 	r.Wrote = true
 	r.say("Changed Game.ini from layout %d to layout %d (%s) and read it back to check it.", cur, next, describe(present, existed))

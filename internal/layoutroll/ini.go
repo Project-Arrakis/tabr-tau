@@ -8,9 +8,10 @@
 package layoutroll
 
 import (
+	"crypto/rand"
 	_ "embed"
 	"fmt"
-	"math/rand/v2"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -124,7 +125,7 @@ func find(ls []iniLine) (found, error) {
 			return f, fmt.Errorf("the line for %s in Game.ini starts with an ini operator (%q); this form is not edited", Key, k[:len(k)-len(bare)])
 		}
 		if f.at >= 0 {
-			return f, fmt.Errorf("Game.ini has %s more than once in [%s]; it is not clear which one the game uses, so nothing is changed", Key, Section)
+			return f, fmt.Errorf("the file Game.ini has %s more than once in [%s]; it is not clear which one the game uses, so nothing is changed", Key, Section)
 		}
 		f.at = i
 	}
@@ -239,5 +240,11 @@ func Pick(current int, intn func(n int) int) int {
 	return cand[p]
 }
 
-// randomIntn is the random source of a real roll.
-func randomIntn(n int) int { return rand.IntN(n) }
+// randomIntn is the random source of a real roll. A source that fails gives -1, which Pick turns into the first candidate: a legal layout, never a write outside 0 to 11.
+func randomIntn(n int) int {
+	v, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
+	if err != nil {
+		return -1
+	}
+	return int(v.Int64())
+}
