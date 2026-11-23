@@ -1043,7 +1043,8 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-k-icph:empty { display: none; }
 .lcc-k-btn[data-zero="true"]:not([aria-disabled="true"]) { color: var(--lcc-dim); }
 .lcc-bd-cell, .lcc-bd-row { scroll-margin-top: calc(var(--hdr-h, 56px) + 190px); }
-.lcc-bd-cell.lcc-k-flash > .lcc-hc, .lcc-bd-row.lcc-k-flash > td { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+.lcc-bd-cell.lcc-k-flash > .lcc-hc { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+.lcc-bd-row.lcc-k-flash { outline: 3px solid var(--lcc-focus); outline-offset: -3px; } /* the found row of the List is marked as ONE row: the outline is on the row, not on each cell (#1146); an outline, not a shadow, so a forced-colours page keeps the mark */
 .lcc-k-morewrap { position: relative; display: inline-flex; }
 .lcc-k-moremenu { position: absolute; z-index: 40; right: 0; top: calc(100% + 6px); display: flex; flex-direction: column; gap: 6px; padding: 8px; min-width: 100%; box-sizing: border-box; background: var(--lcc-tier-bg); border: 1px solid var(--lcc-gold-text); }
 .lcc-k-moremenu[hidden] { display: none; }
