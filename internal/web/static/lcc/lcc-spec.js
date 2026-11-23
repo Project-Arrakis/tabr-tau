@@ -4,7 +4,7 @@
 // mount() draws them with createElement and textContent (never a string of HTML), so a name from a save cannot become markup.
 // What this file is not: it holds no demo data, it fetches nothing and it writes nothing. Every button it draws carries the data-act of a control the editor already has (spAddCC, spMax,
 // spReset, spKeyAll, spKeyReset, spResetAll), and the page's own handlers for those send the same requests with the same questions; the Add XP
-// handler, spAddCC, checks the number typed and then sends the one request of Add XP (before #1105 it was a separate step in front of the Classic list's spAdd). The track-number mapping (the save's own numbers) and the raw-row writer are not drawn here any more (#986): they stay on the page, in the Advanced cards under this view (drawn by the page, not here). A value the save does not hold is shown as "Not in the save", never made up.
+// handler, spAddCC, checks the number typed and then sends the one request of Add XP (before #1105 it was a separate step in front of the Classic list's spAdd). The track-number mapping (the save's own numbers) is not drawn here any more (#986): it stays on the page, in the Advanced card under this view (drawn by the page, not here). A value the save does not hold is shown as "Not in the save", never made up.
 (function (root) {
   'use strict';
 

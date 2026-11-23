@@ -98,34 +98,6 @@
   "asked": "Grant max Combat?Combat goes to the XP of its last level (level 100). One edit. Grant maxCancel",
   "said": "Combat set to max (queued: written as soon as the save can be written)"
  },
- "Raw row: Sabotage 500 XP level 2, asked then Yes": {
-  "sent": [
-   {
-    "path": "/api/player/specs",
-    "body": {
-     "track_type": 5,
-     "xp": 500,
-     "level": 2
-    }
-   }
-  ],
-  "asked": "Set this raw row?Sabotage is set to 500 XP at level 2. One edit. Set the rowCancel",
-  "said": "Specialization set (queued: written as soon as the save can be written)"
- },
- "Raw row: XP 44182 and level 10, mismatch kept as typed": {
-  "sent": [
-   {
-    "path": "/api/player/specs",
-    "body": {
-     "track_type": 3,
-     "xp": 44182,
-     "level": 10
-    }
-   }
-  ],
-  "asked": "Set this raw row?Exploration is set to 44,182 XP at level 10. One edit. Set the rowCancel",
-  "said": "Specialization set (queued: written as soon as the save can be written)"
- },
  "Remove XP -1000: refused, nothing is sent": {
   "sent": [],
   "asked": null,

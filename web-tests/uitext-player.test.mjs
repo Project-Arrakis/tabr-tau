@@ -84,9 +84,8 @@ test('Specialization: the 90-word paragraph is in About this, the dead-end note 
   assert.equal(ui.doc.querySelector('#spnone'), null, 'some track has a number: no dead-end note');
   kept(main, ['Reset XP of All Known Specializations (2)', '1 specialization the editor cannot match yet is left alone.', 'Assigned: Combat = 2, Crafting = 3.', 'Track number 7: 900 XP, level 8']);
   assert.equal(ui.doc.querySelector('[data-act="spResetAll"]').getAttribute('aria-describedby'), 'lcs-resetnote');
-  // the raw-row warning is still inside its own closed disclosure
-  const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Nothing checks that the two match'));
-  assert.ok(adv && !adv.open);
+  // the raw-row card is gone (#1133)
+  assert.ok(![...ui.doc.querySelectorAll('details')].some((d) => d.textContent.includes('Nothing checks that the two match')));
   ui.dom.window.close();
 
   ui = await boot({ get: { '/api/player/specs': specs(0, [], 0) } });

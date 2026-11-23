@@ -1355,7 +1355,7 @@ test('Specialization: every track is listed, unknown numbers disable XP actions,
   ui.dom.window.close();
 });
 
-test('Specialization on a save with no track numbers says why the XP controls are off and what to do; keystones still work; the raw row is folded and has nothing to pick (UX-36)', async () => {
+test('Specialization on a save with no track numbers says why the XP controls are off and what to do; keystones still work; there is no raw row card (UX-36, #1133)', async () => {
   const row = (o) => ({ track: 'Combat', number: null, xp: 0, level: 0, keystoneOwned: 0, keystoneTotal: 41, granted: false, ...o });
   const specs = { rows: [row({}), row({ track: 'Gathering' })], unassigned: [], maxXp: 44182, tracks: ['Combat', 'Gathering'] };
   const ui = await boot({ get: { '/api/player/specs': specs }, post: { '/api/player/specs': { ok: true } } });
@@ -1368,10 +1368,8 @@ test('Specialization on a save with no track numbers says why the XP controls ar
   const add = ui.doc.querySelector('[data-act="spAddCC"][data-t="Combat"]');
   assert.ok(add.disabled && add.getAttribute('aria-describedby').includes('lcs-nonum'), 'a disabled button says why');
   assert.ok(!ui.doc.querySelector('[data-act="spKeyAll"]').disabled, 'keystones need no numbers');
-  const adv = [...ui.doc.querySelectorAll('details')].find((d) => d.textContent.includes('Advanced: set a raw row'));
-  assert.ok(adv && !adv.open, 'the raw row is folded');
-  assert.equal(ui.doc.querySelector('#st'), null, 'no track has a number: there is no row to pick');
-  assert.ok(adv.textContent.includes('No track has a number in this save yet'), adv.textContent);
+  assert.equal(ui.doc.querySelector('#st'), null, 'there is no raw row card');
+  assert.ok(![...ui.doc.querySelectorAll('details')].some((d) => d.textContent.includes('Advanced: set a raw row')));
   assert.equal(ui.posted.filter((p) => p.path === '/api/player/specs').length, 0);
   ui.dom.window.close();
   // once a track has a number the note is gone

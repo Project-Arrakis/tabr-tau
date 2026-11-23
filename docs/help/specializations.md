@@ -33,4 +33,4 @@ If the save holds XP the editor cannot match to a specialization, the view says 
 
 ## Technical notes
 
-For support: the save keeps specialization XP by track number, not by name. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5). A track with another number is the one the page calls a specialization it cannot match; the page has an Advanced card, Advanced: specialization numbers, under the view for it, and an Advanced card, Advanced: set a raw row, that writes the XP and level you type for one specialization as they are.
+For support: the save keeps specialization XP by track number, not by name. The editor knows the numbers the game uses (Crafting 1, Gathering 2, Exploration 3, Combat 4, Sabotage 5). A track with another number is the one the page calls a specialization it cannot match; the page has an Advanced card, Advanced: specialization numbers, under the view for it.

@@ -1,5 +1,5 @@
 // #1061: one word for the thing on the Specialization page: "specialization". A player never reads "path" or "track" for it, in the Command Center view, in the Landsraad
-// Inspector's link or in the Help. "Track" stays only in the Advanced cards under the view (the track-number editor and the raw row), which name the save's own XP track numbers
+// Inspector's link or in the Help. "Track" stays only in the Advanced cards under the view (the track-number editor), which name the save's own XP track numbers
 // (marked data-advanced). The Classic list these words were first pinned against was retired (#1105). Real app.js and lcc scripts over the synthetic answers; no game save.
 //
 // The words of the confirmation questions and of the result lines are recorded in web-tests/lcc-spec-requests.golden.json (asked / said). The reset-all question, its typed sentence and its result line
@@ -63,11 +63,11 @@ test('The whole Specializations page: no "path" and no "track" outside the Advan
   }
 });
 
-test('The Advanced cards are marked, and are the only places that still say "track" (the track-number editor and the raw row)', async () => {
+test('The Advanced cards are marked, and are the only places that still say "track" (the track-number editor; the raw row card was removed in #1133)', async () => {
   const ui = await openSpec({}, SPECS('conflicting-learned-number-leaves-combat-unresolved'));
   const adv = [...ui.doc.querySelectorAll('#main [data-advanced]')];
-  assert.equal(adv.length, 2, 'the track-number card and the raw row card');
-  assert.deepEqual(adv.map((a) => text(a.querySelector('h3, summary'))), ['Advanced: specialization numbers', 'Advanced: set a raw row']);
+  assert.equal(adv.length, 1, 'the track-number card');
+  assert.deepEqual(adv.map((a) => text(a.querySelector('h3, summary'))), ['Advanced: specialization numbers']);
 });
 
 test('the Command Center says the words the Classic list said, where both had the thing', async () => {

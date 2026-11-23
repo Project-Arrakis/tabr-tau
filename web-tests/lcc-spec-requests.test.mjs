@@ -18,20 +18,20 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const GOLDEN = path.join(here, 'lcc-spec-requests.golden.json');
 const RECORD = process.env.LCC_RECORD_REQUESTS === '1';
 const CASES = JSON.parse(read('docs', 'design', 'landsraad-command-center', 'fixtures', 'api-player-specs.cases.json')).cases;
-// two saves: every track known with a row of the save that no track has (the ordinary one), and one where Combat has lost its number (the Track numbers card and the raw row's list of tracks differ)
+// two saves: every track known with a row of the save that no track has (the ordinary one), and one where Combat has lost its number (the Track numbers card is drawn)
 const SAVE = { ordinary: 'unassigned-row-number-9', unresolved: 'conflicting-learned-number-leaves-combat-unresolved' };
 const SPECS = (which = 'ordinary') => JSON.parse(JSON.stringify(CASES.find((c) => c.id === SAVE[which]).response));
-const ON = { 'Add XP on a track that is not identified: nothing is sent': 'unresolved', 'Grant all keystones on a save with a track not identified, asked then Yes': 'unresolved', 'Assign number 1 to Combat': 'unresolved', 'Assign by hand, Combat 9': 'unresolved', 'Assign by hand with no number': 'unresolved', 'Raw row: Sabotage 500 XP level 2, asked then Yes': 'unresolved', 'Raw row: XP 44182 and level 10, mismatch kept as typed': 'unresolved' };
+const ON = { 'Add XP on a track that is not identified: nothing is sent': 'unresolved', 'Grant all keystones on a save with a track not identified, asked then Yes': 'unresolved', 'Assign number 1 to Combat': 'unresolved', 'Assign by hand, Combat 9': 'unresolved', 'Assign by hand with no number': 'unresolved' };
 const text = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : null);
 const POSTS = { '/api/player/specs/xp': { ok: true, before: 3000, after: 4000, level: 26 }, '/api/player/specs/max': { ok: true }, '/api/player/specs/reset': { ok: true, removed: 1 },
   '/api/player/specs/reset-all': { ok: true, changed: 5 }, '/api/player/specs/keystones/grant': { ok: true, granted: 5 }, '/api/player/specs/keystones/reset': { ok: true, removed: 5 },
-  '/api/player/specs/assign': { ok: true }, '/api/player/specs': { ok: true } };
+  '/api/player/specs/assign': { ok: true } };
 const ROUTE = /^\/api\/player\/specs/;
 
 // the scenario where the controls are off and nothing is pressed
 const SENDS_NOTHING = new Set(['Add XP on a track that is not identified: nothing is sent', 'Remove XP -1000: refused, nothing is sent']);
 
-// a scenario is a step run against the page: the controls it presses are the Command Center's, or the Advanced cards under it (assign, assign by hand, raw row)
+// a scenario is a step run against the page: the controls it presses are the Command Center's, or the Advanced card under it (assign, assign by hand)
 const ctl = (ui, sel) => { const e = ui.doc.querySelector(sel); assert.ok(e, 'no element for ' + sel); return e; };
 const set = (ui, sel, v) => { const e = ctl(ui, sel); e.value = String(v); e.dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
 const seen = (ui) => { ui.asked = text(ui.doc.querySelector('#ask [role="dialog"]')); }; // the question as it was put, before it is answered
@@ -57,8 +57,6 @@ const SCENARIOS = {
   'Assign number 1 to Combat': async (ui) => { set(ui, '#spa1', 'Combat'); ui.click('[data-act="spAssign"][data-n="1"]'); },
   'Assign by hand, Combat 9': async (ui) => { set(ui, '#spmt', 'Combat'); set(ui, '#spmn', 9); ui.click('[data-act="spAssignHand"]'); },
   'Assign by hand with no number': async (ui) => { set(ui, '#spmt', 'Combat'); ui.click('[data-act="spAssignHand"]'); },
-  'Raw row: Sabotage 500 XP level 2, asked then Yes': async (ui) => { set(ui, '#st', 5); set(ui, '#sx', 500); set(ui, '#sl', 2); ui.click('[data-act="specSet"]'); await yes(ui); },
-  'Raw row: XP 44182 and level 10, mismatch kept as typed': async (ui) => { set(ui, '#st', 3); set(ui, '#sx', 44182); set(ui, '#sl', 10); ui.click('[data-act="specSet"]'); await yes(ui); },
 };
 
 async function play(name) {
@@ -130,7 +128,7 @@ for (const [typed, sent] of [['1e3', 1000], ['1.0', 1], ['2E2', 200]]) {
 }
 
 // ---- the golden file covers every operation of the editor ----
-test('the golden file covers all nine operations of the editor, and the page reaches all nine', async () => {
+test('the golden file covers all eight operations of the editor, and the page reaches all eight', async () => {
   const routes = new Set();
   for (const name of Object.keys(SCENARIOS)) { const g = golden[name]; if (g) for (const s of g.sent) routes.add(s.path); }
   if (RECORD) return;
