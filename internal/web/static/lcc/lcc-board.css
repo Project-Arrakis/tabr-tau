@@ -533,6 +533,15 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 
 /* ==== The way to the Term and Decrees section, and the way from a House to its path (milestone M6; the Sysselraad Strategy list that shared this block was removed, #958) ==== */
 .lcc-bd-gopath { margin: 4px 0 0; min-height: 36px; font: 600 12px/1.3 var(--lcc-sans); text-align: left; }
+/* the path's emblem beside the specialization line of the panel and to the left of the name in the List's Specialization column (#1145): the card's picture, drawn in the same one tint; the words stay */
+.lcc-bd-spec-line { display: flex; align-items: center; margin-top: 4px; }
+.lcc-bd-spec-txt { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; min-width: 0; }
+.lcc-bd-spec-txt .lcc-bd-lvl { margin-left: 0; }
+.lcc-bd-spec-line .lcc-bd-gopath { margin: 0; }
+.lcc-bd-spec-img { display: block; flex: none; width: 28px; height: 28px; margin-right: 8px; object-fit: contain; filter: var(--lcc-crest-filter); }
+.lcc-bd-spec-img-s { display: inline-block; width: 20px; height: 20px; margin: 0 6px 0 0; vertical-align: middle; }
+.lcc-bd-spec-img[hidden] { display: none; }
+.lcc-bd-list td.lcc-bd-c-path { white-space: nowrap; } /* the icon and the one word of the path stay together */
 /* the place line under the House name (#939): the place is a link, the sub-line says the cell, the place and the area */
 .lcc-bd-loc { all: unset; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; margin-top: 3px; min-height: 36px; justify-content: center; cursor: pointer; color: var(--lcc-gold-text); text-align: left; overflow-wrap: anywhere; max-width: 100%; }
 .lcc-bd-list td.lcc-bd-loc { display: table-cell; margin: 0; min-height: 0; cursor: auto; } /* the list cell is not the Inspector's place button: it stays a table cell, so its row lines and centring are the other cells' (#1059) */
@@ -1035,7 +1044,8 @@ html[data-motion="off"] .lcc-bd-fill { transition: none; }
 .lcc-k-icph:empty { display: none; }
 .lcc-k-btn[data-zero="true"]:not([aria-disabled="true"]) { color: var(--lcc-dim); }
 .lcc-bd-cell, .lcc-bd-row { scroll-margin-top: calc(var(--hdr-h, 56px) + 190px); }
-.lcc-bd-cell.lcc-k-flash > .lcc-hc, .lcc-bd-row.lcc-k-flash > td { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+.lcc-bd-cell.lcc-k-flash > .lcc-hc { outline: 3px solid var(--lcc-focus); outline-offset: -3px; }
+.lcc-bd-row.lcc-k-flash { outline: 3px solid var(--lcc-focus); outline-offset: -3px; } /* the found row of the List is marked as ONE row: the outline is on the row, not on each cell (#1146); an outline, not a shadow, so a forced-colours page keeps the mark */
 .lcc-k-morewrap { position: relative; display: inline-flex; }
 .lcc-k-moremenu { position: absolute; z-index: 40; right: 0; top: calc(100% + 6px); display: flex; flex-direction: column; gap: 6px; padding: 8px; min-width: 100%; box-sizing: border-box; background: var(--lcc-tier-bg); border: 1px solid var(--lcc-gold-text); }
 .lcc-k-moremenu[hidden] { display: none; }

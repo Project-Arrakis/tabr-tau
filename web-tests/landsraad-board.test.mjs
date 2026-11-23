@@ -125,7 +125,7 @@ test('the place: a house with no position says so and does not open anything; on
   assert.equal(ui.doc.querySelector('dialog'), null, 'no window is opened');
   assert.ok(toastText(ui).includes('not mapped yet'), 'the toast says why: ' + toastText(ui));
   assert.deepEqual(calls, [], 'nothing is opened on the Saved map');
-  assert.ok(text(insp.querySelector('#lcc-bd-s5').parentElement).includes('Not mapped yet'), 'the Place part of the Inspector explains it too');
+  assert.equal(insp.querySelector('#lcc-bd-s5'), null, '#1144: no LOCATION section; the muted place button above explains it');
   // #1069: the picture is a window around the pin, so the pin is at the middle of the window; the small whole map carries the place itself (a quarter in, halfway down)
   const pop = rowOf(ui, 901).querySelector('td.lcc-bd-loc .loc > .pop');
   assert.equal(pop.querySelector('.minimap .mwin .pin').style.top, '50%');
@@ -246,7 +246,10 @@ test('the peek and the Inspector give the distance from you in plain words; a cl
   const hub = { known: true, map: 'Arrakeen', map_key: '', area: 'Arrakeen', place: '', x: 0.5, y: 0.5 };
   const ui = await open(board({ tasks: [house(900, 'Alexin', 0, { location: known }), house(901, 'Thorvald', 100, { location: far }), house(902, 'Hurata', 0, { location: hub })] }));
   assert.ok(text(rowOf(ui, 900).querySelector('td.lcc-bd-loc .loc > .pop')).includes('From youabout 2.8 km'), text(rowOf(ui, 900).querySelector('td.lcc-bd-loc .loc > .pop')));
-  assert.ok(text(await look(ui, 900)).includes('From you: about 2.8 km.'));
+  const insp900 = await look(ui, 900);
+  assert.ok(!text(insp900).includes('From you: about 2.8 km.'), '#1144: the Inspector has no LOCATION section, so no From you line (the peek above still has it)');
+  assert.equal(insp900.querySelector('#lcc-bd-s5'), null, '#1144: no LOCATION section');
+  assert.ok(insp900.querySelector('.lcc-bd-identity .lcc-bd-loc[data-lb=map]'), '#1144: the place button under the House name stays');
   const far1 = text(rowOf(ui, 901).querySelector('td.lcc-bd-loc .loc > .pop'));
   assert.ok(!far1.includes('another map') && !/\d km/.test(far1), 'another map: no invented distance, and no long reason standing in the peek: ' + far1);
   assert.ok(!/not worked out/.test(ui.doc.body.textContent), 'the old wording is gone');
@@ -292,9 +295,9 @@ test('a hub (a place the Saved map has no picture of) is muted, says why in its 
   const ib = insp.querySelector('.lcc-bd-loc[data-lb="map"]');
   assert.ok(ib.classList.contains('off') && ib.getAttribute('aria-disabled') === 'true' && ib.title === why);
   assert.equal(text(ib.querySelector('.lcc-bd-loc-s')), 'no map picture', 'a cue in words, not only a colour');
-  assert.equal(text(insp.querySelector('#lcc-bd-s5').parentElement.querySelector('.lcc-bd-cap')), why);
+  assert.equal(insp.querySelector('#lcc-bd-s5'), null, '#1144: no LOCATION section, so no second line of the reason under it');
   assert.equal(insp.querySelector('.pin'), null, 'no pin is drawn on a made-up picture');
-  assert.ok(!text(insp.querySelector('#lcc-bd-s5').parentElement).includes('From you'));
+  assert.ok(!text(insp).includes('From you'));
   const pn = text(insp.querySelector('.lcc-bd-identity .pop .pnote'));
   assert.ok(pn.includes('outside the frame of the picture of Harko Village') && pn.includes('no pin or map link'), pn); // #1069: the editor has the picture; the place is outside its frame
 });
@@ -355,10 +358,10 @@ test('a Deep Desert row names its grid cell; Tseida-like places say they are fro
   assert.ok(text(rowOf(ui, 900).querySelector('td.lcc-bd-loc')).includes('B8'), 'the cell is in the row');
   assert.ok(text(rowOf(ui, 901).querySelector('td.lcc-bd-loc .pop')).includes('The Anvil Tradepost'), 'the place is in the peek');
   const i0 = text(await look(ui, 900));
-  assert.ok(i0.includes('grid cell B8'), 'the Inspector names the cell');
+  assert.ok(i0.includes('B8'), 'the Inspector names the cell, in the place button under the House name');
   assert.ok(!i0.includes('public guides'), 'a confirmed place has no hedge');
   const i1 = text(await look(ui, 901));
-  assert.ok(i1.includes('The Anvil Tradepost') && i1.includes('from public guides and is not confirmed in the game'));
+  assert.ok(i1.includes('The Anvil Tradepost'), 'the Inspector names the place, in the button under the House name');
   assert.ok(text(rowOf(ui, 901).querySelector('td.lcc-bd-loc .pop')).includes('not confirmed in the game'), 'the peek says it too');
 });
 

@@ -98,7 +98,7 @@ test('a place with no pin says "no picture of X yet" only when there is no pictu
   assert.equal(says({ map: 'Harko Village', area: 'Harko Village' }), 'This place is outside the picture of Harko Village.');
   assert.equal(says({}), 'The Saved map has no picture of this place yet.');
 });
-test('the list link tooltip and the Inspector note say it the same, in both cases', async () => {
+test('the list link tooltip and the Inspector place button say it the same, in both cases (#1144: the Inspector has no Place note any more)', async () => {
   const { ui, a } = await open('list', (x) => {
     const set = (n, l) => { x.tasks.find((t) => t.house_name === 'DA_House' + n).location = { known: true, cell: '', place: '', unconfirmed: false, map_key: '', ...l }; };
     set('Sor', { map: 'Caladan', area: 'Caladan' }); // no picture at all
@@ -110,7 +110,8 @@ test('the list link tooltip and the Inspector note say it the same, in both case
   for (const [n, say] of [['Sor', NO_PIC('Caladan') + '.'], ['Thorvald', 'Imperial Basin is outside the picture of Hagga Basin.']]) {
     ui.doc.querySelector('[data-fk="ht:' + idOf(a, n) + '"]').click();
     await ui.settle();
-    assert.ok([...ui.doc.querySelectorAll('#lsb-lcc .lcc-bd-insp .lcc-bd-cap')].some((p) => text(p) === say), n + ': the Place note says ' + say);
+    assert.equal(ui.doc.querySelector('#lsb-lcc .lcc-bd-insp .lcc-bd-loc').getAttribute('title'), say, n + ': the place button under the House name says ' + say);
+    assert.equal(ui.doc.querySelector('#lsb-lcc .lcc-bd-insp .lcc-bd-cap'), null, n + ': and no Place note under a LOCATION section');
   }
 });
 test('the maps the two copies of the words know are the maps of the Go table and of the page', () => {
