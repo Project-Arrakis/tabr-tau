@@ -225,7 +225,9 @@ test('#939: the place is under the House name, a link with the hint, and the spe
   const i = ui.doc.querySelector('.lcc-bd-insp');
   const t = i.querySelector('.lcc-bd-insp-title');
   const kids = [...t.children].map((c) => c.className.split(' ')[0]);
-  assert.deepEqual(kids, ['lcc-bd-insp-name', 'loc', 'lcc-bd-linkb', 'lcc-bd-lvl'], 'name, place (the link and its peek), specialization, its level (#646): in this order');
+  assert.deepEqual(kids, ['lcc-bd-insp-name', 'loc', 'lcc-bd-spec-line'], 'name, place (the link and its peek), the specialization line: in this order');
+  assert.deepEqual([...t.querySelector('.lcc-bd-spec-line').children].map((c) => c.className.split(' ')[0]), ['lcc-bd-spec-img', 'lcc-bd-spec-txt'], 'the emblem (#1145), then the words');
+  assert.deepEqual([...t.querySelector('.lcc-bd-spec-txt').children].map((c) => c.className.split(' ')[0]), ['lcc-bd-linkb', 'lcc-bd-lvl'], 'the specialization link, its level (#646): in this order');
   const loc = t.querySelector('.lcc-bd-loc');
   assert.equal(loc.getAttribute('data-lb'), 'map', 'the click that opens the Saved map');
   assert.equal(loc.getAttribute('title'), 'Click the place to open the Saved map. Hover for a quick peek.', 'the hint, and the peek (the map picture) that the mouse-over carries');
