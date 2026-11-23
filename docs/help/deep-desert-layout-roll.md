@@ -15,7 +15,7 @@ A base, a vehicle or anything else you placed in the Deep Desert keeps its posit
 ## The safeguards
 
 - **The game must be closed.** If a Dune process is running, or the list of running programs cannot be read, nothing is changed. The command says so and you run it again after closing the game (the scheduled run tries again the next Tuesday).
-- **A backup first.** Before every change the file is copied beside itself as `Game.ini.layout-roll-<date>-<time>.bak`. The newest 10 of these copies are kept.
+- **A backup first.** Before every change the file is copied beside itself as `Game.ini.layout-roll-YYYYMMDD-HHMMSS.mmm.bak`. The newest 10 of these copies are kept.
 - **The file is replaced in one step** (a temporary file, then a rename) and read back to check it. If it is not what was written, the command says so and names the backup.
 - **Once per week.** A roll is skipped if one already happened since the last Tuesday at 05:00. `--force` rolls again. A layout chosen with `--set` is your own choice and is not held back by this.
 - The last roll (time, old layout, new layout) and the last run are recorded in `%APPDATA%\tabr-tau\layout-roll.json`.
@@ -36,7 +36,7 @@ tabr-tau layout-roll --set 4      (layout 4)
 tabr-tau layout-roll --force      (roll again this week)
 ```
 
-`--config <folder>` names the game config folder if it is not in the usual place. It goes before the word `layout-roll`.
+`--config FOLDER` names the game config folder if it is not in the usual place. It goes before the word `layout-roll`.
 
 ## Going back
 
