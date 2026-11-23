@@ -491,19 +491,20 @@ test('a save the game check cannot vouch for queues the edits, says why, and All
 });
 
 test('the game open and just left the world queues the edits and says what is waited for (#419, #449)', async () => {
-  const why = 'the game wrote its database 20 seconds ago and does that every 60 seconds while a world is loaded; it must be quiet for 3 minutes first (about 160 seconds more); edits stay queued until this clears, or the game closes';
-  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: true, pending: ['water +5'], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, blockReason: why, gameMode: 'session_ended' }) } });
+  const why = 'the game saved 20 seconds ago; they are written in about 160 seconds, or when the game closes';
+  const detail = 'the game wrote its database 20 seconds ago and does that every 60 seconds while a world is loaded; it must be quiet for 3 minutes first (about 160 seconds more); they are written when this clears, or when the game closes';
+  const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: true, pending: ['water +5'], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, blockReason: why, blockDetail: detail, gameMode: 'session_ended' }) } });
   const gw = ui.doc.querySelector('#gamewarn');
   assert.ok(gw.classList.contains('warn'), gw.className);
-  assert.ok(gw.textContent.includes('The game wrote its database 20 seconds ago') && gw.textContent.includes('edits stay queued until this clears') && !gw.textContent.includes('is running') && !gw.textContent.includes('written at once'), gw.textContent);
+  assert.ok(gw.textContent.includes('The game saved 20 seconds ago; they are written in about 160 seconds, or when the game closes.') && !gw.textContent.includes('They are written by themselves') && ui.doc.querySelector('.bn-raw').textContent.includes('must be quiet for 3 minutes first') && !gw.textContent.includes('is running') && !gw.textContent.includes('written at once'), gw.textContent);
   ui.dom.window.close();
 });
 
 test('the game open with nothing queued says what the edits wait for (#419, #449)', async () => {
-  const why = 'another program, probably the game, has the save file open; edits stay queued until this clears, or the game closes';
+  const why = 'another program, probably the game, has the save file open; they are written when this clears, or when the game closes';
   const ui = await boot({ get: { '/api/save/state': queuedState({ dirty: false, pending: [], gameRunning: true, gameProcesses: ['DuneTest.exe'], saveBlocked: true, blockReason: why, gameMode: 'game_running' }) } });
   const gw = ui.doc.querySelector('#gamewarn');
-  assert.ok(gw.classList.contains('warn') && gw.textContent.includes('Changes you make now are queued') && gw.textContent.includes('has the save file open') && !gw.textContent.includes('The game is running'), gw.textContent);
+  assert.ok(gw.classList.contains('warn') && gw.textContent.includes('Edits are queued') && gw.textContent.includes('has the save file open') && !gw.textContent.includes('The game is running'), gw.textContent);
   ui.dom.window.close();
 });
 

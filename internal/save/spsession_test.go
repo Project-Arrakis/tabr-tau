@@ -409,14 +409,14 @@ func TestGameStateDecisions(t *testing.T) {
 			return ago(c.fileAge), c.fileOwn, nil
 		}
 		g := GameStateFor("x", true)
-		if g.Blocked != c.blocked || g.Mode != c.mode || !strings.Contains(g.Reason, c.reason) {
+		if g.Blocked != c.blocked || g.Mode != c.mode || !strings.Contains(g.Reason+" | "+g.Detail, c.reason) {
 			t.Errorf("%s: %+v", c.name, g)
 		}
 		if !g.Blocked && g.Reason != "" {
 			t.Errorf("%s: an allowed write has no reason, got %q", c.name, g.Reason)
 		}
-		if c.blocked && !strings.Contains(g.Reason, "queued") && c.mode != "unknown" {
-			t.Errorf("%s: the reason must say the edits are queued: %q", c.name, g.Reason)
+		if c.blocked && !strings.Contains(g.Reason, "they are written ") && c.mode != "unknown" {
+			t.Errorf("%s: the reason must say the edits are written: %q", c.name, g.Reason)
 		}
 		if c.list != nil && c.mode == "menu" && len(g.Processes) != 1 {
 			t.Errorf("%s: the processes must be reported even when saving is allowed (the automatic pass waits on them): %+v", c.name, g)
@@ -453,15 +453,15 @@ func TestMenuGraceFromAFakeLog(t *testing.T) {
 	resetSPLog()
 	save, _ := writeLog(t, strings.Join([]string{lnStart, periodic, lnLeave1, last}, "\r\n")+"\r\n")
 	at(10 * time.Second)
-	if g := processState(save, true); !g.Blocked || g.Mode != "session_ended" || !strings.Contains(g.Reason, "(about 52 seconds more)") {
+	if g := processState(save, true); !g.Blocked || g.Mode != "session_ended" || !strings.Contains(g.Reason, "they are written in about 52 seconds, or when the game closes") || !strings.Contains(g.Detail, "(about 52 seconds more)") {
 		t.Fatalf("10 s after the end: %+v", g)
 	}
 	at(menuWriteGrace) // the 30 s after the end are over, the minute after the write (2 s after the end) is not
-	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "(about 32 seconds more)") {
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Detail, "(about 32 seconds more)") || !strings.Contains(g.Reason, "they are written in about 32 seconds") {
 		t.Fatalf("the grace after the end is over, the quiet after the write is not: %+v", g)
 	}
 	at(2*time.Second + menuQuietAfterWrite - time.Second)
-	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "(about 1 second more)") {
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Detail, "(about 1 second more)") {
 		t.Fatalf("1 s before the quiet time is over: %+v", g)
 	}
 	at(2*time.Second + menuQuietAfterWrite)
@@ -473,7 +473,7 @@ func TestMenuGraceFromAFakeLog(t *testing.T) {
 	resetSPLog()
 	save, _ = writeLog(t, strings.Join([]string{lnStart, periodic, lnLeave1}, "\r\n")+"\r\n")
 	at(4 * time.Minute) // past the flat quiet time, inside the fallback
-	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "does not show the game's last write") || !strings.Contains(g.Reason, "(about 2 minutes more)") {
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Detail, "does not show the game's last write") || !strings.Contains(g.Detail, "(about 2 minutes more)") {
 		t.Fatalf("no write after the end, 4 minutes on: %+v", g)
 	}
 	at(endedFallbackGrace)
@@ -491,7 +491,7 @@ func TestMenuGraceFromAFakeLog(t *testing.T) {
 	}
 	appendLog(t, lp, "[2026.10.08-17.11.20:000][604][20424][0]LogLowLevelPersistence: Display: DB(game.db:0): SaveDatabase - Database saved to disk. Saving again in 60 seconds.\r\n")
 	at(31 * time.Second) // 20:00 is 29 s after the end; the clock is 2 s after the late write: a second write after the end, so the short grace is not trusted any more (#612, D2-2)
-	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Reason, "must be quiet for 3 minutes") {
+	if g := processState(save, true); !g.Blocked || !strings.Contains(g.Detail, "must be quiet for 3 minutes") {
 		t.Fatalf("a late write must hold the edit back: %+v", g)
 	}
 

@@ -34,7 +34,7 @@ func TestByHandPassBlockedByTheGateIsQueuedNotRefused(t *testing.T) {
 	}
 	nothingWritten(t, s, dir, before)
 	// the queue view and the card read the same wait, with the reason of the gate
-	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waiting":true`) || !strings.Contains(st, `"waitingWhy":"the game wrote its database 20 seconds ago`) || !strings.Contains(st, `"waitingByHand":true`) {
+	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waiting":true`) || !strings.Contains(st, `"waitingWhy":"the game saved 20 seconds ago`) || !strings.Contains(st, `"waitingByHand":true`) {
 		t.Fatalf("the card does not carry the wait: %s", st)
 	}
 }

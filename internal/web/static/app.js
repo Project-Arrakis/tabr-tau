@@ -663,6 +663,10 @@ async function status() {
   // An edit is written as it is made. While the file cannot be written (a single-player session is running, the location is not confirmed) edits are queued, and the queue is
   // written by itself the moment the file can be.
   const reason = why ? humanReason(why) : { text: '', raw: '' };
+  // The game's own reason ends by saying when the edits are written ("...; they are written in about 39 seconds, or when the game closes", #1128): then the banner adds no sentence of its own about it.
+  const tailed = /or when the game closes\.?$/.test(reason.text);
+  // the technical account behind a short reason (the last write, the end time, the grace values) sits under Details
+  if (!reason.raw && o.blockDetail && why === saveBlockWhy) reason.raw = o.blockDetail;
   const n = (one, many) => (q === 1 ? one : many);
   // a queue the editor could not put back onto the game's newer file: none of it was written
   const unlistedMsg = unlisted ? html`<div><b>Unlisted changes are waiting to be written.</b> They are written by themselves as soon as the file can be written. <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>` : html``;
@@ -672,8 +676,8 @@ async function status() {
   if (o.locationUnconfirmed) mainMsg = html`<div><b>Changes cannot be written here yet.</b> ${reason.text} You can keep editing: changes wait in the queue. <button class="b sm d-btn primary sm" data-act="confirmLocation">Allow writing here</button></div>`;
   else if (o.gameCheckError && saveBlocked) mainMsg = html`<div><b>Changes cannot be written.</b> ${reason.text}${q ? html` ${q} ${n('change waits', 'changes wait')} in the queue and ${n('is written by itself', 'are written by themselves')} once the check works.` : ''} The editor checks again by itself every few seconds. <button class="b sm d-btn primary sm" data-act="checkAgain">Check again</button> <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>`;
   else if (q && !o.held && last && last.stuck) mainMsg = html`<div><b>${q} queued change${n(' cannot', 's cannot')} be written.</b> The game saved after ${n('it was', 'they were')} made, and the editor did not keep ${n('it', 'them')}${o.journalOff ? ' (' + o.journalOff + ')' : ''}, so ${n('it', 'they')} cannot be put back onto the game's file, which is left as it is. Discard the queue and make ${n('the change', 'the changes')} again. <button class="b sm d-btn primary sm" data-act="discardQueue">Discard queue</button></div>`;
-  else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text} ${n('It is written to ' + gameFile + ' by itself', 'They are written to ' + gameFile + ' by themselves')} as soon as it can be written. <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>`;
-  else if (saveBlocked && !q) mainMsg = html`<div><b>Changes you make now are queued.</b> ${reason.text} They are written by themselves as soon as that clears.</div>`;
+  else if (q && !o.held) mainMsg = html`<div><b>${q} change${n(' is', 's are')} queued.</b> ${reason.text}${tailed ? '' : html` ${n('It is written to ' + gameFile + ' by itself', 'They are written to ' + gameFile + ' by themselves')} as soon as it can be written.`} <button class="b sm d-btn primary sm" data-act="writeNow">Write now</button></div>`;
+  else if (saveBlocked && !q) mainMsg = html`<div><b>Edits are queued.</b> ${reason.text}${tailed ? '' : ' They are written by themselves as soon as that clears.'}</div>`;
   // what became of the edits an earlier run (or a reload) put back, and the plain fact when they are not being kept
   // A change that could not be put back is dropped for good: its notice stays, even after the others are written, until it is dismissed.
   const restoredHead = !restored ? html`` : restored.applied > 0
