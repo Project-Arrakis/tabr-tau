@@ -302,7 +302,8 @@ function needItem(inputId) {
 // best-grade effects; "applied" are the ids already on the item.
 let augSeq = 0; // the newest request wins when the picker changes quickly
 // The Give item row (picker gt, box gaug, slots ga, grade gag) and the care package editor's row (kitItem, kitAug, ka, kag) use the same slots.
-async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', gradeId = 'gag') {
+// keep: the values the controls of the block had before the page was drawn again (the snapshot of a redraw, { '#ga0|0': [value, default], ... }); they are put back once the block is drawn (#1148).
+async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', gradeId = 'gag', keep = null) {
   const box = $('#' + boxId), t = pickedItemId(pick), seq = ++augSeq;
   if (!box) return;
   setHTML(box, html``);
@@ -312,7 +313,16 @@ async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', grad
     fit.options.forEach((o) => AUG_NAMES.set(o.id, o.name));
     if (seq !== augSeq || !fit.limit || !$('#' + boxId)) return;
     setHTML($('#' + boxId), augBlock(prefix, fit, [], gradeId));
+    if (keep) for (const e of $('#' + boxId).querySelectorAll('select')) { const c = keep['#' + e.id + '|0']; if (c && [...e.options].some((o) => o.value === c[0])) e.value = c[0]; }
   } catch (e) { /* an unknown item simply has no augment slots */ }
+}
+// The Augments block is drawn by showGiveAugments when the item picker changes, never by the card itself, so a redraw of the page (the page's own refresh when the game saved, #696; a redraw after
+// another action) gave back the picker with its item and an empty block, and the slots and the grade were lost (#1148). After a redraw that keeps what was entered, the block is drawn again for the
+// item that is in the picker and its controls get back what they held. Nothing is asked of the server but the item's augment options, as when the picker changes; nothing is written.
+const AUG_ROWS = [['gt', 'gaug', 'ga', 'gag'], ['kitItem', 'kitAug', 'ka', 'kag']]; // Give item, and the care package editor's item row
+function restoreAugBlocks(place) {
+  if (!place || place.tab !== tab) return;
+  for (const [pick, box, prefix, gradeId] of AUG_ROWS) if ($('#' + box) && $('#' + pick) && pickedItemId(pick)) showGiveAugments(pick, box, prefix, gradeId, place.ctl);
 }
 const augName = (id) => (AUG_NAMES.get(id) || id);
 const AUG_NAMES = new Map(); // augment id -> name, filled from the options the server sent
@@ -3275,6 +3285,7 @@ async function render(keepPlace, auto, from) {
     setHTML($('#main'), html`<div class="card d-panel bad">${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);
   }
   viewApply(place);
+  restoreAugBlocks(place);
   tmapSync();
   goSync();
   if (tab === 'player' && $('#tdout')) goPlaces(false);
