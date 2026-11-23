@@ -44,6 +44,7 @@ func consoleFileName(what string, id int64, name string) string {
 // is not an object), a base over the limits of a file, a file the editor's own reader would not take back, and a save that was edited while the file was being made.
 func (o *Ops) ExportStandingBaseConsole(totem int64, at time.Time, editor string) (*BaseExport, error) {
 	opsAtStart := len(o.S.Ops())
+	revAtStart := o.S.Revision()
 	head, err := o.S.One(`select a.state state, coalesce(a.map,'') map, coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type,
 		(select entity_id from actor_fgl_entities where actor_id=t.id and slot_name='Actor' order by entity_id limit 1) ent,
 		(select player_id from permission_actor_rank where permission_actor_id=t.id and rank=1 order by player_id limit 1) owner,
@@ -177,7 +178,7 @@ func (o *Ops) ExportStandingBaseConsole(totem int64, at time.Time, editor string
 		return nil, err
 	}
 	notes = append(notes, nc...)
-	return o.finishConsoleFile(opsAtStart, rows, basefile.ConsoleHeader{At: at, Live: true, BaseID: totem, Name: backupDisplayName(rawName, totemType), RawName: name, Map: mapName, TotemType: totemType, Editor: editor},
+	return o.finishConsoleFile(opsAtStart, revAtStart, rows, basefile.ConsoleHeader{At: at, Live: true, BaseID: totem, Name: backupDisplayName(rawName, totemType), RawName: name, Map: mapName, TotemType: totemType, Editor: editor},
 		consoleFileName("base", totem, backupDisplayName(rawName, totemType)), notes)
 }
 
@@ -185,6 +186,7 @@ func (o *Ops) ExportStandingBaseConsole(totem int64, at time.Time, editor string
 // placeholder, and every actor is written in the backed-up state.
 func (o *Ops) ExportBaseBackupConsole(id int64, at time.Time, editor string) (*BaseExport, error) {
 	opsAtStart := len(o.S.Ops())
+	revAtStart := o.S.Revision()
 	head, err := o.S.One(`select id, coalesce(base_backup_name,'') name, player_id owner from base_backups where id=?`, id)
 	if err != nil {
 		return nil, err
@@ -251,7 +253,7 @@ func (o *Ops) ExportBaseBackupConsole(id int64, at time.Time, editor string) (*B
 	totemType, _ := tt["totem_type"].(string)
 	mapName, _ := tt["map"].(string)
 	display := backupDisplayName(rawName, totemType)
-	return o.finishConsoleFile(opsAtStart, rows, basefile.ConsoleHeader{At: at, BackupID: id, Name: display, RawName: rawName, Map: mapName, TotemType: totemType, Editor: editor},
+	return o.finishConsoleFile(opsAtStart, revAtStart, rows, basefile.ConsoleHeader{At: at, BackupID: id, Name: display, RawName: rawName, Map: mapName, TotemType: totemType, Editor: editor},
 		consoleFileName("backup", id, display), notes)
 }
 
@@ -319,7 +321,7 @@ func (o *Ops) consoleNotCarried(actors string) ([]string, error) {
 }
 
 // finishConsoleFile writes the file from the rows, reads it back with the editor's own reader and checks that it holds what was written.
-func (o *Ops) finishConsoleFile(opsAtStart int, rows map[string][][]any, h basefile.ConsoleHeader, fileName string, notes []string) (*BaseExport, error) {
+func (o *Ops) finishConsoleFile(opsAtStart int, revAtStart uint64, rows map[string][][]any, h basefile.ConsoleHeader, fileName string, notes []string) (*BaseExport, error) {
 	patches, err := o.S.Query(`select name from applied_patches order by date, name`)
 	if err != nil {
 		return nil, err
@@ -359,7 +361,10 @@ func (o *Ops) finishConsoleFile(opsAtStart int, rows map[string][][]any, h basef
 	if res.NulledRefs > 0 {
 		notes = append(notes, fmt.Sprintf("%d references name an item, inventory or entity that is not in the base; they are written as no reference.", res.NulledRefs))
 	}
-	if len(o.S.Ops()) != opsAtStart {
+	if exportReadDone != nil {
+		exportReadDone()
+	}
+	if len(o.S.Ops()) != opsAtStart || o.S.Revision() != revAtStart {
 		return nil, apierr.New(apierr.ErrConflict, changedWhileExporting)
 	}
 	return &BaseExport{Data: res.Data, FileName: fileName, Summary: s, Notes: notes}, nil
