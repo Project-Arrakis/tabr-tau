@@ -131,6 +131,35 @@ func forgetObserved(savePath string) {
 	observed.Unlock()
 }
 
+// observeEvery is how often KeepObserving looks at the save by itself while a game process exists: a third of observeGap, so that a tick that comes late still leaves the watch unbroken.
+// A variable so the tests can run it faster than the clock they stand in for.
+var observeEvery = observeGap / 3
+
+// KeepObserving is one evaluation of the gate, made by the editor itself, so that the watch of the save file (observeFile) does not depend on a page being open and visible (#1139). The
+// status poll is the one thing that evaluates the gate when no edit is waiting, and the page stops polling while its window is hidden or minimised; a Tau window behind the game for more
+// than observeGap broke the watch, and the first poll after the person came back started a new observeQuietFor wait however old the file was. The editor's autosave loop calls this every
+// few seconds; it looks at most once every observeEvery.
+//
+// It changes no rule and writes nothing. It is the observation the gate already makes (a stat of the file's time and the list of game processes, the same answers the status poll uses,
+// the process list from its short cache), made at the moment it is, and the answer is not used: whether a write may go ahead is decided by the gates that run before the backup and before
+// the rename, which are asked as before and read the process list afresh. What it records is true: the file's time as it was at that moment. A gap longer than observeGap (a sleep, a hibernation,
+// a clock stepped forward or back, a loop that did not run) still starts the watch again, a change of the file's time that is not the editor's own write still starts it again, a
+// session the log shows as active still blocks, and with no game process the watch is dropped, as ever. It takes none of the save's locks, so it cannot hold up a write, and a write
+// cannot hold it up.
+func (s *Save) KeepObserving() {
+	now := nowFunc()
+	s.obsMu.Lock()
+	due := s.obsAt.IsZero() || now.Sub(s.obsAt) >= observeEvery || now.Before(s.obsAt)
+	if due {
+		s.obsAt = now
+	}
+	s.obsMu.Unlock()
+	if !due || !IsGamesOwnSave(s.Path) {
+		return
+	}
+	processState(s.Path, false)
+}
+
 // watchEvery is how often keepWatching evaluates the gate while a write is being prepared: a third of observeGap, so that one late tick still leaves the watch unbroken. A variable
 // so the tests can run it faster than the clock they stand in for.
 var watchEvery = observeGap / 3
