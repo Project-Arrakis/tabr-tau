@@ -953,19 +953,7 @@
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the earned count is taken as the save states it.'));
     side.appendChild(s3); // no caption, mark legend or note under the ledger (#980): every tier row names its own state, and the Help tab explains the marks, Fill and the three separate states
 
-    // where it is
-    const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });
-    s5.appendChild(secHead('LOCATION', 'lcc-bd-s5'));
-    if (!h.loc.known) s5.appendChild(el('p', 'lcc-bd-none', 'Not mapped yet: the save holds no map marker for this House’s representative, and the editor does not guess a place.'));
-    else {
-      s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));
-      if (h.loc.unconfirmed) s5.appendChild(el('p', 'lcc-bd-cap', 'This place is from public guides and is not confirmed in the game.'));
-      const lm = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
-      if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.', lm.fromWhy ? { title: lm.fromWhy } : undefined));
-      if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lw:' + h.id }));
-      else s5.appendChild(el('p', 'lcc-bd-cap', M().noPictureSays(h.loc)));
-    }
-    side.appendChild(s5);
+    // no LOCATION section here (#1144): the place is the button under the House name at the top, and it is shown once
     return side;
   }
 

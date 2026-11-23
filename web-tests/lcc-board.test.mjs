@@ -258,7 +258,7 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');
   const order = [...i.children].map((c) => c.getAttribute('aria-labelledby') || c.className.split(' ')[0]);
-  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-s5'], 'the order of the approved design, except that the actions block comes directly under the name (and the way back to the board is before it); no note or disclosure under the ledger (#980)');
+  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3'], 'the order of the approved design (no LOCATION block at the end any more, #1144), except that the actions block comes directly under the name (and the way back to the board is before it); no note or disclosure under the ledger (#980)');
   assert.equal(i.querySelector('.lcc-bd-disc, .lcc-bd-note'), null, 'the note of the three separate states is in the Help tab');
   assert.doesNotMatch(text(i), /sysselraad/i, 'the Inspector holds no sysselraad data');
   const tiers = [...i.querySelectorAll('.lcc-bd-tier')];
