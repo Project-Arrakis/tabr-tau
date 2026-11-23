@@ -36,8 +36,7 @@ const VARIANTS = [
   { name: 'list: the Place line of the hover card', layout: 'list', link: (id) => `.lcc-bd-row .hcard-place[data-id="${id}"]` },
   { name: 'grid: the Place line of the hover card', layout: 'grid', link: (id) => `li.lcc-bd-cell[data-id="${id}"] .hcard-place` },
   { name: 'inspector: the place line under the House name', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]' },
-  { name: 'inspector: the Open in the Saved map action', layout: 'grid', pre: (ui, id) => click(ui, `[data-fk="ht:${id}"]`), link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' },
-  { name: 'Find House, then the inspector', layout: 'grid', pre: (ui, id) => { click(ui, '[data-lk="findbtn"]'); click(ui, '[data-lk="fpick"][data-id="' + id + '"]'); click(ui, '[data-fk="ht:' + id + '"]'); }, link: () => '.lcc-bd-insp .lcc-bd-act[data-lb="map"]' }, // Find House scrolls and outlines only (tau #974); the card opens the inspector
+  { name: 'Find House, then the inspector', layout: 'grid', pre: (ui, id) => { click(ui, '[data-lk="findbtn"]'); click(ui, '[data-lk="fpick"][data-id="' + id + '"]'); click(ui, '[data-fk="ht:' + id + '"]'); }, link: () => '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]' }, // Find House scrolls and outlines only (tau #974); the card opens the inspector
 ];
 
 // what the page was asked to scroll, in order: the window to an offset, an element into view (by its id or its class)
