@@ -565,9 +565,15 @@ function journeyStepName(id) {
   for (const g of JGROUPS) { const r = (JB[g[0]] || []).find((x) => x.id === id); if (r) return r.name; }
   return '';
 }
-// The id that a queue line leaves out, for its tooltip (#618).
+// A queued Give of several items is one edit: "Give 2 items: 3 x A (grade 1); 1 x B (grade 5, augments: C at grade 3)". Its items, one to a line, in the banner list (#1149); null for any other edit.
+function queueGiveItems(desc) {
+  const m = String(desc || '').match(/^Give (\d+) items(?: \([^)]*\))?: (.+)$/);
+  return m ? m[2].split('; ') : null;
+}
+// The id that a queue line leaves out, for its tooltip (#618). A queued Give of several items says all of them in its tooltip too, on one line (#1149).
 function queueTip(desc) {
   let m;
+  if (queueGiveItems(desc)) return String(desc);
   if ((m = String(desc || '').match(/^journey (\S+) (?:completed|reset) \(/))) return `Journey step id ${m[1]}`;
   if ((m = String(desc || '').match(/^moved vehicle (\d+) next to player$/))) return `Vehicle number ${m[1]}`;
   return '';
@@ -687,7 +693,7 @@ async function status() {
   const nq = q + (refill ? 1 : 0);
   const refillWhy = refill ? (refill.why ? capFirst(refill.why) : 'The game may still hold the save') + '.' : '';
   const refillLi = refill ? html`<li class="bn-refill"><b>Automatic refill.</b> The jobs switched on in Settings, run as one edit. ${refillWhy} It runs by itself, on the file as the game left it, as soon as that clears. <button class="b sm d-btn sm" data-act="cancelRefill" title="Cancel this refill. Nothing is written and no setting changes; the editor asks again the next time it opens.">Cancel refill</button></li>` : html``;
-  const listMsg = nq ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${nq})</summary><ul>${lines.map((l, i) => html`<li title="${queueTip(o.pending[i])}">${l}</li>`)}${refillLi}</ul></details>` : html``;
+  const listMsg = nq ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${nq})</summary><ul>${lines.map((l, i) => { const gi = queueGiveItems(o.pending[i]); return html`<li title="${queueTip(o.pending[i])}">${gi ? html`${l.slice(0, l.indexOf(':') + 1)}${gi.map((x) => html`<br>${x}`)}` : l}</li>`; })}${refillLi}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
   const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${notesMsg}${recordMsg}${listMsg}${rawMsg}`;
