@@ -58,7 +58,7 @@ type Save struct {
 
 	dirty bool
 	rev   uint64 // counts every change of the working copy (Revision)
-	ops   []Op // structured record of the edits applied since load
+	ops   []Op   // structured record of the edits applied since load
 	// sink receives the notes of the edits that were written (notes.go)
 	sink func([]Note) error
 	// undelivered are the notes of written edits that the sink could not take; they go with the next delivery
