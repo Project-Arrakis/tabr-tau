@@ -611,3 +611,41 @@ func TestExportRefusesAFileOverTheSizeLimit(t *testing.T) {
 		t.Fatalf("under the cap: %v", err)
 	}
 }
+
+// D3-2 of the 2026-11-13 audit (#613): the export reads its tables one after the other, so a change between the reads that leaves the same number of edits queued (the file read
+// again, an edit that was queued and dropped) used to give a file that mixed two states. The save's revision catches every such change: the export is refused and nothing is handed out.
+func TestExportIsRefusedWhenTheSaveIsReadAgainWhileTheFileIsMade(t *testing.T) {
+	for name, change := range map[string]func(o *Ops) error{
+		"the file read again": func(o *Ops) error { _, err := o.S.DiscardIfClean(); return err },
+		"an edit that changed a row": func(o *Ops) error {
+			_, err := o.S.Mutate("test edit", func(m *save.Mut) error {
+				_, err := m.Exec(`update building_instances set health=health+1 where building_id=602 and instance_id=1`)
+				return err
+			})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			o := exportOps(t)
+			exportReadDone = func() {
+				if err := change(o); err != nil {
+					t.Errorf("the change failed: %v", err)
+				}
+			}
+			defer func() { exportReadDone = nil }()
+			out, err := o.ExportBaseBackup(1, exportAt, "x")
+			if err == nil || !errors.Is(err, apierr.ErrConflict) || !strings.Contains(err.Error(), "save changed while the file was being made") {
+				t.Fatalf("want the save-changed refusal, got %v", err)
+			}
+			if out != nil {
+				t.Fatalf("a file was handed out: %d bytes", len(out.Data))
+			}
+		})
+	}
+	// and with no change in between, the same export works
+	exportReadDone = func() {}
+	defer func() { exportReadDone = nil }()
+	if _, err := exportOps(t).ExportBaseBackup(1, exportAt, "x"); err != nil {
+		t.Fatalf("an export with no change in between was refused: %v", err)
+	}
+}

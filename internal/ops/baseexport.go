@@ -71,6 +71,9 @@ type BaseExport struct {
 	Notes    []string // what the caller should say about the file (console files only)
 }
 
+// exportReadDone is called by a test after the tables are read and before the file is let go, to change the save there.
+var exportReadDone func()
+
 var fileNameBad = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
 // exportFileName is the name offered for the file: fixed words, the backup's number and its name with everything but letters, digits, dot, dash and underscore taken out.
@@ -90,9 +93,10 @@ func exportFileName(id int64, name string) string {
 //
 // It refuses, with the reason and without a partial file: no such backup, a backup with no actors or with an actor that is not in the save, a base whose storage holds a Solido
 // (its blueprint rows are not carried yet), an inventory that belongs to an item or a vehicle module, a number that is not finite, JSON that is not valid, more rows than a file
-// may hold, a file over the size limit, and a save that was edited while the file was being made.
+// may hold, a file over the size limit, and a save that was edited while the file was being made (an edit, or the file read again, between the reads: Save.Revision).
 func (o *Ops) ExportBaseBackup(id int64, at time.Time, editor string) (*BaseExport, error) {
 	opsAtStart := len(o.S.Ops())
+	revAtStart := o.S.Revision()
 	head, err := o.S.One(`select id, coalesce(base_backup_name,'') name from base_backups where id=?`, id)
 	if err != nil {
 		return nil, err
@@ -159,7 +163,10 @@ func (o *Ops) ExportBaseBackup(id int64, at time.Time, editor string) (*BaseExpo
 	if err != nil {
 		return nil, apierr.Newf(apierr.ErrBadArgument, "The base backup cannot be exported: %v. Nothing was exported.", err)
 	}
-	if len(o.S.Ops()) != opsAtStart {
+	if exportReadDone != nil {
+		exportReadDone()
+	}
+	if len(o.S.Ops()) != opsAtStart || o.S.Revision() != revAtStart {
 		return nil, apierr.New(apierr.ErrConflict, changedWhileExporting)
 	}
 	return &BaseExport{Data: data, FileName: exportFileName(id, name), Summary: m.Summary}, nil

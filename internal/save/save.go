@@ -57,7 +57,8 @@ type Save struct {
 	obsAt time.Time
 
 	dirty bool
-	ops   []Op // structured record of the edits applied since load
+	rev   uint64 // counts every change of the working copy (Revision)
+	ops   []Op   // structured record of the edits applied since load
 	// sink receives the notes of the edits that were written (notes.go)
 	sink func([]Note) error
 	// undelivered are the notes of written edits that the sink could not take; they go with the next delivery
@@ -321,6 +322,7 @@ func (s *Save) load() error {
 		os.Remove(s.work)
 	}
 	s.work, s.db, s.rdb = work, db, rdb
+	s.rev++
 	s.blocked, s.fkBase, s.schemaDiff, s.mapNameIDs = blocked, base, note, byID
 	s.diskHash = hashOf(blob)
 	s.diskSize, s.diskMod = 0, time.Time{}
@@ -395,6 +397,14 @@ func (s *Save) Ops() []Op {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]Op{}, s.ops...)
+}
+
+// Revision is a number that changes whenever the working copy does: each edit that changed rows, and each time the file is read again (a discard, a refresh, a rebase onto a newer file),
+// even when that leaves the same edits queued. A reader that makes one answer from several reads takes it before and after and refuses the answer when the two differ (#613, D3-2).
+func (s *Save) Revision() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.rev
 }
 
 // WithBaseline calls fn with read-only handles on the pristine copy of the save as loaded and on the working copy as edited so far, so a test (or a diagnostic) can show exactly

@@ -345,6 +345,7 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 	s.fkBase = fk
 	n := after - before
 	if n > 0 {
+		s.rev++
 		s.dirty = true
 		// An edit that changed rows is always listed: the queue is what the person sees, and a change that is waiting to be written with nothing
 		// listed cannot be told apart from a queue that is empty (the Discard question would say "0 changes"). Every edit the editor makes names itself;

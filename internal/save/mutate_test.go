@@ -200,3 +200,29 @@ func TestCommitMakesTheWrittenFileTheNewBaseline(t *testing.T) {
 		t.Fatal("ops cleared after save")
 	}
 }
+
+// Revision (#613, D3-2) changes with every change of the working copy, including a read of the file again that leaves the same edits queued, and not with a read of the rows.
+func TestRevisionChangesWithTheWorkingCopyAndNotWithReads(t *testing.T) {
+	s := testsave.Player(t)
+	r0 := s.Revision()
+	count(t, s)
+	if _, err := s.Mutate("no rows", func(m *save.Mut) error { _, err := m.Exec(`delete from items where id=-1`); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if s.Revision() != r0 {
+		t.Fatal("a read, or an edit that changed no row, changed the revision")
+	}
+	if _, err := s.Mutate("one row", func(m *save.Mut) error { _, err := m.Exec(`delete from items where id=11`); return err }); err != nil {
+		t.Fatal(err)
+	}
+	r1 := s.Revision()
+	if r1 == r0 {
+		t.Fatal("an edit that changed a row did not change the revision")
+	}
+	if err := s.Discard(); err != nil {
+		t.Fatal(err)
+	}
+	if s.Revision() == r1 {
+		t.Fatal("reading the file again did not change the revision")
+	}
+}
