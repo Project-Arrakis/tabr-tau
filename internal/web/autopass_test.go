@@ -263,14 +263,14 @@ func TestAutoPassWaitsInTheGraceAfterLeavingTheWorldAndRunsWhenItEnds(t *testing
 	restore := save.GameJustLeftWorldForTests()
 	s.RunStartupTasks()
 	note, warn := s.takeStartup()
-	if warn || !strings.HasPrefix(note, "Automatic refill queued: the game wrote its database 20 seconds ago, the last write after the single-player session ended 23 seconds ago;") ||
+	if warn || !strings.HasPrefix(note, "Automatic refill queued: the game saved 20 seconds ago.") ||
 		!strings.Contains(note, "It runs by itself") || strings.Contains(note, "the game is open") || strings.Contains(note, "applied when it closes") || strings.Contains(note, "edits stay queued") {
 		t.Fatalf("note %q warn %v", note, warn)
 	}
 	if !isWaiting(s) {
 		t.Fatal("the pass should be waiting")
 	}
-	if w := postEditGet(t, s, "/api/settings"); !strings.Contains(w, `"waiting":true`) || !strings.Contains(w, `"waitingWhy":"the game wrote its database 20 seconds ago`) {
+	if w := postEditGet(t, s, "/api/settings"); !strings.Contains(w, `"waiting":true`) || !strings.Contains(w, `"waitingWhy":"the game saved 20 seconds ago`) {
 		t.Fatalf("the card must carry the reason: %s", w)
 	}
 	after, _ := os.ReadFile(s.Save.Path)

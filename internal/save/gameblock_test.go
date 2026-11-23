@@ -129,7 +129,7 @@ func TestTheQueuedEditIsWrittenWhenTheEvidenceAllows(t *testing.T) {
 	s.ExecScript(`insert into t values (1)`)
 	gameSituations["logged out to character selection 23 s ago (the #419 case)"](t)
 	f := s.Flush()
-	if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "wrote its database") || !strings.Contains(f.Why, "edits stay queued") || strings.Contains(f.Why, "is running") {
+	if f.Saved || f.Queued != 1 || !strings.Contains(f.Why, "the game saved 2") || !strings.Contains(f.Why, "they are written in about") || strings.Contains(f.Why, "is running") {
 		t.Fatalf("just after leaving the world: %+v", f)
 	}
 	// the same game, the player long gone from the world: the queued edit is written without anyone asking

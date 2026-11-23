@@ -147,7 +147,7 @@ test('#1123: a refill that waits for the game is listed in What is queued with w
   assert.doesNotMatch(text(li), /in \d+ ?s|seconds? left|countdown/i, 'no frozen countdown: the reason says when it runs');
   assert.ok(li.querySelector('button[data-act="cancelRefill"]'), 'a way to cancel it');
   assert.equal(ui.doc.querySelector('#btnDiscard').hidden, true, 'no Discard queue: there is no edit to discard');
-  assert.match(text(gw), /Changes you make now are queued/, 'the banner sentence for no edits is unchanged');
+  assert.match(text(gw), /Edits are queued/, 'the banner sentence for no edits (#1128)');
   assert.ok(gw.classList.contains('warn'));
 });
 

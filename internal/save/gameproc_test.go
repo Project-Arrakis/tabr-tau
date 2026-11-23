@@ -257,7 +257,7 @@ func TestCheckGameNowSaysWhatItFound(t *testing.T) {
 		return spStatus{EndedAt: time.Now().Add(-23 * time.Second), LastSaveAt: time.Now().Add(-20 * time.Second)}, nil
 	}
 	c = CheckGameNow(p)
-	if !c.Running || !c.Blocked || c.Failed || !strings.Contains(c.Message, "wrote its database 20 seconds ago") { // the #419 case stays queued, and says why
+	if !c.Running || !c.Blocked || c.Failed || !strings.Contains(c.Message, "the game saved 20 seconds ago") { // the #419 case stays queued, and says why
 		t.Fatalf("just left the world: %+v", c)
 	}
 
