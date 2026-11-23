@@ -24,7 +24,7 @@ func TestAnEditIsWrittenAtTheMenuAndQueuedRightAfterLeavingTheWorld(t *testing.T
 	}
 	st := stateOf(t, s)
 	why, _ := st["blockReason"].(string)
-	if st["saveBlocked"] != true || !strings.Contains(why, "wrote its database") || strings.Contains(why, "is running") {
+	if st["saveBlocked"] != true || !strings.Contains(why, "the game saved ") || !strings.Contains(why, "they are written in about") || st["blockDetail"] == "" || strings.Contains(why, "is running") {
 		t.Fatalf("the state must say what is being waited for: %v", st)
 	}
 	restore()

@@ -61,7 +61,7 @@ func TestTeleportQueuedByTheGameCheckSaysWhy(t *testing.T) {
 	defer save.GameJustLeftWorldForTests()()
 	m := teleportAnswer(t, s)
 	msg, _ := m["message"].(string)
-	if m["outcome"] != "queued" || m["warn"] != true || !strings.HasPrefix(msg, "Position queued: the game wrote its database ") || !strings.HasSuffix(msg, ". It is written by itself as soon as that clears; press Continue to load it then.") || strings.Contains(msg, save.QueuedUntilClears) {
+	if m["outcome"] != "queued" || m["warn"] != true || !strings.HasPrefix(msg, "Position queued: the game saved ") || !strings.HasSuffix(msg, ". It is written by itself as soon as that clears; press Continue to load it then.") || strings.Contains(msg, save.QueuedUntilClears) {
 		t.Fatalf("%v", m)
 	}
 }

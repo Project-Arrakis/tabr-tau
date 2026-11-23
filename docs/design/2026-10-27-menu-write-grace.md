@@ -61,7 +61,8 @@ Every other case is as before, because the evidence is missing or says something
 | a single-player session is active | none: never written |
 | the log cannot be read, or the process list cannot be read | none: queued |
 | the session ended and exactly one later write is seen | 30 s after the end and 60 s after that write (23 s before #612) |
-| the session ended and more than one later write is seen | as "no session end": 3 minutes since the last write, then 6 minutes after the end (#612) |
+| the session ended and two later writes are seen, both within 10 s of the end marker (#1122) | the same: 30 s after the end and 60 s after the last write |
+| the session ended and any other number of later writes is seen (a third, or one later than 10 s after the end together with another) | as "no session end": 3 minutes since the last write, then 6 minutes after the end (#612) |
 | the session ended and no later write is seen | 6 minutes after the end (`endedFallbackGrace`, not measured) |
 | no session end in the log (for example the game was started at the menu) and a write is seen | 3 minutes since the last write (`dbQuietFor`) |
 | the game is closed | written at once |
@@ -69,6 +70,45 @@ Every other case is as before, because the evidence is missing or says something
 
 The waiting text counts down in words ("about 25 seconds more"; seconds under two minutes, minutes after). The grace is not a promise that the game cannot hold the save at the
 menu: the file-open check and the rest of the #449 rule are unchanged, and what the game does with rows it read earlier is still not established.
+
+## Re-measured 2026-11-23 (#1122): two writes just after the end
+
+The operator saw the 3-minute wait again after leaving the world. The log of 2026-11-22 00:14 UTC shows why: the game's periodic write (every 20 s while a world is loaded) fell
+0.4 s after the end marker, and the write the game makes when it leaves came 3.6 s after it, so there were TWO writes after the marker and the rule "exactly one" (`maxWritesAfterEnd`)
+refused the short grace. Read-only, through the same state machine as the editor (end marker, then every database write until the next session start or the end of the log), over every
+log kept on this computer (the current log and the ten rotated ones, 2026-11-21 to 2026-11-23, game build 1.5.15.x). Times are the log's own (UTC); "offset" is seconds after the
+end marker; "before" is how long before the marker the previous write was.
+
+| End marker (UTC) | How it ended | Writes after the marker (offset, s) | Before (s) |
+|---|---|---|---|
+| 2026-11-21 01:14:39 | quit from inside the world | 3.8 | 3.4 |
+| 2026-11-21 19:58:14 | to the menu | 1.9 | 10.5 |
+| 2026-11-22 00:14:22 | to the menu | **0.4 and 3.6** | 20.1 |
+| 2026-11-22 00:22:36 | quit from inside the world | 3.0 | 13.7 |
+| 2026-11-22 05:50:53 | to the menu | 2.6 | 6.5 |
+| 2026-11-22 08:03:33 | quit from inside the world | 1.8 | 1.9 |
+| 2026-11-22 21:31:09 | quit from inside the world | 3.4 | 4.9 |
+| 2026-11-23 00:04:13 | to the menu, then the log ends | 3.2 | 13.3 |
+| 2026-11-23 06:52:46 | quit from inside the world | 3.1 | 11.2 |
+| 2026-11-23 18:18:13 | quit from inside the world | 3.2 | 12.7 |
+
+What the table says:
+
+- Ten exits: nine with exactly one write 1.8 s to 3.8 s after the marker, one (00:14:22) with two writes, 0.4 s and 3.6 s after it. No exit had a write between 3.8 s and the start of
+  the next session. (Three exits are followed by a session start in the same log; the write that precedes the start, 112.6 s, 436.5 s and 374.3 s after those exits, is the write the game
+  makes when it opens the database for the next session, 0.04 s to 0.05 s before the `?listen` line: it is not a write at the menu, and the editor resets its count at the start.) With the 19 exits of
+  #470, the latest write after any marker was 6.9 s.
+- The extra write of 00:14:22 is the periodic one: the previous write was 20.1 s before the marker, so the next periodic write was due 0.4 s after it (the periodic interval is 20.1 s
+  at the median). In the other nine exits the next periodic write was due 6 s to 18 s after the marker and did not come: the game stops the periodic write when it starts to leave. So the
+  periodic write shows up after the marker only when it falls in the first moments of the exit, which is rare but not impossible: the rule "exactly one" was brittle, not newly broken. No exit
+  showed no write at all.
+- A third write, or one later than 10 s after the marker, has not been seen at any exit.
+
+The rule since #1122: when the session ended, a write after it is seen, and the number of writes after the marker is one, or two that BOTH fall within 10 s of the marker
+(`maxWritesNearEnd` = 2, `nearEndWindow` = 10 s: the 6.9 s of #470 plus margin), the exit is the normal one and the 30 s and 60 s waits apply. Everything else is as before: a second write
+later than 10 s, three or more writes, no end marker, and no write after the marker keep the 3-minute and 6-minute waits. `dbQuietFor` itself is not shortened: it is the safety net for the #419 case.
+
+Limits: ten exits from one computer in three days; one of them had two writes, so the two-write shape rests on a single observation (with the periodic interval to explain it).
 
 ## Not changed
 

@@ -54,6 +54,13 @@ const (
 	// was not the end of the world (a local ?closed browse while the world stayed loaded, a map load without ?listen), so the short grace is not used and the flat quiet time
 	// and the fallback wait apply (#612, D2-2).
 	maxWritesAfterEnd = 1
+	// maxWritesNearEnd and nearEndWindow are the second shape of leaving a world (#1122): the game's last periodic write (every 20 s while a world is loaded) can fall just after the end
+	// marker as well as the write it makes when it leaves, so there are TWO writes, both within a few seconds of the marker. Measured in the logs of 2026-11-18 to 2026-11-23: 9 of
+	// 10 exits had one write 1.8 s to 3.8 s after the marker, one had two (0.4 s and 3.6 s after it), and none had a write between 4 s and the start of the next session (see
+	// docs/design/2026-10-27-menu-write-grace.md). Up to maxWritesNearEnd writes that all fall within nearEndWindow of the marker (the largest gap in the 19 exits of #470 was 6.9 s)
+	// are the normal exit; a write later than that, or a third one, is not, and the flat quiet time and the fallback wait apply as before.
+	maxWritesNearEnd = 2
+	nearEndWindow    = 10 * time.Second
 	// noMarkerQuietFor is how long the save file must have been unchanged when a game process exists and the log, though it can be read, shows no session line at all (no
 	// start, no end, no write line): that is what a game that never loaded a world looks like, and also what a log looks like when a game update reworded the lines the
 	// editor reads (#612, D2-1). The state is then unknown, and only the file's own time can say the game is idle: ten minutes, longer than any gap between the game's writes
@@ -97,6 +104,7 @@ func endAnchored(ev sessionlog.Event, line string) bool {
 type spTracker struct {
 	sessionlog.Tracker
 	writesAfterEnd int // database writes seen after the latest end marker; zero while a session is open
+	writesNearEnd  int // how many of those fall within nearEndWindow of the end marker, by the log's own times (a write with no time stamp is not near)
 }
 
 // feed applies one log line. No end marker ends a session unless it stands at the start of the line's text; starts and the write line keep the wide reading (a spurious start
@@ -116,11 +124,14 @@ func (t *spTracker) feed(line string) {
 	}
 	switch {
 	case ev == sessionlog.Start:
-		t.writesAfterEnd = 0
+		t.writesAfterEnd, t.writesNearEnd = 0, 0
 	case ev.Ends() && t.SPActive:
-		t.writesAfterEnd = 0
+		t.writesAfterEnd, t.writesNearEnd = 0, 0
 	case ev == sessionlog.DatabaseSaved && !t.EndedAt.IsZero():
 		t.writesAfterEnd++
+		if at := sessionlog.LogTime(line); !at.IsZero() && at.Sub(t.EndedAt) <= nearEndWindow {
+			t.writesNearEnd++
+		}
 	}
 	t.Tracker.Feed(p, line, nil)
 }
@@ -144,6 +155,14 @@ type spStatus struct {
 	LastSaveAt time.Time // the game's last write of the database, from its log; zero when the log shows none
 	// WritesAfterEnd is how many database writes the log shows after the latest end marker (one is what leaving a world looks like).
 	WritesAfterEnd int
+	// WritesNearEnd is how many of them fall within nearEndWindow of the end marker (#1122): two writes that both do are still the normal exit.
+	WritesNearEnd int
+}
+
+// endWritesNormal says whether n database writes after the end marker, near of them within nearEndWindow of it, look like leaving a world: one write, whenever it came (#612), or
+// up to maxWritesNearEnd writes that all fall within the window (#1122).
+func endWritesNormal(n, near int) bool {
+	return n <= maxWritesAfterEnd || (n <= maxWritesNearEnd && near == n)
 }
 
 // seen says whether the log currently asserts anything about a session: one is active, one ended, or the game wrote its database. None of these is a log that says nothing
@@ -228,16 +247,32 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 			return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 		}
 	}
-	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt, WritesAfterEnd: spLog.tr.writesAfterEnd}, nil
+	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt, WritesAfterEnd: spLog.tr.writesAfterEnd, WritesNearEnd: spLog.tr.writesNearEnd}, nil
 }
 
 // QueuedUntilClears ends the Reason of a game that may still hold the save's rows. A caller that words the wait for itself (the automatic pass at launch, #499) takes it off.
-const QueuedUntilClears = "; edits stay queued until this clears, or the game closes"
+const QueuedUntilClears = "; they are written when this clears, or when the game closes"
+
+// WrittenInMarker starts the end of the Reason of a wait that has a time left ("the game saved 21 seconds ago; they are written in about 39 seconds, or when the game closes", #1128).
+const WrittenInMarker = "; they are written in about "
+
+// WaitFact is the Reason of a blocked game without the sentence about the queue that ends it: what the editor waits for, in a few words (QueuedUntilClears, or the part from
+// WrittenInMarker, is taken off). A caller that words the wait for itself (the automatic pass) uses it.
+func WaitFact(reason string) string {
+	if r, ok := strings.CutSuffix(reason, QueuedUntilClears); ok {
+		return r
+	}
+	if r, _, ok := strings.Cut(reason, WrittenInMarker); ok {
+		return r
+	}
+	return reason
+}
 
 // GameState is the answer to "may the save be written now?".
 type GameState struct {
 	Blocked    bool     // Save must not run
-	Reason     string   // why, in a sentence for the page (empty when saving is allowed)
+	Reason     string   // why, in a short sentence for the page (empty when saving is allowed): what is waited for and, when it is known, how long (#1128)
+	Detail     string   // the technical account behind Reason (the last write, the end time, the grace values), for the collapsed Details of the banner; empty when Reason says it all
 	Mode       string   // none | menu | unknown_quiet | single_player | session_ended | game_running | unknown (unknown_quiet: allowed, but the log said nothing about a session)
 	Processes  []string // Dune processes found (also set when saving is allowed)
 	CheckError string   // set when we could not tell
@@ -288,7 +323,8 @@ func UnattendedStateFor(savePath string, fresh bool) GameState {
 		return g
 	}
 	return GameState{Blocked: true, Mode: "game_running", Processes: g.Processes,
-		Reason: "the game is open, and the automatic pass runs without anyone watching, so it waits until the game is closed (it does not rely on the game's log alone to tell that no world is loaded)" + QueuedUntilClears}
+		Reason: "the game is open, so the automatic pass waits until the game is closed" + QueuedUntilClears,
+		Detail: "the game is open, and the automatic pass runs without anyone watching, so it waits until the game is closed (it does not rely on the game's log alone to tell that no world is loaded)" + QueuedUntilClears}
 }
 
 // copyState is GameStateFor for a save that is not the game's own (#498): the game's processes, log and handle are not asked, because the game does not open this file, so
@@ -337,22 +373,32 @@ func processState(savePath string, fresh bool) GameState {
 	wait := func(mode, why string) GameState {
 		return GameState{Blocked: true, Mode: mode, Processes: procs, Reason: why + QueuedUntilClears}
 	}
+	// waitD is a wait with no time to name: the short reason, and the technical account (detail) for the banner's Details (#1128).
+	waitD := func(mode, why, detail string) GameState {
+		g := wait(mode, why)
+		g.Detail = detail + QueuedUntilClears
+		return g
+	}
+	// waitFor is a wait whose end the editor can name: "<what it waits for>; they are written in about <time>, or when the game closes" (#1128), with the technical account in Detail.
+	waitFor := func(mode, fact string, more time.Duration, detail string) GameState {
+		return GameState{Blocked: true, Mode: mode, Processes: procs, Reason: fact + WrittenInMarker + approxDuration(more) + ", or when the game closes", Detail: detail + QueuedUntilClears}
+	}
 	// The save file's time is read once, at every evaluation with a game process (also when the log already blocks), so the editor can tell whether it has been watching the
 	// file without a gap (observeFile, #612).
 	mod, own, terr := fileTimeFor(savePath)
 	watchedFrom := observeFile(savePath, now, mod, own, terr)
 	sp, serr := statusFor(savePath)
 	if serr != nil {
-		return wait("game_running", "the game is open and its log cannot be read ("+shortReason(serr)+"), so the editor cannot tell whether a world is loaded")
+		return waitD("game_running", "the game is open and its log cannot be read ("+shortReason(serr)+")", "the game is open and its log cannot be read ("+shortReason(serr)+"), so the editor cannot tell whether a world is loaded")
 	}
 	if sp.Active {
-		return wait("single_player", "a single-player session is active, and the game rewrites the save about every 20 seconds while it runs")
+		return waitD("single_player", "a single-player session is active", "a single-player session is active, and the game rewrites the save about every 20 seconds while it runs")
 	}
 	endSeen := !sp.EndedAt.IsZero()
 	// "After", not "not before": the log's times are whole seconds, and the periodic write that comes up to a second before the end marker can carry the same second as it. The
-	// game's last write came 1.5 s or more after the marker in every exit measured, so it is always a later second; a tie is read as "not seen", which waits longer. More than
-	// maxWritesAfterEnd writes after the end marker is not what leaving a world looks like: the marker is then not trusted (#612, D2-2).
-	cleanEnd := endSeen && sp.LastSaveAt.After(sp.EndedAt) && sp.WritesAfterEnd <= maxWritesAfterEnd
+	// game's last write came 1.5 s or more after the marker in every exit measured, so it is always a later second; a tie is read as "not seen", which waits longer. Writes beyond
+	// what endWritesNormal allows (one, or two within nearEndWindow of the marker, #1122) are not what leaving a world looks like: the marker is then not trusted (#612, D2-2).
+	cleanEnd := endSeen && sp.LastSaveAt.After(sp.EndedAt) && endWritesNormal(sp.WritesAfterEnd, sp.WritesNearEnd)
 	fileQuiet := dbQuietFor // how long the save file must have been unchanged, whatever the log said (the second signal, #612 D2-1)
 	switch {
 	case !sp.seen():
@@ -367,20 +413,24 @@ func processState(savePath string, fresh bool) GameState {
 			wake = w
 		}
 		if now.Before(wake) {
-			return wait("session_ended", "the game wrote its database "+approxDuration(now.Sub(sp.LastSaveAt))+" ago, the last write after the single-player session ended "+approxDuration(now.Sub(sp.EndedAt))+" ago; the logs show it then stays silent, so the editor waits "+approxDuration(menuWriteGrace)+" after the end and "+approxDuration(menuQuietAfterWrite)+" after that write (about "+approxDuration(wake.Sub(now))+" more)")
+			return waitFor("session_ended", "the game saved "+approxDuration(now.Sub(sp.LastSaveAt))+" ago", wake.Sub(now),
+				"the game wrote its database "+approxDuration(now.Sub(sp.LastSaveAt))+" ago, the last write after the single-player session ended "+approxDuration(now.Sub(sp.EndedAt))+" ago; the logs show it then stays silent, so the editor waits "+approxDuration(menuWriteGrace)+" after the end and "+approxDuration(menuQuietAfterWrite)+" after that write (about "+approxDuration(wake.Sub(now))+" more)")
 		}
 	} else {
 		if !sp.LastSaveAt.IsZero() {
 			if since := now.Sub(sp.LastSaveAt); since < dbQuietFor {
-				return wait("session_ended", "the game wrote its database "+approxDuration(since)+" ago and does that about every 20 seconds while a world is loaded; it must be quiet for "+approxDuration(dbQuietFor)+" first (about "+approxDuration(dbQuietFor-since)+" more)")
+				return waitFor("session_ended", "the game saved "+approxDuration(since)+" ago", dbQuietFor-since,
+					"the game wrote its database "+approxDuration(since)+" ago and does that about every 20 seconds while a world is loaded; it must be quiet for "+approxDuration(dbQuietFor)+" first (about "+approxDuration(dbQuietFor-since)+" more)")
 			}
 		}
 		if endSeen {
 			if since := now.Sub(sp.EndedAt); since < endedFallbackGrace {
-				if sp.WritesAfterEnd > maxWritesAfterEnd {
-					return wait("session_ended", "the single-player session ended "+approxDuration(since)+" ago but the game wrote its database "+fmt.Sprint(sp.WritesAfterEnd)+" times after that, which is not what leaving a world looks like, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
+				if !endWritesNormal(sp.WritesAfterEnd, sp.WritesNearEnd) {
+					return waitFor("session_ended", "you left the world "+approxDuration(since)+" ago and the game saved "+fmt.Sprint(sp.WritesAfterEnd)+" times after that", endedFallbackGrace-since,
+						"the single-player session ended "+approxDuration(since)+" ago but the game wrote its database "+fmt.Sprint(sp.WritesAfterEnd)+" times after that, which is not what leaving a world looks like, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
 				}
-				return wait("session_ended", "the single-player session ended "+approxDuration(since)+" ago and the log does not show the game's last write after it, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
+				return waitFor("session_ended", "you left the world "+approxDuration(since)+" ago", endedFallbackGrace-since,
+					"the single-player session ended "+approxDuration(since)+" ago and the log does not show the game's last write after it, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
 			}
 		}
 	}
@@ -389,23 +439,26 @@ func processState(savePath string, fresh bool) GameState {
 	// no session line in the log at all the state is unknown, and the file must have been quiet much longer. A time that cannot be read is not "quiet".
 	switch {
 	case terr != nil:
-		return wait("game_running", "the editor could not read the modification time of the save file ("+shortReason(terr)+"), so it cannot tell whether the game is still writing it")
+		return waitD("game_running", "the editor could not read the modification time of the save file ("+shortReason(terr)+")", "the editor could not read the modification time of the save file ("+shortReason(terr)+"), so it cannot tell whether the game is still writing it")
 	case own: // the file is the one the editor wrote itself: its time says nothing about the game
 	case now.Sub(mod) < fileQuiet:
 		if !sp.seen() {
-			return wait("game_running", "the game is open, its log shows no sign of a session (nothing to say whether a world is loaded), and the save file changed "+approxDuration(now.Sub(mod))+" ago; the editor waits until the file has been quiet for "+approxDuration(fileQuiet)+" (about "+approxDuration(fileQuiet-now.Sub(mod))+" more)")
+			return waitFor("game_running", "the save file changed "+approxDuration(now.Sub(mod))+" ago", fileQuiet-now.Sub(mod),
+				"the game is open, its log shows no sign of a session (nothing to say whether a world is loaded), and the save file changed "+approxDuration(now.Sub(mod))+" ago; the editor waits until the file has been quiet for "+approxDuration(fileQuiet)+" (about "+approxDuration(fileQuiet-now.Sub(mod))+" more)")
 		}
-		return wait("session_ended", "the save file changed "+approxDuration(now.Sub(mod))+" ago, whatever the log says; the editor waits until it has been quiet for "+approxDuration(fileQuiet)+" (about "+approxDuration(fileQuiet-now.Sub(mod))+" more)")
+		return waitFor("session_ended", "the save file changed "+approxDuration(now.Sub(mod))+" ago", fileQuiet-now.Sub(mod),
+			"the save file changed "+approxDuration(now.Sub(mod))+" ago, whatever the log says; the editor waits until it has been quiet for "+approxDuration(fileQuiet)+" (about "+approxDuration(fileQuiet-now.Sub(mod))+" more)")
 	}
 	// The quiet must have been OBSERVED (#612): the editor's clock and the file's time are the whole of the second signal, and a computer that slept, or a clock that was set
 	// forward, makes an old file time look like a long quiet. When the editor has not evaluated the gate with a game process for more than observeGap (the first evaluation, a
 	// sleep, a clock step), or the file changed since it last looked, it holds for observeQuietFor and sees the file unchanged across it.
 	if observeQuietFor > 0 && now.Sub(watchedFrom) < observeQuietFor {
-		return wait("game_running", "the editor has only just started watching the save file with the game open, so it cannot yet tell that the file is quiet (it waits "+approxDuration(observeQuietFor)+" and sees the file unchanged; about "+approxDuration(observeQuietFor-now.Sub(watchedFrom))+" more)")
+		return waitFor("game_running", "the editor has only just started watching the save file", observeQuietFor-now.Sub(watchedFrom),
+			"the editor has only just started watching the save file with the game open, so it cannot yet tell that the file is quiet (it waits "+approxDuration(observeQuietFor)+" and sees the file unchanged; about "+approxDuration(observeQuietFor-now.Sub(watchedFrom))+" more)")
 	}
 	held, herr := fileHeld(savePath)
 	if herr != nil {
-		return wait("game_running", "the editor could not check whether another program has the save file open ("+shortReason(herr)+")")
+		return waitD("game_running", "the editor could not check whether another program has the save file open ("+shortReason(herr)+")", "the editor could not check whether another program has the save file open ("+shortReason(herr)+"), so it cannot tell whether the game still holds it")
 	}
 	if held {
 		return wait("game_running", "another program, probably the game, has the save file open")

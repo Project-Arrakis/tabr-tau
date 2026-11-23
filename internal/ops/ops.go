@@ -155,7 +155,7 @@ func (o *Ops) State() (any, error) {
 		"path": o.S.Path, "dirty": dirty, "pending": pending,
 		"live":        save.IsGamesOwnSave(o.S.Path), // false: not the game's own save (a copy); the page says so in the header, the title and the banner
 		"gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "gameCheckError": g.CheckError,
-		"saveBlocked": g.Blocked, "blockReason": g.Reason, "gameMode": g.Mode,
+		"saveBlocked": g.Blocked, "blockReason": g.Reason, "blockDetail": g.Detail, "gameMode": g.Mode,
 		"readOnly": o.S.WriteBlocked(), "schemaNote": o.S.SchemaNote(), "changedOnDisk": o.S.ChangedOnDisk(), "locationUnconfirmed": g.NeedsConfirm,
 		"restored": o.S.Restored(), "journalOff": o.S.JournalOff(), "writeLogProblem": o.S.WriteLogProblem(), "notesProblem": o.S.NotesProblem(), "recordNotice": o.Paid.Notice(),
 		"lastWrite": o.S.LastFlush(), "held": o.S.Held(),
@@ -181,7 +181,7 @@ func (o *Ops) Overview() (any, error) {
 	dirty, pending := o.S.QueueState()
 	return map[string]any{
 		"path": o.S.Path, "dirty": dirty, "pending": pending, "tables": counts,
-		"player": p.Name, "gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "saveBlocked": g.Blocked, "blockReason": g.Reason,
+		"player": p.Name, "gameRunning": len(g.Processes) > 0, "gameProcesses": g.Processes, "saveBlocked": g.Blocked, "blockReason": g.Reason, "blockDetail": g.Detail,
 		"gameMode": g.Mode, "readOnly": o.S.WriteBlocked(),
 	}, nil
 }
