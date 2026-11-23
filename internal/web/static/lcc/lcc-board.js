@@ -251,6 +251,13 @@
     b.appendChild(el('span', 'lcc-k-bl', label));
     return tip ? tipped(b, tip, pos) : b;
   }
+  // #1134: a key that opens a dialog (Find House, Filter) gets the keyboard focus back when the dialog closes, and :focus-within would show its mouse-over text again at once and for as long as the focus stays.
+  // So the key that got the focus back is quiet (no mouse-over text) until the next mouse-over of that key or the next key press. A touch screen draws no mouse-over text at all.
+  const quiet = (n) => { if (n && n.classList) n.classList.add('lcc-k-tip-quiet'); return n; };
+  function unquiet(e) {
+    if (!last) return;
+    for (const n of last.container.querySelectorAll('.lcc-k-tip-quiet')) if (e.type !== 'mouseover' || n.contains(e.target)) n.classList.remove('lcc-k-tip-quiet');
+  }
   const SHOW_OFF = 'Not available while Houses are chosen. Clear the choice to change which Houses are shown.';
   const SPEC_LIST = Object.freeze(['crafting', 'gathering', 'exploration', 'combat', 'sabotage']);
   const groupOn = (board) => !!state.group && (state.layout === 'list' || !board.ready);
@@ -1105,7 +1112,7 @@
     for (const b of last.container.querySelectorAll('[data-lk="fbtn"]')) b.setAttribute('aria-expanded', ui.menu ? 'true' : 'false');
     for (const b of last.container.querySelectorAll('[data-lk="findbtn"]')) b.setAttribute('aria-expanded', ui.find ? 'true' : 'false');
   }
-  function focusFk(fk) { const n = qsel('[data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); return true; } return false; }
+  function focusFk(fk, calm) { const n = qsel('[data-fk="' + fk + '"]'); if (n && n.focus) { n.focus({ preventScroll: true }); if (calm) quiet(n); return true; } return false; } // calm: the key gets its focus back from a closed dialog, so it shows no mouse-over text (#1134)
   function setMenu(open, o) {
     o = o || {};
     if (!last || ui.menu === open) return;
@@ -1113,7 +1120,7 @@
     if (open) { ui.find = false; ui.view = 'cats'; }
     layersSync(); placeAll(); syncStrip();
     if (open) focusFk('mn:cat:' + ui.cat);
-    else if (o.focus) { if (!(counts().chosen > 0 && focusFk('b-fill'))) focusFk('fbtn'); } // Done and Escape: the focus goes to Fill when the strip swapped to the bar, else back to Filter
+    else if (o.focus) { if (!(counts().chosen > 0 && focusFk('b-fill', true))) focusFk('fbtn', true); } // Done and Escape: the focus goes to Fill when the strip swapped to the bar, else back to Filter
   }
   function setFind(open, back) {
     if (!last || ui.find === open) return;
@@ -1123,7 +1130,7 @@
     layersSync(); placeAll(); syncStrip();
     const f = qsel('#lcc-bd-find'), l = f && f.querySelector('.lcc-k-p5-list');
     if (open && f) { if (l) filterList(l, ui.fq, f.querySelector('[data-lk="fn"]')); const i = f.querySelector('[data-lk="fsearch"]'); if (i) i.focus({ preventScroll: true }); }
-    else if (back) { const k = visibleFind(); if (k) k.focus({ preventScroll: true }); }
+    else if (back) { const k = visibleFind(); if (k) { k.focus({ preventScroll: true }); quiet(k); } }
   }
   // Find House: scroll to the House and outline it for 1.8 s (reduced motion: no smooth scroll, the outline only). It changes no filter, ticks nothing and chooses no House.
   function findHouse(id) {
@@ -1329,7 +1336,8 @@
       container.addEventListener('mouseleave', tipHide);
       container.addEventListener('focusin', (e) => { const n = rtipOf(e); if (n) tipShow(n); else tipHide(); });
       container.addEventListener('focusout', tipHide);
-      container.addEventListener('keydown', (e) => { if (e.key === 'Escape') tipHide(); ctlKey(e); });
+      container.addEventListener('mouseover', unquiet); container.addEventListener('focusout', unquiet);
+      container.addEventListener('keydown', (e) => { unquiet(e); if (e.key === 'Escape') tipHide(); ctlKey(e); }); // unquiet first: the close that this very key causes makes its key quiet again (#1134)
       container.addEventListener('input', ctlInput); container.addEventListener('focusout', leaving);
       container.addEventListener('focusin', (e) => { const b = e.target; if (b && b.classList && b.classList.contains('lcc-bd-pick')) { ui.rove = b.getAttribute('data-id'); rove(); } });
       if (!root.__lccBdGlobals) { // the page and the window get these listeners once, not once per container: a tab switch builds a new container, and the handlers read the board that is mounted now (last)

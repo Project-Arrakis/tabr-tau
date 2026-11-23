@@ -311,13 +311,15 @@ async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', grad
     const fit = await api('/api/items/augment-options', { template_id: t });
     fit.options.forEach((o) => AUG_NAMES.set(o.id, o.name));
     if (seq !== augSeq || !fit.limit || !$('#' + boxId)) return;
-    setHTML($('#' + boxId), html`<b>Augments</b> ${augSlots(prefix, fit, [])}${augGradeSel(gradeId)}`);
+    setHTML($('#' + boxId), augBlock(prefix, fit, [], gradeId));
   } catch (e) { /* an unknown item simply has no augment slots */ }
 }
 const augName = (id) => (AUG_NAMES.get(id) || id);
 const AUG_NAMES = new Map(); // augment id -> name, filled from the options the server sent
 const augLabel = (o) => (o.effects && o.effects.length ? `${o.name} (${o.effects.join('; ')})` : o.name);
 const augSlots = (prefix, fit, applied) => html`${Array.from({ length: fit.limit }, (_, i) => html`<label>Slot ${i + 1} <select id="${prefix}${i}"><option value="">(none)</option>${fit.options.map((o) => html`<option value="${o.id}" ${applied[i] === o.id ? 'selected' : ''}>${augLabel(o)}</option>`)}</select></label> `)}`;
+// One layout for both places that draw the pair (#1136): a heading row with the one grade of the added augments beside it, then one slot per line under it, all the same width.
+const augBlock = (prefix, fit, applied, gradeId) => html`<div class="augbox"><div class="aug-head"><b>Augments</b>${augGradeSel(gradeId)}</div><div class="aug-slots">${augSlots(prefix, fit, applied)}</div></div>`;
 const augPicked = (prefix, n) => Array.from({ length: n }, (_, i) => { const e = $('#' + prefix + i); return e ? e.value : ''; }).filter(Boolean);
 const augGradeSel = (id) => html`<label>Grade of added augments <select id="${id}">${[1, 2, 3, 4, 5].map((n) => html`<option ${n == 5 ? 'selected' : ''}>${n}</option>`)}</select></label>`;
 // ---------- tabs
@@ -1043,9 +1045,9 @@ async function playerSection(s) {
       ${about('inventory.card', 'Inventory', html`<p class="mut">The fill actions (Fill hydration, Fill blood sacks, Refill Literjons, Fill all liquids) are on Character &gt; Overview. <button class="b sec sm d-btn sm" data-goto="character:overview">Go to Character</button></p>`)}</div>`;
     const augCard = augItem ? html`<div class="card d-panel"><h3>Augments: ${itemName(augItem.template_id)}</h3>
       <p class="mut">Holds up to ${augItem.limit}.</p>
-      <div class="row">${augSlots('au', augItem, augItem.applied.map((a) => a.id))}</div>
-      <div class="row">${augGradeSel('augG')}<label><input type="checkbox" id="augU" checked> Also unlock the augment slots (specialization keystones)</label>
-      ${tip('augtip', 'Pick what to apply; an augment already on the item keeps its grade, new ones get the grade below. Choose (none) in every slot to remove them all.', html`<button class="b d-btn primary" data-act="augApply" data-id="${augItem.item_id}" aria-describedby="augtip">Apply</button>`)}<button class="b sec d-btn" data-act="augCancel">Cancel</button></div></div>` : '';
+      ${augBlock('au', augItem, augItem.applied.map((a) => a.id), 'augG')}
+      <div class="row"><label><input type="checkbox" id="augU" checked> Also unlock the augment slots (specialization keystones)</label>
+      ${tip('augtip', 'Pick what to apply; an augment already on the item keeps its grade, new ones get the grade above. Choose (none) in every slot to remove them all.', html`<button class="b d-btn primary" data-act="augApply" data-id="${augItem.item_id}" aria-describedby="augtip">Apply</button>`)}<button class="b sec d-btn" data-act="augCancel">Cancel</button></div></div>` : '';
     h.push(augCard);
     h.push(html`<div class="card d-panel"><h3 class="d-head">Repair</h3><div class="row">${tip('repairtip', 'Everything you wear, everything in your loadout and everything in your backpack is made as good as new: full durability, with a maximum that repairs wore down restored. Chests and the items of other characters are not touched.', html`<button class="b d-btn primary" data-act="repair" aria-describedby="repairtip">Repair all worn items, loadouts and backpack</button>`)}</div></div>`);
     h.push(html`<div class="card d-panel"><h3 class="d-head">Give item</h3><div class="row">${itemPicker("gt", cat, undefined, true)}
