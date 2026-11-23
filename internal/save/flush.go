@@ -23,6 +23,7 @@ const (
 	quickBackupEvery = 2 * time.Minute
 	keepBackups      = 60
 	autoTag          = "-auto"
+	manualTag        = "-manual" // the tag of a backup the person asked for (BackupNow): it is not an automatic one, so the pruning never counts or removes it
 )
 
 // Flush is what became of the pending edits at the last attempt to write them: written, or waiting (Queued of them) for the reason in Why.
@@ -214,6 +215,8 @@ func (s *Save) parseBackupName(name string) (at int64, auto bool, ok bool) {
 	mid := name[len(pre) : len(name)-len(ext)]
 	if strings.HasSuffix(mid, autoTag) {
 		mid, auto = strings.TrimSuffix(mid, autoTag), true
+	} else {
+		mid = strings.TrimSuffix(mid, manualTag) // a backup taken by hand has its time in the name like the others, and is never an automatic one
 	}
 	m := backupStamp.FindStringSubmatch(mid)
 	if m == nil {

@@ -189,6 +189,7 @@ function hydrationMessage(r) {
   return { warn: true, text: `Fill hydration is queued, not applied. The game is running, so the water changes only after the game closes and loads this save again (${was} → ${r.after} then). It will not help right now: a character who is thirsty now needs another source of water now.` };
 }
 // immediate: the change is written at once (a config file, a setting) and never waits in the queue, so it never gets the hint.
+let backingUp = false; // Back up now is on its way: a second press waits for it
 async function act(fn, okMsg, refresh = true, immediate = false, toastOpts = null) {
   try {
     lastOutcome = null; // an older edit's outcome must not colour this message
@@ -3121,7 +3122,7 @@ async function dbView() {
     h.push(html`<div class="card d-panel"><h3 class="d-head">SQL</h3><textarea id="sql" rows="5" placeholder="select * from items limit 20">${window.lastSql || 'select name from sqlite_master'}</textarea><div class="row"><button class="b d-btn primary" data-act="runsql">Run (read-only)</button>${tip('sqltip', 'Write mode runs one or more statements atomically. They are written to game.db at once, after a backup. If the file cannot be written (for example the game is running) they are queued and written by themselves when it can be.', html`<button class="b bad d-btn danger" data-act="execsql" aria-describedby="sqltip">Run as write</button>`)}</div><div id="sqlout"></div></div>`);
   } else {
     const b = await api('/api/save/backups');
-    h.push(html`<div class="card d-panel"><h3 class="d-head">Save backups</h3><p class="mut">A backup is taken before changes are written and before every restore. Restore needs the game to be closed.</p>${tbl([{ k: 'name', label: 'Backup', f: (r) => html`${r.name}${r.copy ? html` <span class="tag">made from a copy</span>` : ''}` }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }, { k: 'modified', label: 'Saved', f: (r) => fmtDate(r.modified) }], b, { actions: (r) => html`<button class="b sec sm d-btn sm" data-act="restore" data-n="${r.name}" data-copy="${r.copy ? '1' : ''}">Restore</button>`, empty: 'No backups yet. One is made before the first change is written.' })}${about('db.backups', 'Save backups', html`<p class="mut">One backup covers the changes made within two minutes.</p>`)}</div>`);
+    h.push(html`<div class="card d-panel"><h3 class="d-head">Save backups</h3><p class="mut">A backup is taken before changes are written and before every restore. Restore needs the game to be closed.</p><div class="row">${tip('bnowtip', 'Copies the save file as it is now into this list, as a manual backup. Works while the game is running. Reads the save and changes nothing in it.', html`<button class="b d-btn primary" data-act="backupNow" aria-describedby="bnowtip">Back up now</button>`)}</div>${tbl([{ k: 'name', label: 'Backup', f: (r) => html`${r.name}${r.manual ? html` <span class="tag">manual backup</span>` : ''}${r.copy ? html` <span class="tag">made from a copy</span>` : ''}` }, { k: 'size', label: 'Size', f: (r) => fmtBytes(r.size) }, { k: 'modified', label: 'Saved', f: (r) => fmtDate(r.modified) }], b, { actions: (r) => html`<button class="b sec sm d-btn sm" data-act="restore" data-n="${r.name}" data-copy="${r.copy ? '1' : ''}">Restore</button>`, empty: 'No backups yet. One is made before the first change is written.' })}${about('db.backups', 'Save backups', html`<p class="mut">One backup covers the changes made within two minutes.</p><p class="mut">Back up now takes one by hand, for example before a test in the game. It copies the database file the way the automatic backups do and checks the copy (same size, same SHA-256) before it keeps it. The game can be running: the copy is what the game last wrote. The editor never removes a manual backup, and Restore treats it like any other.</p>`)}</div>`);
   }
   setHTML($('#main'), html`${h}`);
 }
@@ -3699,6 +3700,19 @@ const A = {
       if (!r.outcome) try { queued = (await status()).dirty; } catch (e) { /* the poll reports a lost connection; the statement itself ran */ }
       setHTML($('#sqlout'), html`<p class="ok">${r.changes} ${r.changes === 1 ? 'row' : 'rows'} changed, ${queued ? 'and queued: it is written to ' + (notLive ? 'this file' : 'game.db') + ' as soon as the file can be written.' : 'and written to ' + (notLive ? 'this file' : 'game.db') + '.'}</p>`);
     } catch (e) { toast(e.message, true); sqlFailed(e); }
+  },
+  // Back up now (#1168): one request, sent once however many times the button is pressed. The copy is what the game last wrote; the answer names it with its size and checksum.
+  backupNow: async () => {
+    if (backingUp) return;
+    if (!(await ask({ title: 'Back up the save now?', body: 'Copies the save file as it is now into the backups folder, as a manual backup with the time. It works while the game is running: the copy is what the game last wrote, which may be older than what you see in the game. Nothing in the save is changed.', ok: 'Back up now' }))) return;
+    backingUp = true;
+    try {
+      await act(async () => {
+        const r = await api('/api/save/backup-now', {});
+        toast(`Manual backup taken at ${fmtDate(r.at)}: ${r.name} (${fmtBytes(r.size)}, checked against the save: same size and SHA-256 ${String(r.sha256 || '').slice(0, 12)}). Restore on this page puts it back.`);
+        return r;
+      }, null, true, true);
+    } finally { backingUp = false; }
   },
   restore: async (d) => (await ask({ title: 'Restore this backup over the save?', body: d.copy ? 'Replace this file with ' + d.n + '. This backup was made from a copy, not from the game\'s save. The current file is backed up first.' : 'Replace game.db with ' + d.n + '. The current file is backed up first. Close the game first.', ok: 'Restore', typed: 'restore', danger: true })) && act(() => api('/api/save/restore', { name: d.n }), 'Restored'),
 };

@@ -860,7 +860,11 @@ func (s *Save) Backups() []Row {
 	fromCopy := !IsGamesOwnSave(s.Path) // the backups sit next to the file they were made from: a copy's are made from a copy (#508)
 	for _, e := range ents {
 		if info, err := e.Info(); err == nil {
-			out = append(out, Row{"name": e.Name(), "size": info.Size(), "modified": info.ModTime().Format(time.RFC3339), "copy": fromCopy})
+			row := Row{"name": e.Name(), "size": info.Size(), "modified": info.ModTime().Format(time.RFC3339), "copy": fromCopy}
+			if s.isManualBackup(e.Name()) {
+				row["manual"] = true // taken by hand (BackupNow); the page tags it
+			}
+			out = append(out, row)
 		}
 	}
 	return out
