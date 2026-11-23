@@ -336,6 +336,9 @@ var knownFileWriters = map[string]bool{
 	"internal/save.markIncomplete":      true, // the journal's incomplete-write mark
 	"internal/config.write":             true, // the game's config files, never the save
 	"internal/settings.writeFileAtomic": true, // the editor's own settings file, its backup copy and its damaged copy
+	"internal/layoutroll.Roll":          true, // Game.ini in the game's config folder (fixed name, never the save), after a backup; refuses while the game runs (#1141)
+	"internal/layoutroll.writeBackup":   true, // the copy of Game.ini beside it
+	"internal/layoutroll.writeState":    true, // the small record of the last roll beside the editor's settings
 	"internal/ops.Record":               true, // the editor's own record of the Landsraad ground it paid (landsraad_paid.go): a file in its own folder, whose path is the journal's folder and never the save's
 	"internal/ops.moveAside":            true, // moves that same record aside (landsraad_paid.go) when it is damaged, so the next write does not destroy it: the record's own file, never the save's
 	"internal/gui.AttachConsole":        true, // the console handles of the process

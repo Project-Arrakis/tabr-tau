@@ -17,3 +17,5 @@ kit/schema/schema_map_names.sql text eol=lf
 docs/evidence/single-player-schema-map-names.ddl.sql text eol=lf
 # The Command Center's one authored picture is hashed in its manifest and compared byte for byte by a test, so it is LF in every checkout (M2).
 internal/web/static/lcc/art/**/*.svg text eol=lf
+# The line template of the layout roll is compared with the parser by a test and is used as it is, so it stays LF in every checkout.
+internal/layoutroll/worldlayouts-line.txt text eol=lf
