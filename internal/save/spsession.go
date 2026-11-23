@@ -54,6 +54,13 @@ const (
 	// was not the end of the world (a local ?closed browse while the world stayed loaded, a map load without ?listen), so the short grace is not used and the flat quiet time
 	// and the fallback wait apply (#612, D2-2).
 	maxWritesAfterEnd = 1
+	// maxWritesNearEnd and nearEndWindow are the second shape of leaving a world (#1122): the game's last periodic write (every 20 s while a world is loaded) can fall just after the end
+	// marker as well as the write it makes when it leaves, so there are TWO writes, both within a few seconds of the marker. Measured in the logs of 2026-11-18 to 2026-11-23: 9 of
+	// 10 exits had one write 1.8 s to 3.8 s after the marker, one had two (0.4 s and 3.6 s after it), and none had a write between 4 s and the start of the next session (see
+	// docs/design/2026-10-27-menu-write-grace.md). Up to maxWritesNearEnd writes that all fall within nearEndWindow of the marker (the largest gap in the 19 exits of #470 was 6.9 s)
+	// are the normal exit; a write later than that, or a third one, is not, and the flat quiet time and the fallback wait apply as before.
+	maxWritesNearEnd = 2
+	nearEndWindow    = 10 * time.Second
 	// noMarkerQuietFor is how long the save file must have been unchanged when a game process exists and the log, though it can be read, shows no session line at all (no
 	// start, no end, no write line): that is what a game that never loaded a world looks like, and also what a log looks like when a game update reworded the lines the
 	// editor reads (#612, D2-1). The state is then unknown, and only the file's own time can say the game is idle: ten minutes, longer than any gap between the game's writes
@@ -97,6 +104,7 @@ func endAnchored(ev sessionlog.Event, line string) bool {
 type spTracker struct {
 	sessionlog.Tracker
 	writesAfterEnd int // database writes seen after the latest end marker; zero while a session is open
+	writesNearEnd  int // how many of those fall within nearEndWindow of the end marker, by the log's own times (a write with no time stamp is not near)
 }
 
 // feed applies one log line. No end marker ends a session unless it stands at the start of the line's text; starts and the write line keep the wide reading (a spurious start
@@ -116,11 +124,14 @@ func (t *spTracker) feed(line string) {
 	}
 	switch {
 	case ev == sessionlog.Start:
-		t.writesAfterEnd = 0
+		t.writesAfterEnd, t.writesNearEnd = 0, 0
 	case ev.Ends() && t.SPActive:
-		t.writesAfterEnd = 0
+		t.writesAfterEnd, t.writesNearEnd = 0, 0
 	case ev == sessionlog.DatabaseSaved && !t.EndedAt.IsZero():
 		t.writesAfterEnd++
+		if at := sessionlog.LogTime(line); !at.IsZero() && at.Sub(t.EndedAt) <= nearEndWindow {
+			t.writesNearEnd++
+		}
 	}
 	t.Tracker.Feed(p, line, nil)
 }
@@ -144,6 +155,14 @@ type spStatus struct {
 	LastSaveAt time.Time // the game's last write of the database, from its log; zero when the log shows none
 	// WritesAfterEnd is how many database writes the log shows after the latest end marker (one is what leaving a world looks like).
 	WritesAfterEnd int
+	// WritesNearEnd is how many of them fall within nearEndWindow of the end marker (#1122): two writes that both do are still the normal exit.
+	WritesNearEnd int
+}
+
+// endWritesNormal says whether n database writes after the end marker, near of them within nearEndWindow of it, look like leaving a world: one write, whenever it came (#612), or
+// up to maxWritesNearEnd writes that all fall within the window (#1122).
+func endWritesNormal(n, near int) bool {
+	return n <= maxWritesAfterEnd || (n <= maxWritesNearEnd && near == n)
 }
 
 // seen says whether the log currently asserts anything about a session: one is active, one ended, or the game wrote its database. None of these is a log that says nothing
@@ -228,7 +247,7 @@ func singlePlayerStatus(savePath string) (spStatus, error) {
 			return spStatus{}, fmt.Errorf("cannot read the game log: %w", err)
 		}
 	}
-	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt, WritesAfterEnd: spLog.tr.writesAfterEnd}, nil
+	return spStatus{Active: spLog.tr.SPActive, EndedAt: spLog.tr.EndedAt, LastSaveAt: spLog.tr.LastSaveAt, WritesAfterEnd: spLog.tr.writesAfterEnd, WritesNearEnd: spLog.tr.writesNearEnd}, nil
 }
 
 // QueuedUntilClears ends the Reason of a game that may still hold the save's rows. A caller that words the wait for itself (the automatic pass at launch, #499) takes it off.
@@ -377,9 +396,9 @@ func processState(savePath string, fresh bool) GameState {
 	}
 	endSeen := !sp.EndedAt.IsZero()
 	// "After", not "not before": the log's times are whole seconds, and the periodic write that comes up to a second before the end marker can carry the same second as it. The
-	// game's last write came 1.5 s or more after the marker in every exit measured, so it is always a later second; a tie is read as "not seen", which waits longer. More than
-	// maxWritesAfterEnd writes after the end marker is not what leaving a world looks like: the marker is then not trusted (#612, D2-2).
-	cleanEnd := endSeen && sp.LastSaveAt.After(sp.EndedAt) && sp.WritesAfterEnd <= maxWritesAfterEnd
+	// game's last write came 1.5 s or more after the marker in every exit measured, so it is always a later second; a tie is read as "not seen", which waits longer. Writes beyond
+	// what endWritesNormal allows (one, or two within nearEndWindow of the marker, #1122) are not what leaving a world looks like: the marker is then not trusted (#612, D2-2).
+	cleanEnd := endSeen && sp.LastSaveAt.After(sp.EndedAt) && endWritesNormal(sp.WritesAfterEnd, sp.WritesNearEnd)
 	fileQuiet := dbQuietFor // how long the save file must have been unchanged, whatever the log said (the second signal, #612 D2-1)
 	switch {
 	case !sp.seen():
@@ -406,7 +425,7 @@ func processState(savePath string, fresh bool) GameState {
 		}
 		if endSeen {
 			if since := now.Sub(sp.EndedAt); since < endedFallbackGrace {
-				if sp.WritesAfterEnd > maxWritesAfterEnd {
+				if !endWritesNormal(sp.WritesAfterEnd, sp.WritesNearEnd) {
 					return waitFor("session_ended", "you left the world "+approxDuration(since)+" ago and the game saved "+fmt.Sprint(sp.WritesAfterEnd)+" times after that", endedFallbackGrace-since,
 						"the single-player session ended "+approxDuration(since)+" ago but the game wrote its database "+fmt.Sprint(sp.WritesAfterEnd)+" times after that, which is not what leaving a world looks like, so the editor waits "+approxDuration(endedFallbackGrace)+" after the end (about "+approxDuration(endedFallbackGrace-since)+" more)")
 				}
