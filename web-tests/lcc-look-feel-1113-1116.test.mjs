@@ -105,7 +105,7 @@ test('#1114: one name: the pledge row, the Specialization row and the House list
   assert.doesNotMatch(text(ui.doc.querySelector('#lcc-bd-menu')), /\bAny\b/, 'no Any left in the menu');
 });
 
-test('#1115: the Inspector section and the list column say Location', async () => {
+test('#1115, #1144: the list column says Location, and the Inspector has no LOCATION section (the place is the button under the House name)', async () => {
   const ui = await open('list');
   const heads = [...ui.doc.querySelectorAll('.lcc-bd-list th')].map((t) => text(t));
   assert.ok(heads.some((h) => /^Location\b/.test(h)), 'the list column is Location: ' + heads.join(' | '));
@@ -114,7 +114,9 @@ test('#1115: the Inspector section and the list column say Location', async () =
   const a = synthetic(), id = a.tasks.find((t) => t.house_name === 'DA_HouseKenola').id;
   click(grid, '[data-fk="ht:' + id + '"]');
   const heads2 = [...grid.doc.querySelectorAll('.lcc-bd-insp .lcc-bd-sec-h')].map((h) => text(h));
-  assert.ok(heads2.includes('LOCATION'), 'the Inspector section is LOCATION: ' + heads2.join(' | '));
+  assert.ok(!heads2.includes('LOCATION'), '#1144: no LOCATION section: ' + heads2.join(' | '));
+  assert.ok(grid.doc.querySelector('.lcc-bd-insp .lcc-bd-loc[data-lb=map]'), '#1144: the place button under the House name stays');
+  assert.equal(grid.doc.querySelector('.lcc-bd-insp .lcc-bd-act[data-lb=map]'), null, '#1144: no Open in the Saved map action');
   assert.ok(!heads2.includes('PLACE'), 'no PLACE heading: ' + heads2.join(' | '));
 });
 

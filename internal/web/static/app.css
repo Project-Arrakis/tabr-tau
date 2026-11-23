@@ -647,14 +647,13 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
     body:has(#gamewarn.warn, #gamewarn.info, #launchpass.info) { --lsb-warn-room: var(--warn-h, 76px); }
   }
   /* stacked (under 1080 px of the tab): the victory analysis is a full-width band and the House Intelligence panel spans the full width under it, so no tall empty space is left beside a short panel;
-     from 860 px the panel runs the head, the identity, the actions and the banner across its width and then the personal reward ledger beside the two scales, the note and the place, so the long
+     from 860 px the panel runs the head, the identity, the actions and the banner across its width and then the personal reward ledger beside the two scales and the note, so the long
      ledger does not become one very tall column of wide rows and no column is left empty */
   @container lsbv (min-width: 860px) and (max-width: 1079px) {
     .lsb #lsb-board .lcc-bd-insp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; grid-auto-flow: row dense; align-content: start; }
     .lsb #lsb-board .lcc-bd-insp > * { grid-column: 1 / -1; }
     .lsb #lsb-board .lcc-bd-insp > .lcc-bd-ledger { grid-column: 1; grid-row: span 4; }
-    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s1"], .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s2"], .lsb #lsb-board .lcc-bd-insp > .lcc-bd-disc,
-    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s5"] { grid-column: 2; }
+    .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s1"], .lsb #lsb-board .lcc-bd-insp > [aria-labelledby="lcc-bd-s2"], .lsb #lsb-board .lcc-bd-insp > .lcc-bd-disc { grid-column: 2; }
   }
   /* a narrow tab keeps the padding small so the board gets the width */
   @container lsbv (max-width: 1079px) {

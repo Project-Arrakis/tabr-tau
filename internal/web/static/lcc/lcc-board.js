@@ -317,7 +317,7 @@
     fb.appendChild(icon('chev', 'lcc-k-chev')); fb.appendChild(lamp());
     fw.appendChild(fb); lens.appendChild(fw);
     const dw = el('span', 'lcc-k-fwrap lcc-k-findwrap');
-    const fd = kbtn('lcc-k-fbtn lcc-k-findbtn', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': ui.find ? 'true' : 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn' }, 'pin', 'Find House: scrolls the board to one House', 'below');
+    const fd = kbtn('lcc-k-fbtn lcc-k-findbtn', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': ui.find ? 'true' : 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn' }, 'pin', 'Find House: goes to one House and opens it in House Intelligence', 'below');
     fd.appendChild(lamp());
     dw.appendChild(fd); lens.appendChild(dw);
     lens.appendChild(el('i', 'lcc-k-brk', '', { 'aria-hidden': 'true' }));
@@ -337,7 +337,7 @@
     s.appendChild(lens);
     const cmd = el('section', 'lcc-k-cmd lcc-k-fr lcc-k-pane lcc-k-pane-a', '', { 'data-part': 'action', role: 'group', 'aria-label': 'Actions on the chosen Houses' });
     cmd.appendChild(el('i', 'lcc-k-hair', '', { 'aria-hidden': 'true' }));
-    cmd.appendChild(kbtn('lcc-k-findbtn lcc-k-findbar', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn2' }, 'pin', 'Find House: scrolls the board to one House', 'below start'));
+    cmd.appendChild(kbtn('lcc-k-findbtn lcc-k-findbar', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn2' }, 'pin', 'Find House: goes to one House and opens it in House Intelligence', 'below start'));
     cmd.appendChild(el('span', 'lcc-bd-barslot lcc-k-actslot', '', { 'data-lcc-slot': 'act' }));
     cmd.appendChild(el('span', 'lcc-bd-barslot lcc-k-askslot', '', { 'data-lcc-slot': 'askbar' }));
     s.appendChild(cmd);
@@ -416,7 +416,7 @@
     p.appendChild(foot);
     return p;
   }
-  // Find House: a single-pick searchable list. It scrolls the board to the House and outlines it for 1.8 s; it changes no filter and ticks nothing.
+  // Find House: a single-pick searchable list. It scrolls the board to the House, outlines it for 1.8 s and opens it in House Intelligence (#1147); it changes no filter and ticks nothing.
   function findList(board) {
     const p = el('div', 'lcc-k-pop5 lcc-k-popf lcc-k-fr', '', { id: 'lcc-bd-find', role: 'dialog', 'aria-label': 'Find House', 'data-lk': 'fpop', hidden: ui.find ? null : '' });
     const head = el('div', 'lcc-k-p5-head');
@@ -968,19 +968,7 @@
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the earned count is taken as the save states it.'));
     side.appendChild(s3); // no caption, mark legend or note under the ledger (#980): every tier row names its own state, and the Help tab explains the marks, Fill and the three separate states
 
-    // where it is
-    const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });
-    s5.appendChild(secHead('LOCATION', 'lcc-bd-s5'));
-    if (!h.loc.known) s5.appendChild(el('p', 'lcc-bd-none', 'Not mapped yet: the save holds no map marker for this House’s representative, and the editor does not guess a place.'));
-    else {
-      s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));
-      if (h.loc.unconfirmed) s5.appendChild(el('p', 'lcc-bd-cap', 'This place is from public guides and is not confirmed in the game.'));
-      const lm = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
-      if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.', lm.fromWhy ? { title: lm.fromWhy } : undefined));
-      if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lw:' + h.id }));
-      else s5.appendChild(el('p', 'lcc-bd-cap', M().noPictureSays(h.loc)));
-    }
-    side.appendChild(s5);
+    // no LOCATION section here (#1144): the place is the button under the House name at the top, and it is shown once
     return side;
   }
 
@@ -1145,12 +1133,19 @@
     layersSync(); placeAll(); syncStrip();
     const f = qsel('#lcc-bd-find'), l = f && f.querySelector('.lcc-k-p5-list');
     if (open && f) { if (l) filterList(l, ui.fq, f.querySelector('[data-lk="fn"]')); const i = f.querySelector('[data-lk="fsearch"]'); if (i) i.focus({ preventScroll: true }); }
-    else if (back) { const k = visibleFind(); if (k) { k.focus({ preventScroll: true }); quiet(k); } }
+    else if (back) findBack();
   }
-  // Find House: scroll to the House and outline it for 1.8 s (reduced motion: no smooth scroll, the outline only). It changes no filter, ticks nothing and chooses no House.
+  // the Find House key that is drawn now gets the focus back, quiet (#1134); the key is looked up again here because the choice of a House (#1147) redraws the board and so draws a new key
+  function findBack() { const k = visibleFind(); if (k) { k.focus({ preventScroll: true }); quiet(k); } }
+  // Find House: scroll to the House, outline it for 1.8 s (reduced motion: no smooth scroll, the outline only) and choose it for House Intelligence, as a click on its square (grid) or its name (List) does (#1147).
+  // It changes no filter and ticks no box (the CHOOSE boxes are the multi-select for actions, not the selection). A House the List hides under the current filter has no row to go to: then nothing happens, as before.
+  // The choice redraws the board first, so the scroll and the outline go to the new row or card; the panel itself is not scrolled to (the scroll to the House is the only one).
   function findHouse(id) {
     if (!last) return;
-    const c = last.container, target = c.querySelector('.lcc-bd-cell[data-id="' + id + '"]') || c.querySelector('tr.lcc-bd-row[data-id="' + id + '"]');
+    const at = () => last.container.querySelector('.lcc-bd-cell[data-id="' + id + '"]') || last.container.querySelector('tr.lcc-bd-row[data-id="' + id + '"]');
+    if (!at()) return;
+    if (state.sel !== id) { state.sel = id; memo.insp = null; redraw(); } // a click on the chosen House lets it go; Find House keeps it chosen
+    const c = last.container, target = at();
     if (!target) return;
     if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
     for (const n of c.querySelectorAll('.lcc-k-flash')) n.classList.remove('lcc-k-flash');
@@ -1286,7 +1281,7 @@
     if (k === 'gpick') { e.preventDefault(); state.group = t.getAttribute('data-val') === 'region' || t.getAttribute('data-val') === 'spec' ? t.getAttribute('data-val') : ''; redraw(); return true; }
     if (k === 'clearf') { e.preventDefault(); reset('hs'); reset('spec'); reset('group'); filtered(); redraw(); focusFk('mn:done'); return true; }
     if (k === 'chipx') { e.preventDefault(); reset(t.getAttribute('data-key')); filtered(); redraw(); focusFk('fbtn'); return true; }
-    if (k === 'fpick') { e.preventDefault(); const id = Number(t.getAttribute('data-id')); setFind(false, true); findHouse(id); return true; }
+    if (k === 'fpick') { e.preventDefault(); const id = Number(t.getAttribute('data-id')); setFind(false); findHouse(id); findBack(); return true; }
     if (k === 'seat') { e.preventDefault(); if (last.host && last.host.setFac) last.host.setFac(t.getAttribute('data-fid')); return true; }
     if (k === 'more') { e.preventDefault(); const mm = qsel('.lcc-k-moremenu'); if (mm) { mm.hidden = !mm.hidden; t.setAttribute('aria-expanded', mm.hidden ? 'false' : 'true'); } return true; }
     if (k === 'scrim') { setMenu(false, {}); setFind(false, false); return true; }

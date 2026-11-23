@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/augments"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -77,3 +78,45 @@ func TestReputationDescriptionNamesTheFaction(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// A queued Give names what it gives (#1149): "give 1 queued items" said only that something waited. One item reads as a single Give does, with its grade and augments; several are listed
+// with every item, its quantity, grade and augments; a short result says how much of which line went in.
+func TestAQueuedGiveNamesItsItemsQuantityGradeAndAugments(t *testing.T) {
+	aug1, aug2 := "T6_Augment_Armor16", "T6_Augment_Armor10"
+	n1, n2 := augments.Name(aug1), augments.Name(aug2)
+	if n1 == "" || n2 == "" {
+		t.Fatal("the test needs augment names")
+	}
+	o := &Ops{S: testsave.PlayerWithSQL(t, augmentWorld)}
+	if _, err := o.GiveItems(Args{"items": []any{map[string]any{"template_id": helmet, "quantity": 1.0, "quality": 5.0, "augments": []any{aug1, aug2}, "grade": 3.0}}}); err != nil {
+		t.Fatal(err)
+	}
+	want := "Give 1 x " + itemLabel(helmet) + " (grade 5, augments: " + n1 + ", " + n2 + " at grade 3)"
+	if p := o.S.Pending(); len(p) != 1 || p[0] != want {
+		t.Fatalf("pending = %q, want %q", p, want)
+	}
+	o2 := &Ops{S: testsave.Player(t)}
+	if _, err := o2.GiveItems(Args{"items": []any{
+		map[string]any{"template_id": helmet, "quantity": 1.0, "quality": 4.0, "augments": []any{aug1}},
+		map[string]any{"template_id": "MelangeSpice", "quantity": 5.0, "quality": 2.0},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	want = "Give 2 items: 1 x " + itemLabel(helmet) + " (grade 4, augments: " + n1 + " at grade 1); 5 x " + itemLabel("MelangeSpice") + " (grade 2)"
+	if p := o2.S.Pending(); len(p) != 1 || p[0] != want {
+		t.Fatalf("pending = %q, want %q", p, want)
+	}
+	if strings.Contains(o2.S.Pending()[0], "queued items") {
+		t.Fatal("the old wording is back")
+	}
+}
+
+// The words of a short queue say which line fell short, as a single Give does: "340 of 500 x ...".
+func TestAQueuedGiveWordsSayWhichLineFellShort(t *testing.T) {
+	lines := []giveLine{{tmpl: "MelangeSpice", qty: 500, q: 1}, {tmpl: "MelangeSpice", qty: 2, q: 0}}
+	got := giveQueueWords(lines, []int64{340, 2})
+	want := "Give 2 items: 340 of 500 x " + itemLabel("MelangeSpice") + " (grade 1); 2 x " + itemLabel("MelangeSpice") + " (grade 0)"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

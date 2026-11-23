@@ -116,7 +116,8 @@ test('#1072: Find House (the jump of the control area, tau #974) still scrolls t
   click(ui, '[data-lk="fpick"][data-id="' + id + '"]');
   assert.equal(log.filter((e) => e[0] === 'into').length, 1, 'Find House scrolls to the card once');
   assert.equal(where(log.find((e) => e[0] === 'into')[1]), 'board-card', 'the card is what is scrolled to');
-  click(ui, '[data-fk="ht:' + id + '"]'); await ui.settle(); // Find House opens no panel and ticks nothing: the House is chosen as before, by its card
+  assert.ok(ui.doc.querySelector('.lcc-bd-insp-name'), 'Find House opened the House in House Intelligence (#1147) and ticked nothing'); // the extra click below on the chosen card's button would let it go again, so it is not made
+
   click(ui, '.lcc-bd-insp .lcc-bd-loc[data-lb="map"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#lmhouse'), 'the Saved map shows the House');
   assert.equal(log.filter((e) => e[0] === 'into' && e[1].closest && e[1].closest('.lcc-bd-cell')).length, 1, 'only Find House scrolled to a card; the link to the map did not');

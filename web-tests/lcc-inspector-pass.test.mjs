@@ -266,7 +266,7 @@ test('#939: a place the Saved map has no picture of, and a House not mapped, say
   look(ui, a, 'Lindaren'); // a Deep Desert place with a grid cell and a name
   loc = ui.doc.querySelector('.lcc-bd-insp .lcc-bd-loc');
   assert.equal(text(loc.querySelector('.lcc-bd-loc-s')), 'Grid cell B8 · SYNTHETIC PLACE');
-  assert.match(text(ui.doc.querySelector('.lcc-bd-insp')), /From you: /, 'the distance Classic shows is in the Where section');
+  assert.doesNotMatch(text(ui.doc.querySelector('.lcc-bd-insp')), /From you: /, '#1144: the Where section is gone, so the Inspector has no From you line');
 });
 
 // ---- #942: the four counts ---------------------------------------------------------------------------------------------------------------------------------------------

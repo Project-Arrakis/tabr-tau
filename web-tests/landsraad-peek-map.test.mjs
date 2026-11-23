@@ -137,7 +137,7 @@ test('#1069: the schematic octagon is only for a place outside its picture and f
   click(ui, `[data-fk="ht:${idOf(a, 'Thorvald')}"]`); await ui.settle();
   const insp = ui.doc.querySelector('.lcc-bd-insp');
   assert.equal(insp.querySelector('.lcc-bd-act[data-lb="map"]'), null, 'no map link for a place with no pin');
-  assert.ok(insp.querySelector('.lcc-bd-cap'), 'the reason is said in the Place section');
+  assert.equal(insp.querySelector('.lcc-bd-cap'), null, '#1144: no LOCATION section, so no reason line under it; the place button keeps the reason');
 });
 
 // ---- nothing is fetched until the peek is shown, and nothing leaves the program ----
