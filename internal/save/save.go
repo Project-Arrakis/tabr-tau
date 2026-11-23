@@ -52,6 +52,10 @@ type Save struct {
 	changedSize int64
 	changedMod  time.Time
 
+	// when the editor last looked at the save by itself, to keep the watch of the file unbroken while no page asks (KeepObserving, #1139); its own lock, never s.mu
+	obsMu sync.Mutex
+	obsAt time.Time
+
 	dirty bool
 	ops   []Op // structured record of the edits applied since load
 	// sink receives the notes of the edits that were written (notes.go)
