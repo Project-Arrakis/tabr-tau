@@ -3,7 +3,9 @@ package ops
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/augments"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 )
 
@@ -44,4 +46,42 @@ func currencyName(id int64) string {
 		return "Solari in wallet"
 	}
 	return "House credit in wallet"
+}
+
+// giveLineWords is one line of a Give queue in words: "3 x Ambition (grade 5, augments: Plate, Weave at grade 3)". The item is named, then its quantity, its grade (the one the item is
+// written at, as a single Give says it) and, when it carries augments, their names and the one grade they are added at (#1149). given is how many of the quantity went in: fewer than the
+// quantity reads "340 of 500 x ...", as a single Give does (giveWords).
+func giveLineWords(l giveLine, given int64) string {
+	detail := fmt.Sprintf("grade %d", grantGrade(l.tmpl, l.q))
+	if len(l.aug) > 0 {
+		names := make([]string, len(l.aug))
+		for i, id := range l.aug {
+			if names[i] = augments.Name(id); names[i] == "" {
+				names[i] = id
+			}
+		}
+		detail += fmt.Sprintf(", augments: %s at grade %d", strings.Join(names, ", "), l.grade)
+	}
+	count := commas(l.qty)
+	if given < l.qty {
+		count = commas(given) + " of " + count
+	}
+	return fmt.Sprintf("%s x %s (%s)", count, itemLabel(l.tmpl), detail)
+}
+
+// giveQueueWords is how a Give queue is listed as a waiting edit (#1149): one item reads as a single Give does ("Give 1 x Ambition (grade 5, augments: ...)"), several as "Give 2 items: "
+// and the lines, separated by "; ". given is the units that went in for each line; nil means every line went in whole.
+func giveQueueWords(lines []giveLine, given []int64) string {
+	parts := make([]string, len(lines))
+	for i, l := range lines {
+		g := l.qty
+		if i < len(given) {
+			g = given[i]
+		}
+		parts[i] = giveLineWords(l, g)
+	}
+	if len(lines) == 1 {
+		return "Give " + parts[0]
+	}
+	return fmt.Sprintf("Give %d items: %s", len(lines), strings.Join(parts, "; "))
 }
