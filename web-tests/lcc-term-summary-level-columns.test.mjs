@@ -68,7 +68,7 @@ test('#646: the House panel says Level N after the Specializations tab has read 
   assert.ok(lv, 'the level is on the specialization line');
   assert.equal(text(lv), 'Level —', 'not read yet: a dash, never a made-up number');
   assert.match(lv.getAttribute('title'), /Not read yet/);
-  assert.equal(ui.doc.querySelector('.lcc-bd-insp-title').lastElementChild, lv, 'it follows the specialization name on the same line');
+  assert.equal(ui.doc.querySelector('.lcc-bd-insp-title .lcc-bd-spec-txt').lastElementChild, lv, 'it follows the specialization name in the same text block (beside the emblem, #1145)');
   assert.equal(ui.w.eval('window.LCC_HOST.specLevels()'), null);
   assert.match(tileOf(ui, 'Kenola').querySelector('.lcc-hc-select').getAttribute('title') || tileOf(ui, 'Kenola').querySelector('.lcc-hc-select').getAttribute('data-says'), /Gathering specialization, Level —\. Click to see/);
   // the Specializations tab reads the answer (either view); the board then shows its levels

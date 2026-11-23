@@ -1041,6 +1041,7 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 		case <-stop:
 			return
 		case <-t.C:
+			s.Save.KeepObserving() // the editor's watch of the save file does not depend on a page being open and visible (#1139)
 			if s.Save.Dirty() {
 				s.Save.Flush()
 			}

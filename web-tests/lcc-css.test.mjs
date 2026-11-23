@@ -277,7 +277,7 @@ test('stacked layout (under 1080 px of the tab): no empty band beside the House 
   const led = appRules.find((r) => r.at === at && r.sel === '.lsb #lsb-board .lcc-bd-insp > .lcc-bd-ledger');
   assert.ok(led && /grid-column: 1/.test(led.body) && /grid-row: span 4/.test(led.body), 'the ledger takes the left column for the four blocks beside it');
   const right = appRules.find((r) => r.at === at && /grid-column: 2/.test(r.body));
-  assert.ok(right && /aria-labelledby="lcc-bd-s1"/.test(right.sel) && /aria-labelledby="lcc-bd-s2"/.test(right.sel) && /lcc-bd-disc/.test(right.sel) && /aria-labelledby="lcc-bd-s5"/.test(right.sel), 'the two scales, the note and the place stand in the right column, so neither column is left empty');
+  assert.ok(right && /aria-labelledby="lcc-bd-s1"/.test(right.sel) && /aria-labelledby="lcc-bd-s2"/.test(right.sel) && /lcc-bd-disc/.test(right.sel) && !/lcc-bd-s5/.test(right.sel), 'the two scales and the note stand in the right column; there is no LOCATION block any more to stand there (#1144)');
   // two columns of about 345 px or more each (the Inspector's own container step) from 860 px of tab: (860 - 2 * 20 padding - 28 gap) / 2
   assert.ok((860 - 2 * 20 - 28) / 2 >= 345 - 1);
   // all of it stays inside the guard

@@ -317,7 +317,7 @@
     fb.appendChild(icon('chev', 'lcc-k-chev')); fb.appendChild(lamp());
     fw.appendChild(fb); lens.appendChild(fw);
     const dw = el('span', 'lcc-k-fwrap lcc-k-findwrap');
-    const fd = kbtn('lcc-k-fbtn lcc-k-findbtn', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': ui.find ? 'true' : 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn' }, 'pin', 'Find House: scrolls the board to one House', 'below');
+    const fd = kbtn('lcc-k-fbtn lcc-k-findbtn', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': ui.find ? 'true' : 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn' }, 'pin', 'Find House: goes to one House and opens it in House Intelligence', 'below');
     fd.appendChild(lamp());
     dw.appendChild(fd); lens.appendChild(dw);
     lens.appendChild(el('i', 'lcc-k-brk', '', { 'aria-hidden': 'true' }));
@@ -337,7 +337,7 @@
     s.appendChild(lens);
     const cmd = el('section', 'lcc-k-cmd lcc-k-fr lcc-k-pane lcc-k-pane-a', '', { 'data-part': 'action', role: 'group', 'aria-label': 'Actions on the chosen Houses' });
     cmd.appendChild(el('i', 'lcc-k-hair', '', { 'aria-hidden': 'true' }));
-    cmd.appendChild(kbtn('lcc-k-findbtn lcc-k-findbar', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn2' }, 'pin', 'Find House: scrolls the board to one House', 'below start'));
+    cmd.appendChild(kbtn('lcc-k-findbtn lcc-k-findbar', 'Find House', { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': 'lcc-bd-find', 'aria-label': 'Find House', 'data-lk': 'findbtn', 'data-fk': 'findbtn2' }, 'pin', 'Find House: goes to one House and opens it in House Intelligence', 'below start'));
     cmd.appendChild(el('span', 'lcc-bd-barslot lcc-k-actslot', '', { 'data-lcc-slot': 'act' }));
     cmd.appendChild(el('span', 'lcc-bd-barslot lcc-k-askslot', '', { 'data-lcc-slot': 'askbar' }));
     s.appendChild(cmd);
@@ -416,7 +416,7 @@
     p.appendChild(foot);
     return p;
   }
-  // Find House: a single-pick searchable list. It scrolls the board to the House and outlines it for 1.8 s; it changes no filter and ticks nothing.
+  // Find House: a single-pick searchable list. It scrolls the board to the House, outlines it for 1.8 s and opens it in House Intelligence (#1147); it changes no filter and ticks nothing.
   function findList(board) {
     const p = el('div', 'lcc-k-pop5 lcc-k-popf lcc-k-fr', '', { id: 'lcc-bd-find', role: 'dialog', 'aria-label': 'Find House', 'data-lk': 'fpop', hidden: ui.find ? null : '' });
     const head = el('div', 'lcc-k-p5-head');
@@ -470,6 +470,15 @@
     if (ct.rw) { const title = b.getAttribute('title'); b.removeAttribute('title'); rtipSet(b, { rows: [ct.rw], note: ct.tip, title, big: true }); } // the picture mouse-over in place of the native text (#977); Solari has no rw and keeps its text
     return b;
   }
+  // The specialization emblem as a small picture: ONE helper for the House card, the House Intelligence line and the List's Specialization column (#1145). It is the path's clean emblem (the card's own picture, no new artwork), drawn
+  // in one tint by the style sheet, empty to a screen reader (the words beside it name the path), and it hides itself when the file cannot be loaded. A House with no known track gets none (null).
+  function specIcon(track, cls, px) {
+    const art = L().emblemAsset(track);
+    if (!art) return null;
+    const img = el('img', cls, '', { alt: '', width: px, height: px, src: art.src, decoding: 'async' });
+    img.addEventListener('error', () => { img.hidden = true; });
+    return img;
+  }
   // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 EARNED"
   // with the collected and the waiting counts. A House whose specialization the save does not give has no emblem and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
@@ -489,12 +498,10 @@
     const top = el('span', 'lcc-hc-top');
     top.appendChild(el('span', 'lcc-hc-pos', h.number, { 'aria-hidden': 'true' }));
     // the specialization emblem (#963, #976): the path's clean emblem picture (only the emblem, cut from the banner picture) drawn in one tint like the House crest; no frame, no progress edge
-    const banner = L().emblemAsset(h.track);
+    const banner = specIcon(h.track, 'lcc-hc-spec-img', 28);
     if (banner) {
       const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization, ' + levelText(h), 'data-track': h.track });
-      const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 28, height: 28, src: banner.src, decoding: 'async' });
-      img.addEventListener('error', () => { img.hidden = true; });
-      g.appendChild(img);
+      g.appendChild(banner);
       top.appendChild(g);
     }
     sel.appendChild(top);
@@ -602,7 +609,11 @@
     const tips = raw ? Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, earnedWords(v)])) : null; // Classic says reached where the board says earned (#962)
     // the mouse-overs of the cells, in the Classic list's words (one source, the page)
     const ow = el('td', 'lcc-bd-c-owner'); ow.appendChild(ownerPill(h)); tr.appendChild(ow);
-    tr.appendChild(el('td', 'lcc-bd-c-path', trackWord(h.track) || '—'));
+    const pathTd = el('td', 'lcc-bd-c-path');
+    const pathImg = specIcon(h.track, 'lcc-bd-spec-img lcc-bd-spec-img-s', 20); // the same emblem as the card, small, to the left of the name (#1145); the words stay, a House with no track keeps the dash and no icon
+    if (pathImg) pathTd.appendChild(pathImg);
+    pathTd.appendChild(root.document.createTextNode(trackWord(h.track) || '—'));
+    tr.appendChild(pathTd);
     tr.appendChild(locCell(h, host));
     tr.appendChild(el('td', 'lcc-bd-c-state', h.takenNoTiers ? W().pledged + ', none of yours' : ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state], takenWhy(h) ? { title: takenWhy(h) } : tips ? { title: tips.progress } : undefined));
     // "2 of 5" on the page, " tiers earned" for a screen reader (the column heading says Tiers): "2 of 5 tiers earned" wrapped to three lines (#1059)
@@ -840,11 +851,15 @@
     // the position of the House on the board stays reachable as a tooltip on the name (the approved design shows no number here)
     hb.appendChild(el('h4', 'lcc-bd-insp-name', houseWord(h.name), h.number ? { title: W().square + ' ' + h.number + (h.pos && h.pos.words ? ' · ' + h.pos.words : '') } : undefined));
     hb.appendChild(locLine(h, host));
-    // the specialization is one line: its name is the button that opens its track in the Specializations tab (it only moves between pages: nothing is written)
-    if (h.track && host && typeof host.goPath === 'function') hb.appendChild(btn('lcc-bd-linkb lcc-bd-gopath', trackWord(h.track) + ' Specialization', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
+    // the specialization is one line: its name is the button that opens its track in the Specializations tab (it only moves between pages: nothing is written); the path's emblem stands to the left of it (#1145)
+    const specLine = h.track ? el('div', 'lcc-bd-spec-line') : hb, specImg = h.track ? specIcon(h.track, 'lcc-bd-spec-img', 28) : null; // a House with no track keeps its dash line as it was, no icon
+    if (specImg) specLine.appendChild(specImg);
+    const specTxt = h.track ? el('span', 'lcc-bd-spec-txt') : hb; // the words stay together beside the emblem: the Level text follows the name, or goes under it when the panel is narrow
+    if (h.track && host && typeof host.goPath === 'function') specTxt.appendChild(btn('lcc-bd-linkb lcc-bd-gopath', trackWord(h.track) + ' Specialization', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
       'aria-label': trackWord(h.track) + ' Specialization. Open ' + trackWord(h.track) + ' in Specializations. It only moves between pages: nothing is written.' }));
-    else hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' Specialization' : '—', h.track ? undefined : { title: 'Specialization not in the save' }));
-    if (h.track) hb.appendChild(el('span', 'lcc-bd-lvl', levelText(h), h.level === null ? { title: LEVEL_WHY } : undefined));
+    else specTxt.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' Specialization' : '—', h.track ? undefined : { title: 'Specialization not in the save' }));
+    if (h.track) specTxt.appendChild(el('span', 'lcc-bd-lvl', levelText(h), h.level === null ? { title: LEVEL_WHY } : undefined));
+    if (specLine !== hb) { specLine.appendChild(specTxt); hb.appendChild(specLine); }
     idn.appendChild(hb);
     side.appendChild(idn);
 
@@ -953,19 +968,7 @@
     if (!h.tiersOrdered && h.tiers.length) s3.appendChild(el('p', 'lcc-bd-warn', 'The tier amounts are not in rising order in the save; the earned count is taken as the save states it.'));
     side.appendChild(s3); // no caption, mark legend or note under the ledger (#980): every tier row names its own state, and the Help tab explains the marks, Fill and the three separate states
 
-    // where it is
-    const s5 = el('section', 'lcc-bd-sec', '', { 'aria-labelledby': 'lcc-bd-s5' });
-    s5.appendChild(secHead('LOCATION', 'lcc-bd-s5'));
-    if (!h.loc.known) s5.appendChild(el('p', 'lcc-bd-none', 'Not mapped yet: the save holds no map marker for this House’s representative, and the editor does not guess a place.'));
-    else {
-      s5.appendChild(el('p', 'lcc-bd-line', [h.loc.area, h.loc.cell ? 'grid cell ' + h.loc.cell : '', h.loc.place, h.loc.map && h.loc.map !== h.loc.area ? h.loc.map : ''].filter(Boolean).join(' · ')));
-      if (h.loc.unconfirmed) s5.appendChild(el('p', 'lcc-bd-cap', 'This place is from public guides and is not confirmed in the game.'));
-      const lm = host && typeof host.loc === 'function' ? host.loc(h.id) : null;
-      if (lm && lm.from) s5.appendChild(el('p', 'lcc-bd-line', 'From you: ' + lm.from + '.', lm.fromWhy ? { title: lm.fromWhy } : undefined));
-      if (h.loc.map_key) s5.appendChild(btn('lcc-bd-act', 'Open in the Saved map', { 'data-lb': 'map', 'data-id': h.id, 'data-fk': 'lw:' + h.id }));
-      else s5.appendChild(el('p', 'lcc-bd-cap', M().noPictureSays(h.loc)));
-    }
-    side.appendChild(s5);
+    // no LOCATION section here (#1144): the place is the button under the House name at the top, and it is shown once
     return side;
   }
 
@@ -1130,12 +1133,19 @@
     layersSync(); placeAll(); syncStrip();
     const f = qsel('#lcc-bd-find'), l = f && f.querySelector('.lcc-k-p5-list');
     if (open && f) { if (l) filterList(l, ui.fq, f.querySelector('[data-lk="fn"]')); const i = f.querySelector('[data-lk="fsearch"]'); if (i) i.focus({ preventScroll: true }); }
-    else if (back) { const k = visibleFind(); if (k) { k.focus({ preventScroll: true }); quiet(k); } }
+    else if (back) findBack();
   }
-  // Find House: scroll to the House and outline it for 1.8 s (reduced motion: no smooth scroll, the outline only). It changes no filter, ticks nothing and chooses no House.
+  // the Find House key that is drawn now gets the focus back, quiet (#1134); the key is looked up again here because the choice of a House (#1147) redraws the board and so draws a new key
+  function findBack() { const k = visibleFind(); if (k) { k.focus({ preventScroll: true }); quiet(k); } }
+  // Find House: scroll to the House, outline it for 1.8 s (reduced motion: no smooth scroll, the outline only) and choose it for House Intelligence, as a click on its square (grid) or its name (List) does (#1147).
+  // It changes no filter and ticks no box (the CHOOSE boxes are the multi-select for actions, not the selection). A House the List hides under the current filter has no row to go to: then nothing happens, as before.
+  // The choice redraws the board first, so the scroll and the outline go to the new row or card; the panel itself is not scrolled to (the scroll to the House is the only one).
   function findHouse(id) {
     if (!last) return;
-    const c = last.container, target = c.querySelector('.lcc-bd-cell[data-id="' + id + '"]') || c.querySelector('tr.lcc-bd-row[data-id="' + id + '"]');
+    const at = () => last.container.querySelector('.lcc-bd-cell[data-id="' + id + '"]') || last.container.querySelector('tr.lcc-bd-row[data-id="' + id + '"]');
+    if (!at()) return;
+    if (state.sel !== id) { state.sel = id; memo.insp = null; redraw(); } // a click on the chosen House lets it go; Find House keeps it chosen
+    const c = last.container, target = at();
     if (!target) return;
     if (target.scrollIntoView) target.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
     for (const n of c.querySelectorAll('.lcc-k-flash')) n.classList.remove('lcc-k-flash');
@@ -1271,7 +1281,7 @@
     if (k === 'gpick') { e.preventDefault(); state.group = t.getAttribute('data-val') === 'region' || t.getAttribute('data-val') === 'spec' ? t.getAttribute('data-val') : ''; redraw(); return true; }
     if (k === 'clearf') { e.preventDefault(); reset('hs'); reset('spec'); reset('group'); filtered(); redraw(); focusFk('mn:done'); return true; }
     if (k === 'chipx') { e.preventDefault(); reset(t.getAttribute('data-key')); filtered(); redraw(); focusFk('fbtn'); return true; }
-    if (k === 'fpick') { e.preventDefault(); const id = Number(t.getAttribute('data-id')); setFind(false, true); findHouse(id); return true; }
+    if (k === 'fpick') { e.preventDefault(); const id = Number(t.getAttribute('data-id')); setFind(false); findHouse(id); findBack(); return true; }
     if (k === 'seat') { e.preventDefault(); if (last.host && last.host.setFac) last.host.setFac(t.getAttribute('data-fid')); return true; }
     if (k === 'more') { e.preventDefault(); const mm = qsel('.lcc-k-moremenu'); if (mm) { mm.hidden = !mm.hidden; t.setAttribute('aria-expanded', mm.hidden ? 'false' : 'true'); } return true; }
     if (k === 'scrim') { setMenu(false, {}); setFind(false, false); return true; }

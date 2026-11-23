@@ -302,7 +302,8 @@ function needItem(inputId) {
 // best-grade effects; "applied" are the ids already on the item.
 let augSeq = 0; // the newest request wins when the picker changes quickly
 // The Give item row (picker gt, box gaug, slots ga, grade gag) and the care package editor's row (kitItem, kitAug, ka, kag) use the same slots.
-async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', gradeId = 'gag') {
+// keep: the values the controls of the block had before the page was drawn again (the snapshot of a redraw, { '#ga0|0': [value, default], ... }); they are put back once the block is drawn (#1148).
+async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', gradeId = 'gag', keep = null) {
   const box = $('#' + boxId), t = pickedItemId(pick), seq = ++augSeq;
   if (!box) return;
   setHTML(box, html``);
@@ -312,7 +313,16 @@ async function showGiveAugments(pick = 'gt', boxId = 'gaug', prefix = 'ga', grad
     fit.options.forEach((o) => AUG_NAMES.set(o.id, o.name));
     if (seq !== augSeq || !fit.limit || !$('#' + boxId)) return;
     setHTML($('#' + boxId), augBlock(prefix, fit, [], gradeId));
+    if (keep) for (const e of $('#' + boxId).querySelectorAll('select')) { const c = keep['#' + e.id + '|0']; if (c && [...e.options].some((o) => o.value === c[0])) e.value = c[0]; }
   } catch (e) { /* an unknown item simply has no augment slots */ }
+}
+// The Augments block is drawn by showGiveAugments when the item picker changes, never by the card itself, so a redraw of the page (the page's own refresh when the game saved, #696; a redraw after
+// another action) gave back the picker with its item and an empty block, and the slots and the grade were lost (#1148). After a redraw that keeps what was entered, the block is drawn again for the
+// item that is in the picker and its controls get back what they held. Nothing is asked of the server but the item's augment options, as when the picker changes; nothing is written.
+const AUG_ROWS = [['gt', 'gaug', 'ga', 'gag'], ['kitItem', 'kitAug', 'ka', 'kag']]; // Give item, and the care package editor's item row
+function restoreAugBlocks(place) {
+  if (!place || place.tab !== tab) return;
+  for (const [pick, box, prefix, gradeId] of AUG_ROWS) if ($('#' + box) && $('#' + pick) && pickedItemId(pick)) showGiveAugments(pick, box, prefix, gradeId, place.ctl);
 }
 const augName = (id) => (AUG_NAMES.get(id) || id);
 const AUG_NAMES = new Map(); // augment id -> name, filled from the options the server sent
@@ -555,9 +565,15 @@ function journeyStepName(id) {
   for (const g of JGROUPS) { const r = (JB[g[0]] || []).find((x) => x.id === id); if (r) return r.name; }
   return '';
 }
-// The id that a queue line leaves out, for its tooltip (#618).
+// A queued Give of several items is one edit: "Give 2 items: 3 x A (grade 1); 1 x B (grade 5, augments: C at grade 3)". Its items, one to a line, in the banner list (#1149); null for any other edit.
+function queueGiveItems(desc) {
+  const m = String(desc || '').match(/^Give (\d+) items(?: \([^)]*\))?: (.+)$/);
+  return m ? m[2].split('; ') : null;
+}
+// The id that a queue line leaves out, for its tooltip (#618). A queued Give of several items says all of them in its tooltip too, on one line (#1149).
 function queueTip(desc) {
   let m;
+  if (queueGiveItems(desc)) return String(desc);
   if ((m = String(desc || '').match(/^journey (\S+) (?:completed|reset) \(/))) return `Journey step id ${m[1]}`;
   if ((m = String(desc || '').match(/^moved vehicle (\d+) next to player$/))) return `Vehicle number ${m[1]}`;
   return '';
@@ -677,7 +693,7 @@ async function status() {
   const nq = q + (refill ? 1 : 0);
   const refillWhy = refill ? (refill.why ? capFirst(refill.why) : 'The game may still hold the save') + '.' : '';
   const refillLi = refill ? html`<li class="bn-refill"><b>Automatic refill.</b> The jobs switched on in Settings, run as one edit. ${refillWhy} It runs by itself, on the file as the game left it, as soon as that clears. <button class="b sm d-btn sm" data-act="cancelRefill" title="Cancel this refill. Nothing is written and no setting changes; the editor asks again the next time it opens.">Cancel refill</button></li>` : html``;
-  const listMsg = nq ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${nq})</summary><ul>${lines.map((l, i) => html`<li title="${queueTip(o.pending[i])}">${l}</li>`)}${refillLi}</ul></details>` : html``;
+  const listMsg = nq ? html`<details class="bn-list" ${KEEP.qlist ? 'open' : ''}><summary data-keep="qlist">What is queued (${nq})</summary><ul>${lines.map((l, i) => { const gi = queueGiveItems(o.pending[i]); return html`<li title="${queueTip(o.pending[i])}">${gi ? html`${l.slice(0, l.indexOf(':') + 1)}${gi.map((x) => html`<br>${x}`)}` : l}</li>`; })}${refillLi}</ul></details>` : html``;
   const rawMsg = reason.raw ? html`<details class="bn-raw" ${KEEP.raw ? 'open' : ''}><summary data-keep="raw">Details (include this if you report a problem)</summary><div class="mono">${reason.raw}</div></details>` : html``;
   lastPending = lines;
   const banner = html`${notLiveMsg}${changedMsg}${heldMsg}${mainMsg}${unlistedMsg}${restoredMsg}${schemaMsg}${journalMsg}${logMsg}${notesMsg}${recordMsg}${listMsg}${rawMsg}`;
@@ -2440,7 +2456,7 @@ function lbActbar(hs, l) {
     // The action mode: the count of the chosen Houses, the faction crests, Fill, Complete, Reopen (Complete and fill and Unfill are under More) and Clear; and the question. The faction box stays as the
     // engine behind the crests (hidden), so lbFacId and the board's faction path are unchanged. The counts on the keys are filled in by lbBarSync, the icons by the board (lcc-k-icph).
     const facs = l.factions || [], facName = (facs.find((x) => x.id == F) || {}).name || '', ic = (n) => html`<span class="lcc-k-icph" data-ic="${n}"></span>`;
-    const seats = facs.map((f) => html`<button type="button" role="radio" class="lcc-k-seat lcc-k-fr lcc-k-tipped" data-lk="seat" data-fid="${f.id}" data-f="${lbLetter(f.name)}" aria-checked="${f.id == F ? 'true' : 'false'}" tabindex="${f.id == F ? '0' : '-1'}" aria-label="${f.name}${f.id == mineF ? ', your faction' : ''}" data-fk="seat:${f.id}"><span class="lcc-k-crest" aria-hidden="true"></span><span class="lcc-k-sl" aria-hidden="true">${f.name}</span><span class="lcc-k-lamp" aria-hidden="true"></span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${f.name}${f.id == mineF ? ', your faction' : ''}. Fill and Complete act for this faction. It starts on your own faction. Choosing it writes nothing.</span></button>`);
+    const seats = facs.map((f) => html`<button type="button" role="radio" class="lcc-k-seat lcc-k-fr lcc-k-tipped" data-lk="seat" data-fid="${f.id}" data-f="${lbLetter(f.name)}" aria-checked="${f.id == F ? 'true' : 'false'}" tabindex="${f.id == F ? '0' : '-1'}" aria-label="${f.name}${f.id == mineF ? ', your faction' : ''}" data-fk="seat:${f.id}"><span class="lcc-k-crest" aria-hidden="true"></span><span class="lcc-k-lamp" aria-hidden="true"></span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${f.name}${f.id == mineF ? ', your faction' : ''}. Fill and Complete act for this faction. It starts on your own faction. Choosing it writes nothing.</span></button>`);
     const key = (act, cls, label, icn, tip, pos) => html`<button type="button" class="lcc-k-btn lcc-k-fr ${cls} lcc-k-tipped ${pos}" data-lk="act" data-lb="bulk" data-do="${act}" data-fk="b-${act}" aria-label="${label}">${ic(icn)}<span class="lcc-k-bl">${act === 'fill' ? 'Fill' : act === 'complete' ? 'Complete' : 'Reopen'}</span><span class="lcc-k-n" data-lk="chg" hidden></span><span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${tip}</span></button>`;
     const more = (act, label, tip) => html`<button type="button" class="lcc-k-btn lcc-k-fr lcc-k-tipped" data-lb="bulk" data-do="${act}" data-fk="b-${act}" ${bulkOff(act)}>${label}<span class="lcc-k-tip lcc-k-tip-wide" aria-hidden="true">${bulkTip(act, tip)}</span></button>`;
     return html`<div class="actbar">
@@ -3275,6 +3291,7 @@ async function render(keepPlace, auto, from) {
     setHTML($('#main'), html`<div class="card d-panel bad">${e.message}</div><div class="row mt12"><button class="b d-btn primary" data-act="retry">Try again</button></div>`);
   }
   viewApply(place);
+  restoreAugBlocks(place);
   tmapSync();
   goSync();
   if (tab === 'player' && $('#tdout')) goPlaces(false);

@@ -629,7 +629,7 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 	var ids []int64
 	var req, got int64
 	var results []map[string]any
-	if _, err := o.S.Mutate(fmt.Sprintf("give %d queued items", len(lines)), func(m *save.Mut) (e error) {
+	if _, err := o.S.Mutate(giveQueueWords(lines, nil), func(m *save.Mut) (e error) {
 		if ids, req, got, results, e = giveLinesInTx(m, inv, lines); e != nil {
 			return e
 		}
@@ -637,7 +637,11 @@ func (o *Ops) GiveItems(a Args) (any, error) {
 			return apierr.New(apierr.ErrNoRoom, "Nothing was given: the backpack is full.")
 		}
 		if got < req {
-			m.Desc = fmt.Sprintf("give %d queued items: %s of %s units fitted", len(lines), commas(got), commas(req))
+			given := make([]int64, len(results))
+			for i, r := range results {
+				given[i], _ = r["given"].(int64)
+			}
+			m.Desc = giveQueueWords(lines, given)
 		}
 		return nil
 	}); err != nil {

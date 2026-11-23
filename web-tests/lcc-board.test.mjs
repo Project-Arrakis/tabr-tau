@@ -231,7 +231,7 @@ test('Find House (the jump of the control area, tau #974) finds a House the filt
   assert.ok(cell.classList.contains('lcc-k-flash'), 'the House is outlined whatever the filters were');
   assert.equal(ui.doc.querySelector('[data-fk="bf:hs:taken"]').getAttribute('aria-checked'), 'true', 'the filter is as it was: Find House filters nothing');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 0, 'it ticks nothing');
-  assert.equal(ui.doc.querySelector('.lcc-bd-insp-name'), null, 'it chooses no House for the panel (the card does that)');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-insp-name')), /Sor/, 'it chooses the House for the panel, as a click on the card does (#1147)');
 });
 
 test('choosing a House opens the Inspector: both scales apart, the contributors and missions as "Not in the save", no sysselraad', async () => {
@@ -258,7 +258,7 @@ test('choosing a House opens the Inspector: both scales apart, the contributors 
   assert.match(i.querySelector('.lcc-bd-track-me').getAttribute('aria-label'), /^Your contribution: 3,600 of 6,000 · next tier 4,800, 1,200 more\./);
   assert.equal(i.querySelector('#lcc-bd-s2').parentNode.querySelector('.lcc-bd-line'), null, 'no line under the contribution bar');
   const order = [...i.children].map((c) => c.getAttribute('aria-labelledby') || c.className.split(' ')[0]);
-  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3', 'lcc-bd-s5'], 'the order of the approved design, except that the actions block comes directly under the name (and the way back to the board is before it); no note or disclosure under the ledger (#980)');
+  assert.deepEqual(order, ['lcc-bd-insp-top', 'lcc-bd-back', 'lcc-bd-identity', 'lcc-bd-s4', 'lcc-bd-pin', 'lcc-bd-banner', 'lcc-bd-s1', 'lcc-bd-s2', 'lcc-bd-s3'], 'the order of the approved design (no LOCATION block at the end any more, #1144), except that the actions block comes directly under the name (and the way back to the board is before it); no note or disclosure under the ledger (#980)');
   assert.equal(i.querySelector('.lcc-bd-disc, .lcc-bd-note'), null, 'the note of the three separate states is in the Help tab');
   assert.doesNotMatch(text(i), /sysselraad/i, 'the Inspector holds no sysselraad data');
   const tiers = [...i.querySelectorAll('.lcc-bd-tier')];
