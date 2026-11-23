@@ -470,6 +470,15 @@
     if (ct.rw) { const title = b.getAttribute('title'); b.removeAttribute('title'); rtipSet(b, { rows: [ct.rw], note: ct.tip, title, big: true }); } // the picture mouse-over in place of the native text (#977); Solari has no rw and keeps its text
     return b;
   }
+  // The specialization emblem as a small picture: ONE helper for the House card, the House Intelligence line and the List's Specialization column (#1145). It is the path's clean emblem (the card's own picture, no new artwork), drawn
+  // in one tint by the style sheet, empty to a screen reader (the words beside it name the path), and it hides itself when the file cannot be loaded. A House with no known track gets none (null).
+  function specIcon(track, cls, px) {
+    const art = L().emblemAsset(track);
+    if (!art) return null;
+    const img = el('img', cls, '', { alt: '', width: px, height: px, src: art.src, decoding: 'async' });
+    img.addEventListener('error', () => { img.hidden = true; });
+    return img;
+  }
   // One House card, as the approved design draws it: the number and the specialization emblem on top, the crest, HOUSE NAME, the specialization, the owner, the five tier boxes and the line "N/5 EARNED"
   // with the collected and the waiting counts. A House whose specialization the save does not give has no emblem and says so in words.
   function houseCard(h, matchIds, host, editable, picks, major, ev) {
@@ -489,12 +498,10 @@
     const top = el('span', 'lcc-hc-top');
     top.appendChild(el('span', 'lcc-hc-pos', h.number, { 'aria-hidden': 'true' }));
     // the specialization emblem (#963, #976): the path's clean emblem picture (only the emblem, cut from the banner picture) drawn in one tint like the House crest; no frame, no progress edge
-    const banner = L().emblemAsset(h.track);
+    const banner = specIcon(h.track, 'lcc-hc-spec-img', 28);
     if (banner) {
       const g = el('span', 'lcc-hc-spec', '', { title: trackWord(h.track) + ' specialization, ' + levelText(h), 'data-track': h.track });
-      const img = el('img', 'lcc-hc-spec-img', '', { alt: '', width: 28, height: 28, src: banner.src, decoding: 'async' });
-      img.addEventListener('error', () => { img.hidden = true; });
-      g.appendChild(img);
+      g.appendChild(banner);
       top.appendChild(g);
     }
     sel.appendChild(top);
@@ -602,7 +609,11 @@
     const tips = raw ? Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, earnedWords(v)])) : null; // Classic says reached where the board says earned (#962)
     // the mouse-overs of the cells, in the Classic list's words (one source, the page)
     const ow = el('td', 'lcc-bd-c-owner'); ow.appendChild(ownerPill(h)); tr.appendChild(ow);
-    tr.appendChild(el('td', 'lcc-bd-c-path', trackWord(h.track) || '—'));
+    const pathTd = el('td', 'lcc-bd-c-path');
+    const pathImg = specIcon(h.track, 'lcc-bd-spec-img lcc-bd-spec-img-s', 20); // the same emblem as the card, small, to the left of the name (#1145); the words stay, a House with no track keeps the dash and no icon
+    if (pathImg) pathTd.appendChild(pathImg);
+    pathTd.appendChild(root.document.createTextNode(trackWord(h.track) || '—'));
+    tr.appendChild(pathTd);
     tr.appendChild(locCell(h, host));
     tr.appendChild(el('td', 'lcc-bd-c-state', h.takenNoTiers ? W().pledged + ', none of yours' : ({ new: 'Not started', part: 'In progress', done: 'Top tier' })[h.state], takenWhy(h) ? { title: takenWhy(h) } : tips ? { title: tips.progress } : undefined));
     // "2 of 5" on the page, " tiers earned" for a screen reader (the column heading says Tiers): "2 of 5 tiers earned" wrapped to three lines (#1059)
@@ -840,11 +851,15 @@
     // the position of the House on the board stays reachable as a tooltip on the name (the approved design shows no number here)
     hb.appendChild(el('h4', 'lcc-bd-insp-name', houseWord(h.name), h.number ? { title: W().square + ' ' + h.number + (h.pos && h.pos.words ? ' · ' + h.pos.words : '') } : undefined));
     hb.appendChild(locLine(h, host));
-    // the specialization is one line: its name is the button that opens its track in the Specializations tab (it only moves between pages: nothing is written)
-    if (h.track && host && typeof host.goPath === 'function') hb.appendChild(btn('lcc-bd-linkb lcc-bd-gopath', trackWord(h.track) + ' Specialization', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
+    // the specialization is one line: its name is the button that opens its track in the Specializations tab (it only moves between pages: nothing is written); the path's emblem stands to the left of it (#1145)
+    const specLine = h.track ? el('div', 'lcc-bd-spec-line') : hb, specImg = h.track ? specIcon(h.track, 'lcc-bd-spec-img', 28) : null; // a House with no track keeps its dash line as it was, no icon
+    if (specImg) specLine.appendChild(specImg);
+    const specTxt = h.track ? el('span', 'lcc-bd-spec-txt') : hb; // the words stay together beside the emblem: the Level text follows the name, or goes under it when the panel is narrow
+    if (h.track && host && typeof host.goPath === 'function') specTxt.appendChild(btn('lcc-bd-linkb lcc-bd-gopath', trackWord(h.track) + ' Specialization', { 'data-lcb': 'gopath', 'data-track': h.track, 'data-fk': 'gp:' + h.id,
       'aria-label': trackWord(h.track) + ' Specialization. Open ' + trackWord(h.track) + ' in Specializations. It only moves between pages: nothing is written.' }));
-    else hb.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' Specialization' : '—', h.track ? undefined : { title: 'Specialization not in the save' }));
-    if (h.track) hb.appendChild(el('span', 'lcc-bd-lvl', levelText(h), h.level === null ? { title: LEVEL_WHY } : undefined));
+    else specTxt.appendChild(el('span', 'lcc-bd-bloc', h.track ? trackWord(h.track) + ' Specialization' : '—', h.track ? undefined : { title: 'Specialization not in the save' }));
+    if (h.track) specTxt.appendChild(el('span', 'lcc-bd-lvl', levelText(h), h.level === null ? { title: LEVEL_WHY } : undefined));
+    if (specLine !== hb) { specLine.appendChild(specTxt); hb.appendChild(specLine); }
     idn.appendChild(hb);
     side.appendChild(idn);
 
