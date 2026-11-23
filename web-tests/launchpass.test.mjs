@@ -97,6 +97,27 @@ test('The Automatic refill card has Run the automatic pass now: one click, no qu
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Automatic refill saved 2 vehicles'));
 });
 
+test('A pass that the game holds back is queued: the toast carries the neutral queued mark, never the check (#1135, #1123)', async () => {
+  const note = 'Queued: runs by itself when the save is free.';
+  const ui = await boot({ get: { '/api/settings': prefs() }, post: { '/api/autopass/run': { note, warn: false } } });
+  await openBases(ui);
+  ui.click('[data-act="autoNow"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast .d-toast');
+  assert.ok(t && t.textContent.includes(note), 'the line is shown');
+  assert.ok(t.classList.contains('queued'), 'the queued kind: ' + t.className);
+  assert.ok(!t.classList.contains('err') && !t.classList.contains('part'), 'not a warning');
+  assert.equal(t.getAttribute('data-fx'), null);
+});
+
+test('A pass that ran is still shown with the check, not the queued mark', async () => {
+  const note = 'Automatic refill saved 2 vehicles refuelled to the game (the previous file is backed up as x.db).';
+  const ui = await boot({ get: { '/api/settings': prefs() }, post: { '/api/autopass/run': { note, warn: false } } });
+  await openBases(ui);
+  ui.click('[data-act="autoNow"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast .d-toast');
+  assert.ok(t && !t.classList.contains('queued'), t && t.className);
+});
+
 test('A refused run (the game may still hold the save) is shown as a warning that stays', async () => {
   const note = 'The automatic pass was not run: a single-player session is active, and the game rewrites the save about every 20 seconds while it runs. Run it again once that clears.';
   const ui = await boot({ get: { '/api/settings': prefs() }, post: { '/api/autopass/run': { note, warn: true } } });

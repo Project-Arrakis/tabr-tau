@@ -1158,7 +1158,7 @@ func (s *Server) autoPrefs(cur settings.Settings) map[string]any {
 	}
 	s.startupMu.Lock()
 	defer s.startupMu.Unlock()
-	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting, "waitingWhy": s.autoWaitWhy, "copy": !save.IsGamesOwnSave(s.Save.Path)}
+	return map[string]any{"autoRefillOnOpen": cur.AutoRefillOnOpen, "jobs": jobs, "last": s.lastAuto, "lastProblem": s.lastAutoFail, "waiting": s.autoWaiting, "waitingWhy": s.autoWaitWhy, "waitingByHand": s.autoWaiting && s.autoWaitHand, "copy": !save.IsGamesOwnSave(s.Save.Path)}
 }
 
 // The automatic pass never runs on a save that is not the game's own (#508): at launch the page is told it was not run, and "Run the automatic pass now" is told why.
@@ -1168,7 +1168,7 @@ const (
 )
 
 // What "Run the automatic pass now" says when the gate blocks it: it is queued, and the card and the queue view carry the reason (#1135).
-const passQueuedByHand = "Queued: runs by itself once the game is closed and the save is free."
+const passQueuedByHand = "Queued: runs by itself when the save is free."
 
 // waitingByHand says whether the pass that waits was asked for by hand ("Run the automatic pass now", #1135).
 func (s *Server) waitingByHand() bool {

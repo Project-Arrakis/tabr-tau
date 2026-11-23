@@ -15,7 +15,7 @@ import (
 // itself on the file as the game left it once the check clears. A pass that is queued has nobody watching when it runs, so it has the rules of the pass at launch (it waits for
 // every game process, and it is written as "automatic pass", not as "run by hand"). A by-hand pass the gate lets through is unchanged.
 
-const queuedByHandLine = "Queued: runs by itself once the game is closed and the save is free."
+const queuedByHandLine = "Queued: runs by itself when the save is free."
 
 func TestByHandPassBlockedByTheGateIsQueuedNotRefused(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
@@ -34,7 +34,7 @@ func TestByHandPassBlockedByTheGateIsQueuedNotRefused(t *testing.T) {
 	}
 	nothingWritten(t, s, dir, before)
 	// the queue view and the card read the same wait, with the reason of the gate
-	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waiting":true`) || !strings.Contains(st, `"waitingWhy":"the game wrote its database 20 seconds ago`) {
+	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waiting":true`) || !strings.Contains(st, `"waitingWhy":"the game wrote its database 20 seconds ago`) || !strings.Contains(st, `"waitingByHand":true`) {
 		t.Fatalf("the card does not carry the wait: %s", st)
 	}
 }
@@ -153,6 +153,24 @@ func TestCancelStopsAQueuedByHandPass(t *testing.T) {
 	s.retryWaitingPass()
 	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || isWaiting(s) {
 		t.Fatal("Cancel during the retry did not stop the by-hand pass")
+	}
+}
+
+// the card is told whether the wait began by hand (it shows the wait with the master switch off only then), and a wait of the pass at launch is not by hand
+func TestCardIsToldOnlyAByHandWaitIsByHand(t *testing.T) {
+	s, _ := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	defer save.GameJustLeftWorldForTests()()
+	s.RunStartupTasks()
+	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waiting":true`) || !strings.Contains(st, `"waitingByHand":false`) {
+		t.Fatalf("a wait of the pass at launch is not by hand: %s", st)
+	}
+	s.RunPassNow()
+	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waitingByHand":true`) {
+		t.Fatalf("a wait asked for by hand is: %s", st)
+	}
+	s.cancelWaitingPass()
+	if st := postEditGet(t, s, "/api/settings"); !strings.Contains(st, `"waiting":false`) || !strings.Contains(st, `"waitingByHand":false`) {
+		t.Fatalf("after Cancel nothing waits: %s", st)
 	}
 }
 
