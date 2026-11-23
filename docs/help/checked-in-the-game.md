@@ -12,6 +12,7 @@ Every write has automated tests on a synthetic save built from the game's real s
 | Landsraad: whether the game keeps a contribution raised here at its next progress step | Not checked in the game |
 | Landsraad: Term and Decrees controls (Apply, Make active, Set flag) | Tests only |
 | Specialization: Add XP, Grant LV 100, Reset, keystones | Tests only |
+| Deep Desert layout roll (`tabr-tau layout-roll`, #1141; writes the game's Game.ini, not the save) | Tests on temporary files only. The Game.ini setting itself was changed by hand in the game on 2026-10-27 and worked |
 
 "Tests only" means the rows written are exactly the expected ones and the save passes its integrity check, but the game itself has not been run on the result.
 
