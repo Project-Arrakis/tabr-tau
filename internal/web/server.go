@@ -959,6 +959,14 @@ func (s *Server) routes() {
 		return map[string]any{"ok": true}, nil
 	})
 	s.get("/api/save/backups", func(r *http.Request) (any, error) { return s.Save.Backups(), nil })
+	// Back up now (#1168): a backup of the save file as it is, taken on the person's word. It reads the save and writes only into the backup folder, so it is not held by the game guard.
+	s.post("/api/save/backup-now", func(ops.Args) (any, error) {
+		b, err := s.Save.BackupNow()
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "name": b.Name, "size": b.Size, "sha256": b.SHA256, "at": b.At.Format(time.RFC3339)}, nil
+	})
 	s.post("/api/save/restore", func(a ops.Args) (any, error) {
 		err := s.Save.Restore(a.Str("name"))
 		if err == nil {
