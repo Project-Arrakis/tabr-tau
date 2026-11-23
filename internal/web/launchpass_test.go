@@ -278,19 +278,20 @@ func TestRunNowEndsTheCountdownSoThePassRunsOnce(t *testing.T) {
 	}
 }
 
-// Run now while the game may still hold the save's rows: answered with the reason of the gate, nothing written, and nothing queued for later (unlike the pass at launch).
-func TestRunNowWithTheGameOpenWritesNothingAndQueuesNothing(t *testing.T) {
+// Run now while the game may still hold the save's rows: nothing is written, and the pass is queued like the pass at launch, with one short line and not a refusal (#1135; it used to answer
+// "The automatic pass was not run: ... Run it again once that clears." and queue nothing). The queued pass is tested in autopass_byhand_queue_test.go.
+func TestRunNowWithTheGameOpenWritesNothingAndQueuesIt(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	restore := save.GameJustLeftWorldForTests()
 	defer restore()
 	before := fileBytes(t, s)
 	w := postEdit(t, s, "/api/autopass/run", `{}`)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "The automatic pass was not run: the game wrote its database 20 seconds ago") || !strings.Contains(w.Body.String(), `"warn":true`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), queuedByHandLine) || !strings.Contains(w.Body.String(), `"warn":false`) || strings.Contains(w.Body.String(), "was not run") {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 	nothingWritten(t, s, dir, before)
-	if isWaiting(s) {
-		t.Fatal("a pass asked for by hand must not wait for the game")
+	if !isWaiting(s) {
+		t.Fatal("a pass asked for by hand that the gate blocks must be queued")
 	}
 }
 

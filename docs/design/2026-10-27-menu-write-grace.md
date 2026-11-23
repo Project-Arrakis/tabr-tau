@@ -72,7 +72,7 @@ menu: the file-open check and the rest of the #449 rule are unchanged, and what 
 
 ## Not changed
 
-A world in play is never written. The automatic pass at launch used the stricter rule (no Dune process at all) until #499, had this one from #499 to #612, and has the stricter one again since #612 (unattended: it also waits for every game process to be gone); a pass a person starts with **Run the automatic pass now** has this one. The 3-minute and 6-minute waits remain for the cases above. The
+A world in play is never written. The automatic pass at launch used the stricter rule (no Dune process at all) until #499, had this one from #499 to #612, and has the stricter one again since #612 (unattended: it also waits for every game process to be gone); a pass a person starts with **Run the automatic pass now** has this one when it runs at once; if this rule blocks it, it is queued and runs later under the stricter unattended rule (#1135). The 3-minute and 6-minute waits remain for the cases above. The
 #419 case (a write 23 seconds after leaving the world, 20 seconds after the game's last write) is still refused: 23 s after the end is before the 30 s grace.
 
 ## In-game check for the operator
