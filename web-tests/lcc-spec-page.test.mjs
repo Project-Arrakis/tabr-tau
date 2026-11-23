@@ -37,16 +37,17 @@ test('a view saved by an earlier version (spec.view) is dropped, whatever it hel
   }
 });
 
-// every operation the Specialization tab has is reachable: the lanes and totals carry the six of the Command Center, the Advanced cards under it carry the track mapping and the raw row (#986 left them on the page)
-test('every operation of the editor is reachable on the page: six in the Command Center view, three in the Advanced cards under it', async () => {
+// every operation the Specialization tab has is reachable: the lanes and totals carry the six of the Command Center, the Advanced card under it carries the track mapping (#986 left it on the page; the raw row card was removed in #1133)
+test('every operation of the editor is reachable on the page: six in the Command Center view, two in the Advanced card under it, and no raw row', async () => {
   const ui = await open({}, { '/api/player/specs': SPECS('conflicting-learned-number-leaves-combat-unresolved') });
   const have = new Set([...ui.doc.querySelectorAll('[data-act]')].map((b) => b.dataset.act));
   for (const a of ['spAddCC', 'spKeyAll', 'spKeyReset', 'spResetAll', 'spMax', 'spReset']) assert.ok(ui.doc.querySelector('#lcs-root [data-act="' + a + '"]'), a + ' is in the Command Center view');
-  for (const a of ['spAssign', 'spAssignHand', 'specSet']) {
+  for (const a of ['spAssign', 'spAssignHand']) {
     assert.ok(have.has(a), a + ' is on the page');
     assert.equal(ui.doc.querySelector('#lcs-root [data-act="' + a + '"]'), null, a + ' is not inside the view');
     assert.ok(ui.doc.querySelector('[data-advanced] [data-act="' + a + '"]'), a + ' is in an Advanced card');
   }
+  assert.ok(!have.has('specSet'), 'the raw row writer is gone (#1133)');
 });
 
 test('the path chosen survives a write and the redraw after it, and the focus goes back to the button pressed', async () => {

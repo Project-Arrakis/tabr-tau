@@ -1,5 +1,5 @@
 // The Specialization tab picks a track by its name (#708, slice 1). When every track has a number, the page has no Specialization numbers section and no box asking for a number, and the
-// raw-row form is a dropdown of names that sends the number behind the chosen name. A save whose numbers cannot be told keeps the assignment card as a small fallback.
+// A save whose numbers cannot be told keeps the assignment card as a small fallback. (The raw-row card was removed in #1133.)
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -42,29 +42,17 @@ test('all five numbers known: no Specialization numbers section, no box asking f
   }
 });
 
-test('all five numbers known: the raw row asks for a specialization by name and sends the number behind it', async () => {
-  const ui = await boot({ get: { '/api/player/specs': specs() }, post: { '/api/player/specs': { ok: true } } });
+test('all five numbers known: there is no raw row card (#1133), and no numbers card either', async () => {
+  const ui = await boot({ get: { '/api/player/specs': specs() } });
   await open(ui);
-  const pick = ui.doc.querySelector('#st');
-  assert.equal(pick.tagName, 'SELECT', 'a dropdown, not a number box');
-  assert.deepEqual([...pick.options].map((o) => o.textContent.trim()), TRACKS);
-  assert.ok(!ui.doc.querySelector('details').textContent.includes('Track number'), 'the form does not talk about numbers');
-  pick.value = String(NUMBERS.Sabotage);
-  ui.doc.querySelector('#sx').value = '500'; ui.doc.querySelector('#sl').value = '2';
-  ui.click('[data-act="specSet"]'); await ui.settle();
-  assert.equal(posts(ui, '/api/player/specs').length, 0, 'nothing is sent before the answer');
-  const ask = ui.doc.querySelector('#ask').textContent;
-  assert.ok(ask.includes('Sabotage is set to 500 XP at level 2') && !ask.includes('Track number'), ask);
-  ui.click('#aok'); await ui.settle();
-  assert.deepEqual(posts(ui, '/api/player/specs').map((p) => p.body), [{ track_type: 5, xp: 500, level: 2 }]);
-  // each name sends its own number
-  for (const [name, n] of Object.entries(NUMBERS)) {
-    const opt = [...pick.options].find((o) => o.textContent.trim() === name);
-    assert.equal(opt.value, String(n), name);
-  }
+  const page = ui.doc.querySelector('#main');
+  assert.equal(page.querySelector('#st'), null);
+  assert.equal(page.querySelector('[data-act="specSet"]'), null);
+  assert.ok(!page.textContent.includes('Advanced: set a raw row'));
+  assert.ok(![...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'));
 });
 
-test('a save whose numbers cannot be told keeps the assignment card, and the raw row lists only the tracks with a number', async () => {
+test('a save whose numbers cannot be told keeps the assignment card', async () => {
   const ui = await boot({ get: { '/api/player/specs': specs(['Combat', 'Crafting']) } });
   await open(ui);
   const page = ui.doc.querySelector('#main');
@@ -72,17 +60,14 @@ test('a save whose numbers cannot be told keeps the assignment card, and the raw
   assert.ok(heads.includes('Advanced: specialization numbers'), 'the fallback is drawn: ' + heads);
   assert.ok(page.querySelector('#spmt') && page.querySelector('#spmn') && page.querySelector('[data-act="spAssignHand"]'));
   assert.ok(page.textContent.includes("Known a track's number already?"));
-  assert.deepEqual([...ui.doc.querySelector('#st').options].map((o) => o.textContent.trim()), ['Combat', 'Crafting']);
 });
 
-test('no track has a number: the dead-end note and the assignment card are drawn, and the raw row has nothing to pick', async () => {
+test('no track has a number: the dead-end note and the assignment card are drawn', async () => {
   const ui = await boot({ get: { '/api/player/specs': specs([]) } });
   await open(ui);
   const page = ui.doc.querySelector('#main');
   assert.ok(page.querySelector('#lcs-root'), 'the view is drawn, with its XP controls off');
   assert.ok([...page.querySelectorAll('h3')].some((h) => h.textContent.trim() === 'Advanced: specialization numbers'));
-  assert.equal(page.querySelector('#st'), null);
-  assert.equal(page.querySelector('[data-act="specSet"]'), null);
 });
 
 // ---- #853: a number assigned by hand that is not the game's own must stay correctable ----
