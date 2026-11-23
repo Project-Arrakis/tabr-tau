@@ -231,7 +231,7 @@ test('Find House (the jump of the control area, tau #974) finds a House the filt
   assert.ok(cell.classList.contains('lcc-k-flash'), 'the House is outlined whatever the filters were');
   assert.equal(ui.doc.querySelector('[data-fk="bf:hs:taken"]').getAttribute('aria-checked'), 'true', 'the filter is as it was: Find House filters nothing');
   assert.equal(ui.doc.querySelectorAll('.lcc-bd-pick:checked').length, 0, 'it ticks nothing');
-  assert.equal(ui.doc.querySelector('.lcc-bd-insp-name'), null, 'it chooses no House for the panel (the card does that)');
+  assert.match(text(ui.doc.querySelector('.lcc-bd-insp-name')), /Sor/, 'it chooses the House for the panel, as a click on the card does (#1147)');
 });
 
 test('choosing a House opens the Inspector: both scales apart, the contributors and missions as "Not in the save", no sysselraad', async () => {

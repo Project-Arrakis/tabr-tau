@@ -39,7 +39,7 @@ test('the style sheet hides the mouse-over text of a quiet key, and the rule bea
 
 test('#1134: choosing a House in Find House gives the key its focus back and the key shows no mouse-over text', async () => {
   const ui = await open();
-  const k = findKey(ui);
+  let k = findKey(ui);
   assert.ok(k.classList.contains('lcc-k-tipped'), 'the key has a mouse-over text');
   assert.ok(!k.classList.contains(QUIET), 'a key that was not closed over is not quiet');
   click(ui, k);
@@ -48,6 +48,7 @@ test('#1134: choosing a House in Find House gives the key its focus back and the
   const pick = [...ui.doc.querySelectorAll('[data-lk="fpick"]')].find((o) => text(o) === 'Sor');
   assert.ok(pick);
   click(ui, pick);
+  k = findKey(ui); // the choice of a House redraws the board (#1147): the key that is drawn now is a new element
   assert.equal(ui.doc.querySelector('#lcc-bd-find').hidden, true, 'the list closed');
   assert.equal(ui.doc.activeElement, k, 'the focus is back on the key');
   assert.ok(k.classList.contains(QUIET), 'the key is quiet: its text would stay as long as the focus is on it');
@@ -55,9 +56,10 @@ test('#1134: choosing a House in Find House gives the key its focus back and the
 
 test('#1134: the text comes back at the next mouse-over of the key, and at the next key press', async () => {
   const ui = await open();
-  const k = findKey(ui);
+  let k = findKey(ui);
   click(ui, k);
   click(ui, [...ui.doc.querySelectorAll('[data-lk="fpick"]')].find((o) => text(o) === 'Sor'));
+  k = findKey(ui); // the choice of a House redraws the board (#1147): the key that is drawn now is a new element
   assert.ok(k.classList.contains(QUIET));
   over(ui, ui.doc.querySelector('.lcc-k-strip .lcc-k-lens'));
   assert.ok(k.classList.contains(QUIET), 'a mouse-over of something else changes nothing');
@@ -66,6 +68,7 @@ test('#1134: the text comes back at the next mouse-over of the key, and at the n
   // and again with the keyboard
   click(ui, k);
   click(ui, [...ui.doc.querySelectorAll('[data-lk="fpick"]')].find((o) => text(o) === 'Sor'));
+  k = findKey(ui);
   assert.ok(k.classList.contains(QUIET));
   key(ui, k, 'ArrowDown');
   assert.ok(!k.classList.contains(QUIET), 'a key press: the text comes back');
@@ -103,9 +106,10 @@ test('#1134: the Filter key has the same pattern and the same fix (Done and Esca
 
 test('#1134: moving the focus away clears it, so the key shows its text again when it is reached by the keyboard later', async () => {
   const ui = await open();
-  const k = findKey(ui);
+  let k = findKey(ui);
   click(ui, k);
   click(ui, [...ui.doc.querySelectorAll('[data-lk="fpick"]')].find((o) => text(o) === 'Sor'));
+  k = findKey(ui); // the choice of a House redraws the board (#1147): the key that is drawn now is a new element
   assert.ok(k.classList.contains(QUIET));
   k.blur();
   assert.ok(!k.classList.contains(QUIET));
