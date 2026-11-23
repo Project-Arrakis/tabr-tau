@@ -143,7 +143,7 @@ func TestEndThatIsFollowedByWritesIsNotTrusted(t *testing.T) {
 	nowFunc = func() time.Time { return time.Date(2026, 11, 1, 10, 7, 0, 0, time.UTC) }
 	save, _ := writeLog(t, strings.Join([]string{lgStart, lgSave, lgMenu, lgSave2, lgSave3, lgSave4}, "\n")+"\n")
 	g := processState(save, true)
-	if !g.Blocked || !strings.Contains(g.Reason, "must be quiet for 3 minutes") {
+	if !g.Blocked || !strings.Contains(g.Detail, "must be quiet for 3 minutes") || !strings.Contains(g.Reason, "they are written in about") {
 		t.Fatalf("a game that goes on writing after a closed browse was let through: %+v", g)
 	}
 	// and a clean exit of the same shape (one write after the end) is let through after the same time
@@ -171,7 +171,7 @@ func TestRewordedLogFallsBackToTheFileTime(t *testing.T) {
 	}
 
 	setAge(t, save, 20*time.Second) // the game rewrites the file every 20 s while a world is loaded
-	if g := processState(save, true); !g.Blocked || g.Mode != "game_running" || !strings.Contains(g.Reason, "its log shows no sign of a session") {
+	if g := processState(save, true); !g.Blocked || g.Mode != "game_running" || !strings.Contains(g.Detail, "its log shows no sign of a session") || !strings.Contains(g.Reason, "the save file changed 20 seconds ago") {
 		t.Fatalf("a reworded log with a file written 20 s ago let a write through: %+v", g)
 	}
 	setAge(t, save, 5*time.Minute)

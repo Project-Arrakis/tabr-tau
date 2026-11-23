@@ -1091,7 +1091,7 @@ func (s *Server) retryWaitingPass() {
 
 // waitWhy is what a blocked game state is waiting for, in the words the banner uses for an edit made by hand (a session is active, the game wrote N seconds ago, the
 // session ended N ago, another program has the file open, the check cannot be made), without the sentence about edits that belongs to an edit.
-func waitWhy(g save.GameState) string { return strings.TrimSuffix(g.Reason, save.QueuedUntilClears) }
+func waitWhy(g save.GameState) string { return save.WaitFact(g.Reason) }
 
 // autoPassWanted says whether the settings ask for an automatic pass at all: the master switch is on and at least one job that can run is switched on.
 func autoPassWanted(cur settings.Settings) bool { return cur.AutoRefillOnOpen && autoJobsWanted(cur) }
