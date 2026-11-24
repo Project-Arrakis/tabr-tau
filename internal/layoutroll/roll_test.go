@@ -20,7 +20,7 @@ type env struct {
 	now     time.Time
 	running bool
 	checks  int
-	pick    int // the number the fake random source returns
+	pick    int    // the number the fake random source returns
 	save    string // the save the guard looks at: a made-up one with nothing in the Deep Desert unless a test replaces it
 }
 

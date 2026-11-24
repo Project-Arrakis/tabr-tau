@@ -36,7 +36,6 @@ func vehicleSQL(id int, mp string, state, owner int) string {
 	return s
 }
 
-
 func sha(t *testing.T, p string) [32]byte {
 	t.Helper()
 	b, err := os.ReadFile(p)
@@ -241,7 +240,10 @@ func TestACheckpointThatFailsStopsTheRunBeforeTheRead(t *testing.T) {
 		takeCheckpoint, inspectSave = f, g
 	}(takeCheckpoint, inspectSave)
 	takeCheckpoint = func(*save.Save) (save.ManualBackup, error) { return save.ManualBackup{}, errors.New("disk full") }
-	inspectSave = func(*save.Save) (ops.DeepDesertHolds, error) { t.Fatal("the save was read after a failed checkpoint"); return ops.DeepDesertHolds{}, nil }
+	inspectSave = func(*save.Save) (ops.DeepDesertHolds, error) {
+		t.Fatal("the save was read after a failed checkpoint")
+		return ops.DeepDesertHolds{}, nil
+	}
 	_, err := Roll(e.opts())
 	if err == nil || !strings.Contains(err.Error(), "checkpoint") || !strings.Contains(err.Error(), "disk full") || e.ini() != iniWith("11") {
 		t.Fatalf("%v", err)
