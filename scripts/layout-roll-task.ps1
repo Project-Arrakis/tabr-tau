@@ -15,6 +15,9 @@
   Preview:   .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe" -WhatIf
   Name the save (needed when more than one save is found on the computer):
              .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe" -SavePath "C:\path\to\the\folder\with\game.db"
+  Recycle your Deep Desert bases before the roll (OFF unless you give it; read "Recycling the Deep Desert bases" in docs/help/deep-desert-layout-roll.md first, and run
+             "tabr-tau layout-roll --dry-run --recycle-bases" by hand first):
+             .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe" -RecycleBases
   Remove:    .\layout-roll-task.ps1 -Remove
 
   The task belongs to the current user only, runs only while that user is logged on, has no password stored and asks for no elevation. tabr-tau.exe is a windowless program, so
@@ -32,6 +35,12 @@
   layout-roll. Without it the run checks the only save found on the computer and refuses when there are none or several. A relative path is made into a full path first, because the
   task does not run from your folder. Ignored with -Remove.
 
+.PARAMETER RecycleBases
+  Optional, off by default. Adds --recycle-bases to the task action (after the word layout-roll): the weekly run then recycles your own bases in the Deep Desert, one at a time, each with a
+  Solido, before it rolls, instead of refusing while a base stands. The Reserve must be empty before each base, so a run recycles one base unless the Reserve is emptied in between;
+  a run that could not recycle every base stops before the roll and says so in %APPDATA%\tabr-tau\layout-roll.json. The task is given 30 minutes instead of 5. Without -RecycleBases the
+  task is exactly what it was.
+
 .PARAMETER Remove
   Remove the task instead of registering it.
 #>
@@ -39,6 +48,7 @@
 param(
     [string]$ExePath,
     [string]$SavePath,
+    [switch]$RecycleBases,
     [switch]$Remove
 )
 
@@ -62,7 +72,9 @@ if (-not $ExePath) { throw 'Give the full path of tabr-tau.exe with -ExePath.' }
 if (-not [System.IO.Path]::IsPathRooted($ExePath)) { throw "-ExePath must be a full path, not '$ExePath'." }
 if (-not (Test-Path -LiteralPath $ExePath -PathType Leaf)) { throw "There is no file at '$ExePath'." }
 
-$taskArgument = 'layout-roll'
+$layoutRollWords = 'layout-roll'
+if ($RecycleBases) { $layoutRollWords = 'layout-roll --recycle-bases' }
+$taskArgument = $layoutRollWords
 if ($SavePath) {
     # The save must exist; the task runs from another folder, so the path is made a full one now.
     if (-not (Test-Path -LiteralPath $SavePath)) { throw "There is no file or folder at '$SavePath' (-SavePath)." }
@@ -70,14 +82,17 @@ if ($SavePath) {
     if ($fullSave.Contains('"')) { throw "-SavePath must not contain a double quote: '$SavePath'." }
     # The path goes in double quotes inside the task's argument line. A run of backslashes just before the closing quote would escape it, so it is doubled.
     $quotedSave = '"' + ($fullSave -replace '(\\+)$', '$1$1') + '"'
-    $taskArgument = "--save $quotedSave layout-roll"
+    $taskArgument = "--save $quotedSave $layoutRollWords"
 }
 
 $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 $action = New-ScheduledTaskAction -Execute $ExePath -Argument $taskArgument
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Tuesday -At '5:00AM'
+# A run that recycles bases copies the save, exports and recycles every base on a working copy, and writes the save once: it is given longer than the plain run.
+$minutes = 5
+if ($RecycleBases) { $minutes = 30 }
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -Hidden -MultipleInstances IgnoreNew `
-    -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
+    -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes $minutes)
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
 
 if ($PSCmdlet.ShouldProcess($TaskName, "Register: every Tuesday 05:00, as $user, running '$ExePath $taskArgument'")) {

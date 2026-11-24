@@ -116,3 +116,19 @@ func TestLayoutRollWithNoSaveRefuses(t *testing.T) {
 		t.Fatal("Game.ini written without a save to check")
 	}
 }
+
+// --recycle-bases is off unless given, and given it reaches the roll: a dry run with it says that no base stands, and one without it does not mention the step.
+func TestLayoutRollRecycleBasesFlagIsOptIn(t *testing.T) {
+	o, dir := layoutTestOptions(t, false)
+	var out bytes.Buffer
+	if err := runLayoutRoll([]string{"--dry-run"}, dir, &out, o); err != nil || strings.Contains(out.String(), "--recycle-bases") {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	out.Reset()
+	if err := runLayoutRoll([]string{"--dry-run", "--recycle-bases"}, dir, &out, o); err != nil || !strings.Contains(out.String(), "--recycle-bases: no base stands in the Deep Desert") {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "Game.ini")); string(b) != "[A]\r\nx=1\r\n" {
+		t.Fatal("a dry run wrote Game.ini")
+	}
+}

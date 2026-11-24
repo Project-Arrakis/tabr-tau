@@ -15,7 +15,7 @@ The commands are for PowerShell and are written so that you can copy and paste e
 ## What it does
 
 - It changes one number, `WorldLayoutIndexInSingleplayer`, in the line `m_WorldLayoutsPerWorld` of `Game.ini` in your game config folder (`%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows`). If `Game.ini` has no such line yet, the whole line is added under its section. Every other line of the file is left as it is.
-- It reads your save to check the Deep Desert (below). It writes to the save in one case only: when vehicles of yours stand in the Deep Desert and have to be stored or moved out (see "What happens to your vehicles"). Nothing else in the save is ever changed.
+- It reads your save to check the Deep Desert (below). It writes to the save in two cases only: when vehicles of yours stand in the Deep Desert and have to be stored or moved out (see "What happens to your vehicles"), and, only if you pass `--recycle-bases`, when bases of yours stand there and are recycled (see "Recycling the Deep Desert bases"). Nothing else in the save is ever changed.
 - A random roll picks one of the layouts 0 to 11 and never the one that is set now. Layouts 12 to 17 are never picked. You can name one yourself with `--set N` (0 to 11).
 - The **game must be restarted** for a new layout to apply. The command never starts, stops or restarts the game.
 
@@ -40,7 +40,7 @@ Before it edits `Game.ini`, and only when the game is closed and the weekly rule
 4. **The check again.** After the vehicles are out, the save is read once more and must show none of them in the Deep Desert. A vehicle counts when you hold its owner rank and it stands in the world there; a vehicle of yours whose map is not recorded counts too. A vehicle that is **stored** (in the game's vehicle backup, or stored for recovery) does not count: it keeps the last place it stood, but it is not in the world. Vehicles of other owners, the world's own vehicles and vehicles on other maps do not count either.
 5. **The bases are exported first.** When a refusal is because bases stand in the Deep Desert, each of them is written as a console base backup file into a dated folder `layout-roll-bases-YYYYMMDD-HHMMSS.mmm` next to `layout-roll.json`, and each file is read back and checked with the editor's own reader. The folder and the file names are recorded in `layout-roll.json` (`lastCheck.exportFolder`, `lastCheck.exportFiles`). If a file cannot be made or does not read back, the run stops and says so.
 
-`--set` and `--force` do not skip this check. The command never moves, picks up or deletes a base. To roll, take the character out of the Deep Desert and pick up your bases there with the game's base tool (which also keeps each as a base backup; the exported files are extra copies), let the game save, close it and run the command again. Deleting the bases from here is not built yet.
+`--set` and `--force` do not skip this check. Without `--recycle-bases` the command never moves, picks up or deletes a base (with it, see "Recycling the Deep Desert bases" below). To roll, take the character out of the Deep Desert and pick up your bases there with the game's base tool (which also keeps each as a base backup; the exported files are extra copies), let the game save, close it and run the command again. Recycling the bases from here is the opt-in `--recycle-bases`, below.
 
 The save checked is the one named with `--save` (before the word `layout-roll`, like `--config`), else the only one found on this computer. With none or several found the run refuses and says which, because it will not guess. The scheduled task registered by `layout-roll-task.ps1` has a `--save` only when you give the script `-SavePath` (see "The weekly scheduled task" below); with more than one save on the computer, give it, or every weekly run refuses.
 
@@ -54,6 +54,62 @@ Each vehicle of yours that stands in the Deep Desert is taken out before the lay
 All of it is one edit of the save. The rows written are read back inside the edit, and if anything read back differs from what was meant, the whole edit is undone and the save is left as it was. A run refuses and changes nothing when a vehicle has no clear spot (the message names that vehicle: face other ground and run again), when a vehicle's map is not recorded, or when the character's place cannot be told. The edit is written to the save only through the editor's own write path, which refuses while the game runs and keeps its own backup, and the written file is read back once more. If the editor window has the same save open, the run refuses (close that window first). If something fails after the save was written, the message says the save **was** changed and names the checkpoint that holds it as it was.
 
 The roll's output lists every vehicle: what was done, from where, to where (words and coordinates). `--dry-run` lists the same, changing nothing.
+
+## Recycling the Deep Desert bases (`--recycle-bases`, off unless you give it)
+
+By default a base of yours in the Deep Desert refuses the roll and you pick it up yourself (above). With `--recycle-bases` the run recycles those bases first (#1167), using the same
+recycle as Player > Bases > Recycle base (see docs/recycle-a-base.md in the repository) **with its Solido option**: the base is deleted, a Solido of it is made in a
+device of your character, and what the base stored plus its refund go to the **Reserve**. It is **off** unless you pass the flag, and the weekly task has it only if you register it with
+`-RecycleBases`. Without the flag everything above is exactly as it was.
+
+**Run `--dry-run` with the flag first, on a copy of your save if you can**, and read it, especially with two or more bases. Nothing here has been checked in the game by this program yet:
+
+```
+& "$env:USERPROFILE\Downloads\tabr-tau.exe" layout-roll --dry-run --recycle-bases
+```
+
+### The order of a run, and what stops it
+
+Every step must succeed, or the run stops. Everything before the one write of the save leaves the save file exactly as it was.
+
+1. The game is closed, and a checkpoint of the save is taken and verified by its hash (as above).
+2. The run **stops and recycles nothing** when: the character is in the Deep Desert; something could not be read; **any base that is not your own** stands in the Deep Desert (owned by someone else, shared, or owned by nobody); or a base of yours has no recorded map. Only a base on the Deep Desert that your own character owns is ever recycled; a base on another map is never touched and never stops the run. A base counts as being in the Deep Desert only when its map is exactly the Deep Desert (a name that merely starts with it does not count), and a base is refused, with nothing recycled, when **any** of its actors (its totem, its placed items, its building pieces) is on another map.
+3. The room is worked out next (see "Space", below), and only a run that can recycle at least one base goes on: **a run refused for lack of room exports nothing and leaves no folder of base files**, only the checkpoint, which is always taken before anything else. Then every base is exported to a console base backup file in a dated folder, and each file is read back (as above).
+4. Every base is asked about (the same question the Recycle base button asks). If **any** base is refused for a reason other than room (a crafting queue running, a building type the cost table does not know, a character waiting to respawn there, and so on), **no** base is recycled and every refusal is listed.
+5. The bases are recycled **one at a time, in the order of their numbers** (the lowest number first, so the plan and the log are the same every time). Each is a recycle of its own, with a Solido, on the save as the bases before it left it: each is asked about again at that point, so what the bases before it used up (the Reserve, the backpack slots, the Solido devices) is seen. Each base gets a **new** Solido device (a filled Solido is never reused; a blank device of your own is used for one base only). After each base the run reads it back and checks it: the base is gone, its Solido is in the device and linked to it, and the Reserve holds exactly what moved and was refunded. Only then does the next base start. All of this happens on a working copy: **nothing reaches the save file until the end.**
+6. The save is written **once**, through the editor's own write path, and the written file is read back: the recycled bases are gone, every Solido is in place, and no base other than those still waiting stands in the Deep Desert.
+7. Your vehicles in the Deep Desert are then taken out (as above), and only when the Deep Desert is looked at once more and holds no base is the layout rolled.
+
+A failure at any base before step 6 (a base is refused after the bases before it were recycled, a read back differs, the write does not happen) throws the working copy away: **the save file is not written**, and the message says which bases were done on the copy, which failed and which were not tried, and names the checkpoint. A write that is not reported as saved but **did** replace the file (it could not be read back in time) is treated as a changed save too: the run compares the file with how it was before the write, and says the save **was** changed when it differs (the same is done for the write of the vehicles). A failure after the write (the file does not read back as written) says the save **was** changed, names the checkpoint and gives the command to put it back (Database > Save backups, or `Copy-Item -Force "the checkpoint file" "the game.db file"` with the game closed), and the layout is not rolled. The same note is added to any later failure of the run, for example a Game.ini that cannot be written.
+
+### Space: the Reserve must be empty before each base
+
+A recycle sends everything to the **Reserve**: the items the base stored, unchanged, and the refund as new stacks. The rule used here is the operator's: **no further recycle can happen until the Reserve is empty.** So before each base the run needs an empty Reserve, and each base fills it again. The run recycles the largest number of bases, in order, that this and the room for the Solido devices allow:
+
+- with something in the Reserve at the start, **no** base is recycled (0 of N), nothing changes, and the run says to empty the Reserve in the game (move its contents to storage) and run again;
+- with an empty Reserve, **one** base is recycled in a run, and the run then stops before the roll ("1 of N recycled"), because the next base would land on a Reserve that is not empty;
+- after you empty the Reserve in the game (move its contents to storage boxes) you run again: the remaining bases are done the same way, each run taking its own checkpoint and its own exports. A base that was recycled is simply gone, so a re-run is safe and picks up where the last one stopped. The roll happens in the run that recycles the **last** base (or in a run that finds no base left), never while a base stands, however many runs it takes.
+
+**Several bases in one run need the move of the Reserve to storage, which is not part of this change; it is #1191.** The loop has one call point for it (a function variable called after each base is recycled and verified; it is empty today), so wiring #1191 in later is a small change. Choosing storage boxes as the destination is not part of this change either. The rule is the operator's and is not read from the game: the editor's own recycle only refuses when the Reserve has a slot limit that the base would pass (the saves seen record none), and the Reserve's volume is not checked at all.
+
+The Solido devices need room too. A new device goes in the backpack (the loadout when the backpack has no room), one slot each, and the run keeps **two** slots free there after them. When the volume limit of the backpack or loadout leaves no room for a device, or the slots are short, that base does not fit: the run recycles the bases before it, stops before the roll, and names the destination and what is short ("backpack: 1 slot(s) needed for Solido devices plus a margin of 2, 2 free (short by 1)").
+
+`--dry-run` prints all of it: the Reserve rule as its own line, the room now, each base (pieces and placeables deleted, stored stacks moved, the refund item by item, which Solido device and where), how many of the N bases would be recycled (k of N), the Solido devices and the refund of all of them together, and a line per destination with what is needed and what is free. It changes nothing: no checkpoint, no export, no state file, no write to the save. It plays the recycles on a private copy and throws it away.
+
+### Where things go, and what is recorded
+
+- The stored items and the refund go to the **Reserve**; a Solido device goes to the **backpack** (the loadout when the backpack has no room). The recycle itself touches no vehicle: it refuses a base only when one of the base's own actors is a vehicle, and a vehicle of yours that merely stands in or beside the base is left to the vehicle step of the roll (as above, after the bases).
+- For every base the run prints what the recycle itself said about it: its summary lines (the Solido, the refund, the respawn points deleted, holograms and Developer storage containers, the water that is dropped) and its warnings (for example placeables with no support, or pieces that belong to no base).
+- `layout-roll.json` records the run under `lastCheck`: the checkpoint's name, SHA-256 and full path, the export folder and files, and for every base recycled its number, name, map, pieces, stored stacks, refund, **Solido device and blueprint numbers**, and the room table. The state file is written as soon as the save has been written, before it is read back, so even a run that is cut off there leaves the checkpoint and the bases on record.
+- `layout-roll.json` also keeps a short **history** under `recycleHistory`, one entry for each run that recycled bases (the last 20): the time, the checkpoint's name and full path, the numbers of the bases and the ids of their Solido devices. `lastCheck` is replaced by the next run; the history is not, so a series of runs (one base each, until the Reserve is emptied) keeps every checkpoint. The run prints the earlier checkpoints at the start and the whole list after it recycled.
+
+### Going back
+
+Close the game and restore the checkpoint named in the output (Database > Save backups, or the `Copy-Item` command the run prints). That puts back the bases, the Reserve and the backpack as they were **before that run**. When bases were recycled over several runs, the checkpoint of the **earliest** run in the history is the full way back to before the first base was recycled; restoring a later one goes back only to before that run. The list is in `recycleHistory` of `layout-roll.json` and in the output of each run, and the files themselves are in the save's backup folder (the ones with `-layoutroll` in the name, never removed by the automatic pruning). The exported base files are extra copies of each base.
+
+### After the first real run: check in the game
+
+In the game: the **Solido is in the backpack** (one per recycled base, each with its base's pieces), the **Reserve holds the stored items and the refund**, and the bases are gone.
 
 ## Try it without changing anything
 
@@ -144,6 +200,14 @@ If your computer has more than one save (the `find` command above lists them), t
 ```
 
 Replace `C:\path\to\the\folder\with\game.db` with the folder that holds your save, and take `-WhatIf` off to register it. A task that was registered without `-SavePath` is changed by removing it (`-Remove`, below) and registering it again with `-SavePath`.
+
+To have the weekly run recycle your Deep Desert bases first (off unless you give it; read "Recycling the Deep Desert bases" above and run `layout-roll --dry-run --recycle-bases` by hand first), register it with `-RecycleBases`; the task action then reads `layout-roll --recycle-bases`, and the task is given 30 minutes instead of 5:
+
+```
+& "$env:USERPROFILE\tabr-tau\scripts\layout-roll-task.ps1" -ExePath "$env:USERPROFILE\Downloads\tabr-tau.exe" -RecycleBases -WhatIf
+```
+
+Take `-WhatIf` off to register it. A task registered without the switch is changed by removing it and registering it again with it.
 
 Remove it:
 
