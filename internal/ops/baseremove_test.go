@@ -336,3 +336,31 @@ func TestBackUpAndRemoveIsHeldWhileAGameProcessExistsAndWritesNothingToTheFile(t
 		t.Fatalf("a refused base must queue nothing: %v", o.S.Pending())
 	}
 }
+
+// A base in the Deep Desert is refused in the preview and in the write, and nothing changes (#1177): the game takes no base backup there.
+func TestABaseInTheDeepDesertIsRefusedAndNothingChanges(t *testing.T) {
+	o := removeOps(t, "")
+	// a fingerprint the preview gave while the base still stood in Hagga Basin: even a write that carries it must be refused once the base is in the Deep Desert
+	pv, err := o.PreviewBaseRemoval(601)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fp := pv.(map[string]any)["fingerprint"].(string)
+	testsave.Exec(t, o.S, `update actors set map='DeepDesert_1' where id in (601,602,701,702)`)
+	before, opsBefore := o.S.Revision(), len(o.S.Ops())
+	_, err = o.PreviewBaseRemoval(601)
+	refusedWith(t, err, apierr.ErrConflict, "Deep Desert")
+	for _, f := range []string{fp, "anything"} {
+		_, err = o.BackUpAndRemoveBase(601, f)
+		refusedWith(t, err, apierr.ErrConflict, "does not back up bases there")
+	}
+	if o.S.Revision() != before || len(o.S.Ops()) != opsBefore || rmCount(t, o, `base_backups`) != 1 || rmCount(t, o, `actors where state=5`) != 2 ||
+		rmCount(t, o, `permission_actor where actor_id=601`) != 1 || rmCount(t, o, `actors where id=602`) != 1 {
+		t.Fatal("a refusal must change nothing")
+	}
+	// the same base in Hagga Basin still works
+	o2 := removeOps(t, "")
+	if r := remove(t, o2, 601); r["changed"] != true {
+		t.Fatalf("a Hagga Basin base must still be backed up: %v", r)
+	}
+}

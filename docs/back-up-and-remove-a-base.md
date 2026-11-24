@@ -19,7 +19,8 @@ Vehicles are not part of this. A hard delete of a base does not exist in the edi
 ## Which bases
 
 Only your own bases. The totem must hold the owner rank (1) for your character and for nobody else, and it must be standing. A base you are only a member of, a base of another player, a
-base nobody owns, and a base the game already picked up are refused, and nothing is changed. One base at a time.
+base nobody owns, and a base the game already picked up are refused, and nothing is changed. A base in the Deep Desert is refused too (#1177): the game does not back up bases there, so
+the button is greyed out on those rows and says why. One base at a time.
 
 ## What it writes
 
