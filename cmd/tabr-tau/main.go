@@ -40,8 +40,8 @@ Usage:
   tabr-tau licenses                     print the third-party licence notices
   tabr-tau layout-roll [--dry-run] [--set N] [--force]
                                         change the single-player Deep Desert layout in the game's Game.ini (0 to 11; random unless --set; once per Tuesday-05:00 week
-                                        unless --force; backs the file up first, refuses while the game runs; takes a checkpoint of the save and refuses while a base, the character or a vehicle of yours is in the Deep Desert,
-                                        exporting those bases first; the game must be restarted; --config names the config folder, --save the save)
+                                        unless --force; backs the file up first, refuses while the game runs; takes a checkpoint of the save and refuses while a base or the character of yours is in the Deep Desert
+                                        (exporting those bases first); stores or moves your vehicles out of the Deep Desert (writes the save); the game must be restarted; --config names the config folder, --save the save)
   tabr-tau diff <before> <after> [--tables a,b] [--ignore-tables a,b] [--ignore-columns t.c,c] [--noise] [--float-eps E] [--max-rows N] [--no-redact]
                                         row- and JSON-path-level diff of two saves (read-only; ids redacted by default)
 

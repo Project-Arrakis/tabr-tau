@@ -84,12 +84,14 @@ func TestTheDeepDesertGuardTable(t *testing.T) {
 		{"only the player state in the Deep Desert", "update actors set map='DeepDesert' where id=3;", true, 0, "the character"},
 		{"the travel map of the Deep Desert", "update actors set map='DeepDesert_1_Travel' where id=1;", true, 0, "the character"},
 		{"the character's map is not recorded", "update actors set map='' where id=1;", true, 0, "does not say which map"},
-		{"a placed vehicle of the player in the Deep Desert", vehicleSQL(310, "DeepDesert", 0, 1), true, 0, "vehicle 310"},
-		{"a stored vehicle of the player in the Deep Desert", vehicleSQL(311, "DeepDesert", 4, 1), true, 0, "stored"},
+		// a placed vehicle of the player in the Deep Desert is no longer a refusal: the run takes it out (deepdesert_vehicles_test.go)
+		{"a stored vehicle of the player in the Deep Desert is not in the world", vehicleSQL(311, "DeepDesert", 4, 1), false, 0, ""},
+		{"a vehicle in the backup (state 2) in the Deep Desert is not in the world", vehicleSQL(317, "DeepDesert", 2, 1) + "insert into backup_vehicles(character_id,vehicle_id,customization_id) values (1,317,'x');", false, 0, ""},
 		{"a vehicle of the player on another map", vehicleSQL(312, "HaggaBasin", 0, 1), false, 0, ""},
 		{"a vehicle of someone else in the Deep Desert", vehicleSQL(313, "DeepDesert", 0, 5), false, 0, ""},
 		{"a world vehicle (no owner) in the Deep Desert", vehicleSQL(314, "DeepDesert", 0, 0), false, 0, ""},
-		{"a vehicle of the player whose map is not recorded", vehicleSQL(315, "", 0, 1), true, 0, "counted as the Deep Desert"},
+		{"a vehicle of the player whose map is not recorded", vehicleSQL(315, "", 0, 1), true, 0, "no map recorded"},
+		{"a base and a vehicle of the player in the Deep Desert: the vehicle is left alone", baseInDD + "\n" + vehicleSQL(318, "DeepDesert", 0, 1), true, 1, "vehicle 318"},
 		{"a base, the character and a vehicle together", baseInDD + "\nupdate actors set map='DeepDesert' where id=2;\n" + vehicleSQL(316, "DeepDesert", 0, 1), true, 1, "vehicle 316"},
 	}
 	for _, c := range cases {

@@ -12,7 +12,7 @@ Every write has automated tests on a synthetic save built from the game's real s
 | Landsraad: whether the game keeps a contribution raised here at its next progress step | Not checked in the game |
 | Landsraad: Term and Decrees controls (Apply, Make active, Set flag) | Tests only |
 | Specialization: Add XP, Grant LV 100, Reset, keystones | Tests only |
-| Deep Desert layout roll (`tabr-tau layout-roll`, #1141, #1167; writes the game's Game.ini and only reads the save: a checkpoint copy, a refusal while a base, the character or a vehicle of yours is in the Deep Desert, and a base file per such base) | Tests on temporary files and made-up saves only. The Game.ini setting itself was changed by hand in the game on 2026-10-27 and worked |
+| Deep Desert layout roll (`tabr-tau layout-roll`, #1141, #1167; writes the game's Game.ini; reads the save, takes a checkpoint copy, refuses while a base or the character of yours is in the Deep Desert with a base file per such base, and, #1174, stores or moves your vehicles out of the Deep Desert in one read-back edit of the save) | Tests on temporary files, made-up saves and copies of real saves. The Game.ini setting itself was changed by hand in the game on 2026-10-27 and worked. Storing a Scout and moving a vehicle between maps were seen in real saves; storing a Sandbike, and where a moved vehicle ends up against the terrain, were not |
 
 "Tests only" means the rows written are exactly the expected ones and the save passes its integrity check, but the game itself has not been run on the result.
 
