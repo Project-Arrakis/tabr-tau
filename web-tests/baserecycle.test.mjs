@@ -2,6 +2,9 @@
 // cannot be undone except by restoring a backup of the save, and a write that carries the fingerprint of what was shown.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { boot, closeAll } from './boot.mjs';
 
 test.afterEach(() => closeAll());
@@ -66,6 +69,17 @@ test('a Deep Desert base says the refund is half the table cost, and lines with 
   assert.ok(items[2].includes('which is 50% of the table cost'), items[2]);
   assert.equal(items.length, 4, items.join('|'));
   assert.ok(!items.some((l) => /hologram|Developer|water/.test(l)), items.join('|'));
+  ui.dom.window.close();
+});
+
+test('while the save cannot be written the question says the recycle is queued, that it is dropped when the game changes the base, and to close the game', async () => {
+  const state = JSON.parse(fs.readFileSync(process.env.UI_FIXTURES_FILE || path.join(process.env.UI_FIXTURES_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures'), 'ui-fixtures.json'), 'utf8'))['/api/save/state'].body;
+  const ui = await boot({ get: { '/api/bases/list': [HOME], '/api/bases/backups': [], '/api/bases/recycle-preview': PREVIEW, '/api/save/state': { ...state, saveBlocked: true, blockReason: 'The game is running.' } } });
+  await openBases(ui);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  const q = ui.doc.querySelector('#ask').textContent;
+  assert.ok(q.includes('the edit is queued') && q.includes('the queued recycle is dropped and nothing is recycled') && q.includes('Close the game first'), q);
+  assert.ok(!q.includes('written at once'), q);
   ui.dom.window.close();
 });
 

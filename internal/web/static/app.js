@@ -3420,7 +3420,7 @@ const A = {
     let pv;
     try { pv = await api('/api/bases/recycle-preview?base=' + encodeURIComponent(d.id)); } catch (e) { toast(e.message, true); return; }
     const n = (v) => Number(v).toLocaleString();
-    const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be; the backup of the save is taken when it is written.' : 'A backup of the save is taken first, then it is written at once.';
+    const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be; the backup of the save is taken when it is written. If the game saves a change to this base before then, the queued recycle is dropped and nothing is recycled. Close the game first to be sure.' : 'A backup of the save is taken first, then it is written at once.';
     const refund = pv.refund.length ? pv.refund.map((x) => `${n(x.count)} ${x.name}`).join(', ') : 'nothing';
     const rate = pv.costPercent === 100 ? '100% of the building cost' : `100% of the building cost on this map, which is ${pv.costPercent}% of the table cost`;
     const list = [`${n(pv.pieces)} building pieces, the totem and ${n(pv.placeables)} placeables are deleted, with the land claim and the base marker. No base backup is made`,

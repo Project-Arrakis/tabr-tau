@@ -22,7 +22,10 @@ project's operator, not a copy of the game.
 
 ## Use it
 
-1. Close the game, or leave it at the main menu. While a game process exists the edit is queued and written when the game has closed, like every other edit.
+1. **Close the game.** That is the recommended way. While a game process exists the edit is only queued, and it is written when the game has closed. A queued recycle is put
+   back onto the save the game wrote last, and it is **dropped, not written**, when the game has saved a change to anything the recycle read: the base, its contents, the
+   Reserve. A base in use changes all the time (water, fuel, a chest you open), so a recycle queued while you play is likely to be dropped. The editor says so when it happens
+   and nothing is recycled; ask again with the game closed.
 2. Let every crafting queue in the base finish, or cancel it in the game. A base with a running queue is refused.
 3. Press **Recycle base** on the base. The editor works out the whole edit and asks first: it does the edit, reads it back, runs the save's reference check on it and undoes
    it, so a base that cannot be recycled is refused here, before any question. Nothing has been written at this point. The question lists:
@@ -32,7 +35,7 @@ project's operator, not a copy of the game.
    - holograms, Developer storage containers and water, when the base has any;
    - that everything goes to the Reserve, and that it cannot be undone except by restoring a backup of the save.
 4. Press **Recycle base** in the question. It is one edit. The editor takes a backup copy of the save first and then writes (or queues the edit while the game runs; the backup
-   is then taken when the edit is written). The write is sent the fingerprint of what the question showed, and is refused when the base changed in between.
+   is then taken when the edit is written, and the question says that a queued recycle is dropped when the game saves a change to the base in between). The write is sent the fingerprint of what the question showed, and is refused when the base changed in between.
 5. Start the game, load the save and open the Reserve. To put things into storage boxes, move them in the game or with the editor's item move; choosing storage boxes as the
    destination is not part of this phase.
 
