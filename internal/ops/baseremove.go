@@ -81,6 +81,8 @@ func (p *removalPlan) fingerprint() string {
 const (
 	removeAlready  = "This base has already been picked up with the game's base tool, so there is nothing to back up."
 	removeNotOwner = "Only your own bases can be backed up and removed here. Nothing was changed."
+	// the game does not take a base backup of a base in the Deep Desert (#1177), so a backup row for one would be a state the game never produces
+	removeDeepDesert = "A base in the Deep Desert cannot be backed up and removed here: the game does not back up bases there. A recycle of Deep Desert bases is planned (#1176). Nothing was changed."
 )
 
 func idList(ids []int64) string {
@@ -123,6 +125,11 @@ func (o *Ops) planBaseRemoval(q baseQ, msql markerSQL, totem int64, ctl int64) (
 	}
 	if state != 0 {
 		return nil, apierr.Newf(apierr.ErrConflict, "This base is not in the normal state (state %d), so it was not changed.", state)
+	}
+
+	// The Deep Desert: the game takes no base backup there (#1177). Refused in the preview and in the write alike, before anything is read or changed.
+	if isDeepDesertMap(fmt.Sprint(head["map"])) {
+		return nil, apierr.New(apierr.ErrConflict, removeDeepDesert)
 	}
 
 	// Ownership: the character holds the owner rank (1) over the totem, and nobody else does.
