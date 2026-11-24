@@ -11,8 +11,8 @@
 
   The task belongs to the current user only, runs only while that user is logged on, has no password stored and asks for no elevation. tabr-tau.exe is a windowless program, so
   the run shows no window. If the computer was off at 05:00 the task runs when it is next available. The roll itself refuses while the game is running and rolls at most once
-  per week, so an extra run does no harm. It also takes a verified checkpoint copy of the save, reads the save (it never writes to it) and refuses while a base, the character or a
-  vehicle of yours is in the Deep Desert, after exporting each such base to a base backup file in a dated folder beside layout-roll.json. The save it checks is the only one found on the
+  per week, so an extra run does no harm. It also takes a verified checkpoint copy of the save, reads the save and refuses while a base or the character of yours is in the Deep Desert, after exporting each
+  such base to a base backup file in a dated folder beside layout-roll.json. Vehicles of yours in the Deep Desert are stored (a Scout, a Sandbike) or moved in front of the character by this run itself, in one edit of the save that is read back. The save it checks is the only one found on the
   computer; with none or several found, add "--save <game.db or its folder>" before "layout-roll" in the task action by hand (the registered action has none). A run that changed nothing says why in %APPDATA%\tabr-tau\layout-roll.json ("lastRun").
 
 .PARAMETER ExePath
