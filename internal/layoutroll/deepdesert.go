@@ -84,8 +84,8 @@ type writeIntent struct {
 	Bases            []int64 `json:"bases"`
 	SolidoItems      []int64 `json:"solidoItems,omitempty"`      // the device each base is to get, in the order of Bases
 	SolidoBlueprints []int64 `json:"solidoBlueprints,omitempty"` // and its blueprint number: the next run settles an unconfirmed write with them
-	SaveFile     string  `json:"saveFile"`
-	BeforeSHA256 string  `json:"saveSha256Before"` // the save file as it was before the write
+	SaveFile         string  `json:"saveFile"`
+	BeforeSHA256     string  `json:"saveSha256Before"` // the save file as it was before the write
 }
 
 // wayBack says where the save from before this run is and how to put it back.
