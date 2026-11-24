@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
+	"github.com/Project-Arrakis/tabr-tau/internal/policy"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -48,17 +48,17 @@ func notInBackup(table, idCol string) string {
 //
 // The target is the best health seen on STANDING pieces of the player's own bases (#613, audit G-009): a piece counts only when a totem's entity owns it and its actor is not in the
 // picked-up state (5, which is what an imported backup is written in; a backup's pieces have no owner either). A placeable that is a hologram does not count. A health outside 0 to
-// basefile.MaxPieceHealth is never a "best seen". The best of a type is then held to the cap of the type (healthcaps.go): the table's own figure where it has one, else the overall cap of
+// policy.MaxPieceHealth is never a "best seen". The best of a type is then held to the cap of the type (internal/policy): the table's own figure where it has one, else the overall cap of
 // the table, so a standing piece with a health far above what the game gives is not spread to the other pieces of its type. The ceilings are written into the text (they are constants of
 // the program, not arguments), so that the statement stays one that needs no arguments of its own.
 func bestHealthOf(table string) string {
-	idCol, overall, seen, extra := "building_id", MaxRepairPieceHealth, pieceTypeHealthSeen, ""
+	idCol, overall, seen, extra := "building_id", policy.MaxRepairPieceHealth, policy.PieceTypeHealthSeen(), ""
 	if table == "placeables" {
-		idCol, overall, seen, extra = "id", MaxRepairPlaceableHealth, placeableTypeHealthSeen, " and x.is_hologram=0"
+		idCol, overall, seen, extra = "id", policy.MaxRepairPlaceableHealth, policy.PlaceableTypeHealthSeen(), " and x.is_hologram=0"
 	}
 	return `(select s.building_type bt, min(s.top, coalesce(c.cap, ` + strconv.FormatFloat(overall, 'f', -1, 64) + `)) top
 		from (select x.building_type, max(x.health) top from ` + table + ` x join actors a on a.id=x.` + idCol + `
-			where x.building_type is not null and x.health >= 0 and x.health <= ` + strconv.FormatFloat(basefile.MaxPieceHealth, 'f', 0, 64) + extra + `
+			where x.building_type is not null and x.health >= 0 and x.health <= ` + strconv.FormatFloat(policy.MaxPieceHealth, 'f', 0, 64) + extra + `
 				and coalesce(a.state,0) <> 5 and ` + ownedByAnyBase("x") + ` group by x.building_type) s
 		left join (select column1 ty, column2 cap from (values ` + capValues(seen) + `)) c on c.ty=s.building_type)`
 }

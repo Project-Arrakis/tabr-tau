@@ -76,6 +76,14 @@ The whole file is refused, nothing is written and the reason is shown, when:
   an entity belongs to no actor, an actor is not linked to the backup, or there is not exactly one backup in the file;
 - a class, map, building type or item template is not one of the game's names, an actor is a player's, or an actor is in a state other than 0 or 5 (a vehicle's, for example);
 - a stored item is a Solido blueprint (its rows are not carried yet), a stack is empty, a required value is missing;
+- a number is out of range. The message names the row and the limit. A stack is above what one slot of that item holds (an item the catalog does not know is held to 100,000), two items
+  share a slot of one inventory, a slot is above 100,000, an inventory's slot count is below -1 (the game's "none stated") or above 100,000. A piece's or a placeable's health is
+  negative or above the most the game gives that type: the highest health seen on any piece of the type in a real save (7,000 for a foundation, 2,500 for a water cistern) with a quarter
+  added, and for a type with no figure of its own the highest of its table with a quarter added (8,750 for a building piece, 25,000 for a placeable). The game's tables hold no maximum
+  health, so these are measured figures with room above them, not the game's own; a placeable hologram has none and is held only to 1,000,000. A volume limit of an inventory or the
+  volume of an item is negative or above 1,000,000. An item's durability (current, maximum, decayed maximum) is negative, above 1,000,000 or not a number, or its durability record is
+  not the pair of a list and a record of fields that the game writes, or gives a durability key twice or in another case. A slot **past** an inventory's stated slot count is not refused: the game's own saves hold a few (the character's
+  gear). Quality, shelter, sand buildup and positions are not range-checked (no real figure limits them): they are written as the file has them;
 - a reference inside JSON is of a kind the editor does not move, names an item or inventory that is not in the file, or sits inside other text;
 - the save has no character, or its character is not among its actors, or its entity ids leave no room for the file's.
 

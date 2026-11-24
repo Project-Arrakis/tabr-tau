@@ -7,6 +7,7 @@ import (
 
 	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
 	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
+	"github.com/Project-Arrakis/tabr-tau/internal/policy"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -35,7 +36,7 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 		{"a stack of an item that does not stack", item(func(r map[string]any) { r["template_id"] = "HighCapacityLiterjon_06"; r["stack_size"] = jnum(2) }), "is more than one slot holds (1)"},
 		{"a stack of an item the catalog does not know", item(func(r map[string]any) {
 			r["template_id"] = "NoSuchItemInTheCatalog"
-			r["stack_size"] = jnum(basefile.MaxUnknownStack + 1)
+			r["stack_size"] = jnum(policy.MaxUnknownStack + 1)
 		}), "is more than one slot holds (100000)"},
 		{"a negative stack", item(func(r map[string]any) { r["stack_size"] = jnum(-3) }), "stack size"},
 		{"two items in one slot", func() []byte {
@@ -45,7 +46,7 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 		{"a slot far outside an inventory with no slot count", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) {
 				rowWhere(tb, "inventories", "id", 7001)["max_item_count"] = nil
-				rowWhere(tb, "items", "id", 9001)["position_index"] = jnum(basefile.MaxSlot + 1)
+				rowWhere(tb, "items", "id", 9001)["position_index"] = jnum(policy.MaxSlot + 1)
 			})
 		}, "above the highest slot allowed"},
 		{"a slot count below the one the game writes for none", func() []byte {
@@ -61,9 +62,56 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 		{"a piece with a health of 1e300", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) { tb["building_instances"][0]["health"] = num("1e300") })
 		}, "the health of this building piece is 1e+300"},
-		{"a piece with a health just above the ceiling", func() []byte {
-			return editFile(t, good, func(tb map[string][]map[string]any) { tb["building_instances"][0]["health"] = num("1000000.5") })
-		}, "health of this building piece"},
+		{"a piece with a health just above the cap of its type", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) { tb["building_instances"][0]["health"] = num("8750.5") })
+		}, "row 1 of building_instances: the health of this building piece is 8750.5, which is not a number from 0 to 8750 (the most the game gives this type of building piece)"},
+		{"a piece of a known type above the cap of that type", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				tb["building_instances"][0]["building_type"] = "Sardaukar_Wall_01"
+				tb["building_instances"][0]["health"] = num("7001") // above 5600 x 1.25, below the overall cap
+			})
+		}, "the health of this building piece is 7001, which is not a number from 0 to 7000"},
+		{"a placeable above the overall cap", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) { rowWhere(tb, "placeables", "id", 701)["health"] = num("25001") })
+		}, "row 2 of placeables: the health of this placeable is 25001, which is not a number from 0 to 25000"},
+		{"a placeable of a known type above the cap of that type", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				r := rowWhere(tb, "placeables", "id", 701)
+				r["building_type"], r["health"] = "MediumWaterCistern_Placeable", num("3126")
+			})
+		}, "the health of this placeable is 3126, which is not a number from 0 to 3125"},
+		{"an inventory volume limit of 1e300", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "inventories", "id", 7001)["max_item_volume"] = num("1e300")
+			})
+		}, "inventory 7001: the volume limit is 1e+300, which is not a number from 0 to 1000000"},
+		{"a negative inventory volume limit", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "inventories", "id", 7001)["max_item_volume"] = num("-1")
+			})
+		}, "inventory 7001: the volume limit is -1"},
+		{"an item volume of 1e300", item(func(r map[string]any) { r["volume_override"] = num("1e300") }), "row 1 of items: the volume is 1e+300, which is not a number from 0 to 1000000"},
+		{"a negative item volume", item(func(r map[string]any) { r["volume_override"] = num("-0.5") }), "the volume is -0.5"},
+		{"durability stats that are not a record", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = []any{"MaxDurability", num("1e300")}
+			})
+		}, "the stats mention a durability but are not a record of groups"},
+		{"a durability record that is not a pair", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{"FItemStackAndDurabilityStats": map[string]any{"CurrentDurability": num("1e300")}}
+			})
+		}, "the durability record is not a pair"},
+		{"a durability record whose fields are not a record", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{"FItemStackAndDurabilityStats": []any{[]any{}, []any{num("1e300")}}}
+			})
+		}, "the durability record is not a record of fields"},
+		{"a durability given as text", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{"FItemStackAndDurabilityStats": []any{[]any{}, map[string]any{"CurrentDurability": "1e300"}}}
+			})
+		}, "CurrentDurability is not a number"},
 		{"a piece with a negative health", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) { tb["building_instances"][1]["health"] = num("-1") })
 		}, "health of this building piece is -1"},
@@ -108,6 +156,21 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 				}
 			})
 		}, "MaxDurability is -5"},
+		{"a durability key given twice in the stats, the bad one first", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = json.RawMessage(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":1e300}],"FItemStackAndDurabilityStats":[[],{}]}`)
+			})
+		}, "is given twice"},
+		{"a durability figure given twice in the record", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = json.RawMessage(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":1e300,"CurrentDurability":5}]}`)
+			})
+		}, "is given twice"},
+		{"a durability figure spelled in another case", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = json.RawMessage(`{"FItemStackAndDurabilityStats":[[],{"currentdurability":1e300}]}`)
+			})
+		}, "in another case"},
 		{"text longer than the limit", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) {
 				rowWhere(tb, "permission_actor", "actor_id", 701)["actor_name"] = strings.Repeat("a", basefile.MaxText+1)
@@ -127,10 +190,12 @@ func TestImportAcceptsValuesAtTheLimits(t *testing.T) {
 	edge := editFile(t, good, func(tb map[string][]map[string]any) {
 		r := rowWhere(tb, "items", "id", 9001)
 		r["template_id"], r["stack_size"], r["position_index"] = "SteelBar", jnum(500), jnum(19) // the last slot of 20, a full stack
-		rowWhere(tb, "items", "id", 9002)["position_index"] = jnum(basefile.MaxSlot)
-		tb["building_instances"][0]["health"] = json.Number("1000000")
+		rowWhere(tb, "items", "id", 9002)["position_index"] = jnum(policy.MaxSlot)
+		tb["building_instances"][0]["health"] = json.Number("8750") // the overall cap of the pieces, for a type with no figure of its own
 		tb["building_instances"][1]["health"] = json.Number("0")
-		rowWhere(tb, "placeables", "id", 701)["health"] = json.Number("1000000")
+		rowWhere(tb, "placeables", "id", 701)["health"] = json.Number("25000") // the overall cap of the placeables
+		rowWhere(tb, "inventories", "id", 7001)["max_item_volume"] = json.Number("1000000")
+		rowWhere(tb, "items", "id", 9002)["volume_override"] = json.Number("0")
 		rowWhere(tb, "items", "id", 9002)["stats"] = map[string]any{"FItemStackAndDurabilityStats": []any{[]any{}, map[string]any{"CurrentDurability": json.Number("0"), "MaxDurability": json.Number("1000000")}}}
 	})
 	o := target(t)
@@ -145,7 +210,20 @@ func TestImportAcceptsValuesAtTheLimits(t *testing.T) {
 	mustImport(t, target(t), good)
 }
 
-// Repair buildings and Repair base copy the best health seen for a type onto the others. A health outside 0 to MaxPieceHealth is never "the best seen" and never copied, so a piece
+// A placeable hologram has no measured health, so it is held to the outer ceiling only: a file whose hologram reads above the caps of the placeables still imports.
+func TestImportKeepsAHologramToTheOuterCeiling(t *testing.T) {
+	good := exportedFile(t)
+	set := func(h string) []byte {
+		return editFile(t, good, func(tb map[string][]map[string]any) {
+			r := rowWhere(tb, "placeables", "id", 701)
+			r["is_hologram"], r["health"] = jnum(1), json.Number(h)
+		})
+	}
+	mustImport(t, target(t), set("1000000"))
+	refuses(t, target(t), set("1000000.5"), "the health of this placeable is 1000000.5, which is not a number from 0 to 1000000 (the outer ceiling)")
+}
+
+// Repair buildings and Repair base copy the best health seen for a type onto the others. A health outside 0 to policy.MaxPieceHealth is never "the best seen" and never copied, so a piece
 // that got one (a file imported before the check, a hand edit) cannot spread it to the player's own bases; the pieces with a sane health are raised to the best sane one.
 const rangeWorld = `
 insert into actors(id,class,map) values (601,'t','HaggaBasin'),(801,'b','HaggaBasin'),(802,'b','HaggaBasin'),(851,'p','HaggaBasin'),(852,'p','HaggaBasin'),(853,'p','HaggaBasin'),(854,'p','HaggaBasin');
@@ -227,5 +305,33 @@ func TestExportAndImportOfABaseWhoseInventoriesStateNoSlotCount(t *testing.T) {
 	}
 	if _, err := o.PreviewBaseImport(out.Data); err != nil {
 		t.Fatalf("an item past its inventory's slot count: %v", err)
+	}
+}
+
+// The cap of a type that has a figure of its own is allowed to the unit: 7,000 on a foundation-class piece type (5,600 seen, a quarter added) and 3,125 on a water cistern; one more is
+// refused above (TestImportRefusesValuesOutOfRange).
+func TestImportAcceptsAHealthAtTheCapOfAListedType(t *testing.T) {
+	good := exportedFile(t)
+	edge := editFile(t, good, func(tb map[string][]map[string]any) {
+		tb["building_instances"][0]["building_type"] = "Sardaukar_Wall_01"
+		tb["building_instances"][0]["health"] = json.Number("7000")
+		r := rowWhere(tb, "placeables", "id", 701)
+		r["building_type"], r["health"] = "MediumWaterCistern_Placeable", json.Number("3125")
+	})
+	o := target(t)
+	if _, err := o.PreviewBaseImport(edge); err != nil {
+		t.Fatalf("a health at the cap of its type was refused: %v", err)
+	}
+	mustImport(t, o, edge)
+}
+
+// A building type is never empty or NULL when the health check runs (the file check requires a name first), so the health check has no case of its own for an unnamed type.
+func TestImportRefusesAPieceOrPlaceableWithNoTypeName(t *testing.T) {
+	good := exportedFile(t)
+	for _, table := range []string{"building_instances", "placeables"} {
+		for _, v := range []any{nil, ""} {
+			data := editFile(t, good, func(tb map[string][]map[string]any) { tb[table][0]["building_type"] = v })
+			refuses(t, target(t), data, "building_type")
+		}
 	}
 }
