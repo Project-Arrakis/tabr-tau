@@ -266,7 +266,7 @@ func TestFlyingGroundVehiclesAreNeverBelowTheCharacter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if row, err := o.S.One(`select location_x x, location_y y, location_z z from actors where id=579`); err != nil || !near(row["x"], 100.0) || !near(row["y"], 1200.0) || row["z"] != 450.0 || placeOf(r.(map[string]any))["words"] != "10 m south of you" {
+	if row, err := o.S.One(`select location_x x, location_y y, location_z z from actors where id=579`); err != nil || !near(row["x"], 100.0) || !near(row["y"], 1200.0) || row["z"] != 450.0 || placeOf(r.(map[string]any))["words"] != "10 m in front of you (south)" {
 		t.Errorf("bring a buggy: %v %v %v", row, err, r)
 	}
 	d, err := o.DuplicateVehicle(Args{"id": 579.0})
@@ -307,7 +307,7 @@ func TestFlyingTheAnswerSaysWhereAndThatItSettles(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, r := spawn(t, o, Args{"class": "OrnithopterLight", "template": "T0"})
-	const want = "30 m south of you and 7 m above you; it starts in the air and the game settles it"
+	const want = "30 m in front of you (south) and 7 m above you; it starts in the air and the game settles it"
 	for name, p := range map[string]map[string]any{"preview": placeOf(prev.(map[string]any)), "create": placeOf(r)} {
 		if p["words"] != want || p["inAir"] != true || p["up"] != 700.0 || p["distance"] != 3000.0 {
 			t.Errorf("%s: %v", name, p)
@@ -315,7 +315,7 @@ func TestFlyingTheAnswerSaysWhereAndThatItSettles(t *testing.T) {
 	}
 	// a ground vehicle says where, and nothing about the air
 	_, r = spawn(t, o, Args{"class": "Sandbike", "template": "T0"})
-	if p := placeOf(r); p["words"] != "10 m south of you" || p["inAir"] != false || p["up"] != 150.0 {
+	if p := placeOf(r); p["words"] != "10 m in front of you (south)" || p["inAir"] != false || p["up"] != 150.0 {
 		t.Errorf("sandbike: %v", p)
 	}
 	// a place given is used as asked, and is not in the air by the editor's doing

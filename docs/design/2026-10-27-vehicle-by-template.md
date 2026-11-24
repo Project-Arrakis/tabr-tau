@@ -66,7 +66,7 @@ the rear hull `BuggyHullBackExtra_6` (already the template's) and the stock Mk6 
 
 ## Place
 
-Default: 10 m ahead of the character along its facing, facing as the character does (the first spot when it is clear; else the nearest clear one). Or `place: {map, x, y, z}` (centimetres, finite, within 5,000,000), which is used exactly as given (the answer adds a note when the place has base pieces, buildings or another
+Default: in front of the character, along the facing saved for it: 10 m ahead for a ground vehicle, 30 m ahead and 7 m up for an aircraft, as the console's `spawn-vehicle` does (the first spot when it is clear; else the nearest clear one, the half in front searched first). The vehicle faces as the character does. The editor does not know the terrain or the level's rocks: face open ground before you quit to the menu, and use Bring vehicle if a vehicle came out in the wrong place. Or `place: {map, x, y, z}` (centimetres, finite, within 5,000,000), which is used exactly as given (the answer adds a note when the place has base pieces, buildings or another
 vehicle within reach of the vehicle). Nothing snaps a vehicle to the ground: one placed below the terrain falls, one placed high drops. An aircraft is never put at ground level: see [Aircraft](#aircraft-540).
 
 "Next to the character" used to be a blind point: the character's map, `x + 800`, same `y`, `z + 150`, which Bring vehicle and Duplicate vehicle also used. In a base that point is inside it (#480, below). Since then the
@@ -90,9 +90,13 @@ does not know: the terrain, and the level's own props (rocks, cliffs, ruins). A 
 
 ### The search
 
-The first candidate is the old point. If the character is not on a base piece and nothing is in the way there, that is the answer (the same numbers as before, whatever the class). Otherwise the candidates are the points of rings
+The first candidate is the old point (outdoors with a facing that can be read: the point 10 m ahead along the facing, or 30 m ahead for an aircraft; see the next sections). If the character is not on a base piece and nothing is in the way there, that is the answer (the same numbers as before, whatever the class). Otherwise the candidates are the points of rings
 round the character, radius 800, 1,200, ... up to 8,000 (80 m), 12 or more on a ring (one per 400 cm), in this order: the direction the search starts in (east; for a character in a base, away from the middle of the base, the character's own side), then
 alternately to either side of it. The first candidate that is clear is taken.
+
+**In front before behind (#480).** Outdoors with a facing that can be read, the candidates are taken in two passes: first those within a quarter turn of the facing, on the rings up to 30 m past the first spot (so up to 40 m for a ground vehicle and 60 m for an aircraft), then everything else on the rings to 80 m (the half behind, and the front half farther out). Before this a blocked first spot made the search take the whole ring, behind the character included, before the next ring ahead: on 2026-11-23, facing east, three vehicles were put 10 to 18 m to the west and south-west. A character in a base keeps the order above (away from the middle of the base), since the way it faces there is usually into the base.
+
+**Several at once.** `placeLine` (`internal/ops/vehicle_place.go`) puts several vehicles down in one go in a line ahead: the k-th starts farther along the facing than the one before by 12 m, or by the two radii and two margins when those are more (two light ornithopters are 18 m apart); each later one counts the earlier ones as vehicles in the way. Create, Bring and Duplicate put one vehicle down per request and do not call it yet; it is the rule for a feature that moves or makes several (the weekly layout roll's vehicle move, #1174).
 
 A candidate (x, y, z) for a vehicle of radius R and height H is **clear** when:
 
@@ -165,8 +169,8 @@ Create a vehicle, Bring vehicle and Duplicate vehicle all follow it for an aircr
 
 #### What the answer says
 
-Every answer now says where the vehicle is from the character, also when nothing was in the way: "10 m south of you" (it used to say "next to you"). An aircraft adds its height and that it will settle:
-"30 m south of you and 7 m above you; it starts in the air and the game settles it". `place` holds `up` (centimetres above the character's feet) and `inAir` besides the fields above. The page shows `words` as before ("It goes ...").
+Every answer says where the vehicle is from the character, also when nothing was in the way: "10 m in front of you (south)" (it used to say "next to you"; a spot behind says "20 m behind you (west)", a spot to a side only the compass point, "15 m west of you"; the words use the facing only outside a base). An aircraft adds its height and that it will settle:
+"30 m in front of you (south) and 7 m above you; it starts in the air and the game settles it". `place.coords` is the map and the coordinates in centimetres ("HaggaBasin, x 100, y 3200, z 1000"), and the page's preview and result line show it after the sentence ("Map and place: ..."). `place` holds `up` (centimetres above the character's feet) and `inAir` besides the fields above. The page shows `words` as before ("It goes ...").
 
 #### Not known
 
