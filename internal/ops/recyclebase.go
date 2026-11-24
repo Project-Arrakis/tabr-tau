@@ -737,8 +737,11 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		n, _ := toInt(back["n"])
 		u, _ := toInt(back["u"])
 		d, _ := toInt(back["d"])
-		if n != p.ItemRows || d != p.ItemRows {
+		if n != p.ItemRows {
 			return nil, recycleMismatch("the item stacks moved to the Reserve", n, p.ItemRows)
+		}
+		if d != p.ItemRows {
+			return nil, recycleMismatch("the positions of the item stacks moved to the Reserve", d, p.ItemRows)
 		}
 		if u != p.ItemUnits {
 			return nil, recycleMismatch("the items moved to the Reserve", u, p.ItemUnits)
