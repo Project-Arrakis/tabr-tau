@@ -181,6 +181,13 @@ func unitCost(n, percent int64) int64 {
 	return (n*percent + 99) / 100
 }
 
+// addCost adds what n units of one type give back to the refund: each item of the type's cost, at the map's share.
+func addCost(total, cost map[string]int64, n, percent int64) {
+	for item, c := range cost {
+		total[item] += unitCost(c, percent) * n
+	}
+}
+
 // planBaseRecycle reads the save (or the edit's view of it) and works out what the recycle deletes, moves and gives back, or says why this base cannot be recycled. It writes nothing.
 func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (*recyclePlan, error) {
 	head, err := q.One(`select a.state state, coalesce(a.map,'') map, a.dimension_index dim, a.location_x lx, a.location_y ly, a.location_z lz, coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type,
@@ -308,11 +315,6 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 	// The refund: every piece and placeable, from the game's building tables.
 	total := map[string]int64{}
 	var missing, types []string
-	add := func(cost map[string]int64, n int64) {
-		for item, c := range cost {
-			total[item] += unitCost(c, p.Percent) * n
-		}
-	}
 	pieces, err := q.Query(`select building_type t, count(*) n from building_instances where building_id in (` + bl + `) group by 1 order by 1`)
 	if err != nil {
 		return nil, err
@@ -327,7 +329,7 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 			missing = append(missing, t)
 			continue
 		}
-		add(cost, n)
+		addCost(total, cost, n, p.Percent)
 	}
 	plcs, err := q.Query(`select building_type t, is_hologram h, count(*) n from placeables where id in (` + idList(p.Actors) + `) group by 1,2 order by 1,2`)
 	if err != nil {
@@ -350,7 +352,7 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 				missing = append(missing, t)
 				continue
 			}
-			add(cost, n)
+			addCost(total, cost, n, p.Percent)
 		}
 	}
 	if len(missing) > 0 {
