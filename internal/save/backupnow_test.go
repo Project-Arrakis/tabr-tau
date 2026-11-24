@@ -183,3 +183,50 @@ func TestRestoreTakesAManualBackup(t *testing.T) {
 		t.Fatalf("restored: %v %v", r, err)
 	}
 }
+
+// The checkpoint of the weekly layout roll (#1167) is the same verified copy as Back up now, tagged "-layoutroll": it has a time the list can sort by, it is not listed as taken
+// by hand, and the pruning of the automatic backups neither counts nor removes it.
+func TestBackupCheckpointIsTaggedVerifiedAndNeverPruned(t *testing.T) {
+	s := openBackupNow(t)
+	before, _ := os.ReadFile(s.Path)
+	first := takeAuto(t, s)
+	cp, err := s.BackupCheckpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(cp.Name, checkpointTag+".db") || strings.Contains(cp.Name, manualTag) {
+		t.Fatalf("name: %s", cp.Name)
+	}
+	if _, isAuto, ok := s.parseBackupName(cp.Name); !ok || isAuto {
+		t.Fatalf("the checkpoint is not a backup with a time that is not automatic: %v %v", ok, isAuto)
+	}
+	if b, err := os.ReadFile(cp.Path); err != nil || !bytes.Equal(b, before) {
+		t.Fatalf("the copy is not the save: %v", err)
+	}
+	sum := sha256.Sum256(before)
+	if cp.Size != int64(len(before)) || cp.SHA256 != hex.EncodeToString(sum[:]) {
+		t.Fatalf("size or checksum: %+v", cp)
+	}
+	if after, _ := os.ReadFile(s.Path); !bytes.Equal(after, before) {
+		t.Fatal("the save file was written")
+	}
+	if len(manualNames(s)) != 0 {
+		t.Fatal("the checkpoint is listed as taken by hand")
+	}
+	for i := 0; i < keepBackups+5; i++ {
+		takeAuto(t, s)
+	}
+	if _, err := os.Stat(cp.Path); err != nil {
+		t.Fatalf("the pruning removed the checkpoint: %v", err)
+	}
+	if _, err := os.Stat(first); err != nil {
+		t.Fatalf("the first automatic backup is kept as before: %v", err)
+	}
+	listed := false
+	for _, b := range s.Backups() {
+		listed = listed || b["name"] == cp.Name
+	}
+	if !listed {
+		t.Fatal("the checkpoint is not in the list of backups")
+	}
+}

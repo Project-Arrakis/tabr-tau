@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
 // Every test works in a temp folder; none reads or writes a real Game.ini or a real settings folder.
@@ -18,7 +20,8 @@ type env struct {
 	now     time.Time
 	running bool
 	checks  int
-	pick    int // the number the fake random source returns
+	pick    int    // the number the fake random source returns
+	save    string // the save the guard looks at: a made-up one with nothing in the Deep Desert unless a test replaces it
 }
 
 func newEnv(t *testing.T, ini string) *env {
@@ -32,6 +35,7 @@ func newEnv(t *testing.T, ini string) *env {
 	if ini != "" {
 		e.write(ini)
 	}
+	e.save = testsave.PlayerWithSQL(t, "").Path
 	return e
 }
 
@@ -53,7 +57,7 @@ func (e *env) ini() string {
 
 func (e *env) opts() Options {
 	return Options{
-		ConfigDir: e.dir, StatePath: e.state,
+		ConfigDir: e.dir, StatePath: e.state, SavePath: e.save, Editor: "test",
 		Now:  func() time.Time { return e.now },
 		Intn: func(n int) int { return e.pick % n },
 		GameRunning: func() (bool, string) {

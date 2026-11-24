@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/layoutroll"
+	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
 // The layout-roll verb works in temp folders only: no real Game.ini, state file or process list is touched.
@@ -21,6 +22,7 @@ func layoutTestOptions(t *testing.T, running bool) (layoutroll.Options, string) 
 	}
 	return layoutroll.Options{
 		StatePath:   filepath.Join(d, "state", "layout-roll.json"),
+		SavePath:    testsave.PlayerWithSQL(t, "").Path, // a made-up save with nothing in the Deep Desert
 		Now:         func() time.Time { return time.Date(2026, 11, 24, 5, 1, 0, 0, time.Local) },
 		Intn:        func(n int) int { return 0 },
 		GameRunning: func() (bool, string) { return running, "Dune.exe is running" },
@@ -68,14 +70,49 @@ func TestLayoutRollStateSitsBesideTheSettings(t *testing.T) {
 	if p == "" || filepath.Base(p) != "layout-roll.json" || filepath.Base(filepath.Dir(p)) != "tabr-tau" {
 		t.Fatalf("%q", p)
 	}
-	if o := realLayoutRollOptions(); o.GameRunning == nil || o.Now == nil || o.Intn == nil || o.StatePath != p {
+	if o := realLayoutRollOptions("some-game.db"); o.GameRunning == nil || o.Now == nil || o.Intn == nil || o.StatePath != p || o.SavePath != "some-game.db" || o.Editor == "" {
 		t.Fatal("the real options are not complete")
 	}
 }
 
 // the verb is wired into the command list: a bad argument reaches its own usage text.
 func TestLayoutRollIsInTheCommandList(t *testing.T) {
-	if err := runCommand([]string{"layout-roll", "extra"}, t.TempDir()); err == nil || !strings.Contains(err.Error(), "usage: layout-roll") {
+	if err := runCommand([]string{"layout-roll", "extra"}, t.TempDir(), ""); err == nil || !strings.Contains(err.Error(), "usage: layout-roll") {
 		t.Fatalf("%v", err)
+	}
+}
+
+// The save the roll checks is the one named, else the only one found; with none or several it is not guessed, and the run refuses with the reason (see the layoutroll tests).
+func TestLayoutRollNamesTheSaveToCheck(t *testing.T) {
+	never := func() []string { t.Fatal("a named save is not searched for"); return nil }
+	if p, why := resolveLayoutSave("a-game.db", never); p != "a-game.db" || why != "" {
+		t.Fatalf("%q %q", p, why)
+	}
+	for _, c := range []struct {
+		found []string
+		path  string
+		why   string
+	}{
+		{[]string{"a-game.db"}, "a-game.db", ""},
+		{nil, "", "no save"},
+		{[]string{"a-game.db", "a-game.db"}, "", "2 saves were found"},
+	} {
+		p, why := resolveLayoutSave("", func() []string { return c.found })
+		if p != c.path || !strings.Contains(why, c.why) || (c.why != "" && why == "") {
+			t.Errorf("%v: %q %q", c.found, p, why)
+		}
+	}
+}
+
+// A run with no save to check changes nothing and says why.
+func TestLayoutRollWithNoSaveRefuses(t *testing.T) {
+	o, dir := layoutTestOptions(t, false)
+	o.SavePath, o.SaveProblem = "", "no save (game.db) was found on this machine"
+	var out bytes.Buffer
+	if err := runLayoutRoll(nil, dir, &out, o); err == nil || !strings.Contains(err.Error(), "no save") {
+		t.Fatalf("%v", err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "Game.ini")); string(b) != "[A]\r\nx=1\r\n" {
+		t.Fatal("Game.ini written without a save to check")
 	}
 }
