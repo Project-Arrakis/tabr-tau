@@ -3427,6 +3427,7 @@ const A = {
     const list = [`${n(pv.pieces)} building pieces, the totem and ${n(pv.placeables)} placeables are deleted, with the land claim and the base marker. No base backup is made`,
       `${n(pv.itemStacksMoved)} item stacks (${n(pv.itemsMoved)} items) stored in the base move to your Reserve, unchanged`,
       `Refund to your Reserve (${rate}, ${n(pv.refundStacks)} new stacks): ${refund}`]
+      .concat(pv.respawnPoints ? [`${n(pv.respawnPoints)} respawn ${pv.respawnPoints === 1 ? 'point' : 'points'} at this base ${pv.respawnPoints === 1 ? 'is' : 'are'} deleted with it: you can no longer respawn there`] : [])
       .concat(pv.holograms ? [`${n(pv.holograms)} holograms give nothing back`] : [])
       .concat(pv.devStorage ? [`${n(pv.devStorage)} Developer storage containers give 10 Iron Ingot each`] : [])
       .concat(pv.waterDropped ? [`${n(pv.waterDropped)} water stored in ${n(pv.waterDevices)} devices is dropped: water cannot be returned`] : [])

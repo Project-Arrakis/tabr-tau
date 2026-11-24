@@ -48,6 +48,7 @@ test('the question lists the numbers, says everything goes to the Reserve and th
   assert.ok(items[0].includes('2,141 building pieces') && items[0].includes('253 placeables') && items[0].includes('No base backup is made'), items[0]);
   assert.ok(items[1].includes('3,492 item stacks') && items[1].includes('2,319,976 items') && items[1].includes('move to your Reserve'), items[1]);
   assert.ok(items[2].includes('100% of the building cost') && items[2].includes('51 new stacks') && items[2].includes('150 Iron Ingot') && items[2].includes('24,632 Granite Stone'), items[2]);
+  assert.ok(!items.some((l) => /respawn/.test(l)), 'no respawn line for a base that is no respawn point');
   assert.ok(items.some((l) => l.includes('1 holograms give nothing back')), items.join('|'));
   assert.ok(items.some((l) => l.includes('11 Developer storage containers give 10 Iron Ingot each')), items.join('|'));
   assert.ok(items.some((l) => l.includes('9,401,157 water') && l.includes('117 devices') && l.includes('dropped')), items.join('|'));
@@ -89,6 +90,15 @@ test('a preview with no refund list at all still asks, and says the refund is no
   ui.click('[data-act="baseRecycle"]'); await ui.settle();
   const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
   assert.ok(items[2].includes('0 new stacks') && items[2].endsWith(': nothing'), items[2]);
+  ui.dom.window.close();
+});
+
+test('a base that is a respawn point: the question says the respawn point is deleted with it', async () => {
+  const ui = await boots({}, { ...PREVIEW, respawnPoints: 1 });
+  await openBases(ui);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
+  assert.ok(items.some((l) => l === '1 respawn point at this base is deleted with it: you can no longer respawn there'), items.join('|'));
   ui.dom.window.close();
 });
 
