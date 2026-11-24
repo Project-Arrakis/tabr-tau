@@ -17,10 +17,11 @@ const moveReserveUsage = `usage: move-reserve [--boxes "DD-1,DD-2"] [--dry-run]`
 type moveReserveEnv struct {
 	GameRunning func() (bool, string) // asked right now, never from a cache
 	Discover    func() []string
+	Flush       func(*save.Save) save.Flush // writes the edit; a test makes it fail
 }
 
 func realMoveReserveEnv() moveReserveEnv {
-	return moveReserveEnv{GameRunning: gameRunningNow, Discover: save.Discover}
+	return moveReserveEnv{GameRunning: gameRunningNow, Discover: save.Discover, Flush: func(s *save.Save) save.Flush { return s.Flush() }}
 }
 
 // runMoveReserve is `tabr-tau move-reserve --boxes "Name A,Name B" [--dry-run]` (#1191): every stack of the character's Reserve goes into the two named Developer storage boxes, whole and
@@ -106,7 +107,11 @@ func runMoveReserve(args []string, savePath string, out io.Writer, env moveReser
 	if err != nil {
 		return fmt.Errorf("not changed: %v", err)
 	}
-	f := s.Flush()
+	flush := env.Flush
+	if flush == nil {
+		flush = realMoveReserveEnv().Flush
+	}
+	f := flush(s)
 	if !f.Saved {
 		s.Discard() // the edit stays out of the file: throw it away so nothing is left queued
 		return fmt.Errorf("not changed: the edit was worked out but could not be written (%s)", f.Why)

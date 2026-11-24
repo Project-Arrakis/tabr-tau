@@ -36,6 +36,7 @@ func moveEnv(running bool) moveReserveEnv {
 			return false, ""
 		},
 		Discover: func() []string { return nil },
+		Flush:    func(s *save.Save) save.Flush { return s.Flush() },
 	}
 }
 
@@ -121,6 +122,36 @@ func TestMoveReserveRefusesWhileTheGameRunsAndOnBadBoxes(t *testing.T) {
 	after, _ := os.ReadFile(p)
 	if !bytes.Equal(before, after) {
 		t.Fatal("a refusal wrote the save")
+	}
+	if r, _, _ := reserveCount(t, p); r != 3 {
+		t.Fatalf("the Reserve changed: %d", r)
+	}
+}
+
+// The edit was worked out but the save cannot be written: the edit is thrown away, the run says "not changed", and the save is as it was.
+func TestMoveReserveWhenTheWriteFailsNothingIsLeftQueued(t *testing.T) {
+	p := moveSavePath(t)
+	before, _ := os.ReadFile(p)
+	env := moveEnv(false)
+	var seen *save.Save
+	env.Flush = func(s *save.Save) save.Flush {
+		seen = s
+		if !s.Dirty() {
+			t.Error("the edit was not made before the write")
+		}
+		return save.Flush{Saved: false, Why: "the file is in use"}
+	}
+	var out bytes.Buffer
+	err := runMoveReserve([]string{"--boxes", "DD-1,DD-2"}, p, &out, env)
+	if err == nil || !strings.Contains(err.Error(), "not changed") || !strings.Contains(err.Error(), "could not be written (the file is in use)") {
+		t.Fatalf("%v", err)
+	}
+	if seen == nil || seen.Dirty() {
+		t.Fatal("the edit must be discarded, not left queued")
+	}
+	after, _ := os.ReadFile(p)
+	if !bytes.Equal(before, after) {
+		t.Fatal("the save was written")
 	}
 	if r, _, _ := reserveCount(t, p); r != 3 {
 		t.Fatalf("the Reserve changed: %d", r)

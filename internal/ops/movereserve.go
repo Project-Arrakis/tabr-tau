@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -44,6 +45,13 @@ type MoveReserveOptions struct {
 }
 
 var errMoveReserveDry = errors.New("move reserve dry run")
+
+// ErrMoveReserveNoRoom is the kind of the refusal of a Reserve that does not fit into the boxes. The refusal is also an apierr.ErrNoRoom. A caller that must tell "the boxes are
+// full" from every other refusal (the multi-base run stops at it) asks IsMoveNoRoom, never reads the words.
+var ErrMoveReserveNoRoom = errors.New("the Reserve does not fit into the boxes")
+
+// IsMoveNoRoom says whether err is the refusal of a Reserve that does not fit (slots or volume).
+func IsMoveNoRoom(err error) bool { return errors.Is(err, ErrMoveReserveNoRoom) }
 
 // moveReserveBeforeReadBack is nil outside tests. A test sets it to change the save between the writes and the read back, to show that a difference fails the whole edit.
 var moveReserveBeforeReadBack func(m *save.Mut)
@@ -122,6 +130,12 @@ func unitVolume(template string, override any) (v float64, known bool) {
 	return catalog.Volume(template)
 }
 
+// negativeVolume says whether a row carries a volume of its own below 0, which no game row has: such a row would make the room of a box add up wrongly.
+func negativeVolume(override any) bool {
+	o, ok := override.(float64)
+	return ok && o < 0
+}
+
 func fmtVol(v float64) string { return fmt.Sprintf("%.1f", v) }
 
 // ownedByCharacter says whether the character holds the owner rank (1) over the totem and nobody else does: the check a recycle makes.
@@ -150,7 +164,7 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		(select afe.actor_id from actor_fgl_entities afe join totems t on t.id=afe.actor_id where afe.entity_id=p.owner_entity_id and afe.slot_name='Actor' order by afe.actor_id limit 1) base_id,
 		exists (select 1 from base_backup_linked_actors where actor_id=p.id) linked
 		from placeables p join actors a on a.id=p.id join permission_actor pa on pa.actor_id=p.id
-		where lower(p.building_type)=? and pa.actor_name=? order by p.id`, strings.ToLower(devStorageType), name)
+		where lower(p.building_type)=? and trim(pa.actor_name, ' '||char(9,10,13))=? order by p.id`, strings.ToLower(devStorageType), name)
 	if err != nil {
 		return nil, err
 	}
@@ -179,6 +193,19 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 	refuse := func(why string) (*moveBox, error) {
 		return nil, apierr.Newf(apierr.ErrConflict, "The box %q (number %d) %s, so it cannot receive the Reserve. Nothing was changed.", name, id, why)
 	}
+	tt := map[string]any{}
+	if hasBase {
+		var err error
+		if tt, err = q.One(`select coalesce(a.map,'') map, a.state state, exists (select 1 from base_backup_linked_actors where actor_id=a.id) linked from actors a where a.id=?`, base); err != nil {
+			return nil, err
+		}
+		if tt == nil {
+			tt = map[string]any{"map": "", "state": int64(0), "linked": int64(0)}
+		}
+	}
+	tmap, _ := tt["map"].(string)
+	tstate, _ := toInt(tt["state"])
+	tlinked, _ := toInt(tt["linked"])
 	switch {
 	case isDeepDesertMap(mp):
 		return refuse("is on the Deep Desert")
@@ -192,6 +219,12 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		return refuse("does not stand in a base of yours (its owner is not a base's totem)")
 	case exclude[base]:
 		return refuse(fmt.Sprintf("stands in base %d, which is being recycled", base))
+	case isDeepDesertMap(tmap):
+		return refuse(fmt.Sprintf("stands in base %d, which is on the Deep Desert", base))
+	case strings.TrimSpace(tmap) == "":
+		return refuse(fmt.Sprintf("stands in base %d, which has no map recorded, so it is not known whether it is on the Deep Desert", base))
+	case tstate != 0 || tlinked != 0:
+		return refuse(fmt.Sprintf("stands in base %d, which is not in the normal state (it was picked up, or it is part of a base backup)", base))
 	}
 	if mine, err := ownedByCharacter(q, base, pl.Controller); err != nil {
 		return nil, err
@@ -224,9 +257,19 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 	if err != nil {
 		return nil, err
 	}
+	var shared, beyond, negative int64
 	for _, h := range have {
 		if p, ok := toInt(h["p"]); ok {
+			if b.Used[p] {
+				shared++
+			}
+			if p < 0 || p >= b.Cap {
+				beyond++
+			}
 			b.Used[p] = true
+		}
+		if negativeVolume(h["o"]) {
+			negative++
 		}
 		n, _ := toInt(h["n"])
 		if u, known := unitVolume(fmt.Sprint(h["t"]), h["o"]); known {
@@ -234,6 +277,12 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		} else {
 			b.Unknown += n
 		}
+	}
+	if shared > 0 || beyond > 0 {
+		return refuse(fmt.Sprintf("has items in places the game would not use (%d stacks share a slot with another, %d lie beyond its %d slots), so it was not touched; put its contents in order in the game first", shared, beyond, b.Cap))
+	}
+	if negative > 0 {
+		return refuse(fmt.Sprintf("holds %d stacks with a volume of their own below 0, so its room cannot be worked out", negative))
 	}
 	b.Before = int64(len(have))
 	return b, nil
@@ -288,10 +337,17 @@ func (b *moveBox) volumeFits(v float64) bool {
 	return b.VolLimit <= 0 || b.UsedVol+b.Volume+v <= b.VolLimit+1e-6
 }
 
+// digestColumns are every column of an item row except its place (inventory_id and position_index): what a move must leave exactly as it was. A test holds this list against the
+// save's own items table, so a column the game adds later makes the test fail instead of going unchecked.
+var digestColumns = []string{"id", "template_id", "stack_size", "is_new", "acquisition_time", "stats", "quality_level", "volume_override"}
+
 func contentDigest(rows []save.Row) string {
 	h := sha256.New()
 	for _, r := range rows {
-		fmt.Fprintf(h, "%v|%v|%v|%v|%v|%v|%v|%v;", r["id"], r["template_id"], r["stack_size"], r["is_new"], r["acquisition_time"], r["stats"], r["quality_level"], r["volume_override"])
+		for _, c := range digestColumns {
+			fmt.Fprintf(h, "%v|", r[c])
+		}
+		fmt.Fprint(h, ";")
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -351,16 +407,21 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 		return nil, apierr.Newf(apierr.ErrConflict, "The Reserve holds %s stacks, more than one move writes (%s). Nothing was changed.", commas(int64(len(rows))), commas(maxMoveReserveStacks))
 	}
 	p.Digest = contentDigest(rows)
+	unknownItems := map[string]int64{}
 	for _, r := range rows {
 		s := reserveStack{}
 		s.ID, _ = toInt(r["id"])
 		s.Template, _ = r["template_id"].(string)
 		s.Stack, _ = toInt(r["stack_size"])
 		s.Pos, _ = toInt(r["position_index"])
+		if negativeVolume(r["volume_override"]) {
+			return nil, apierr.Newf(apierr.ErrConflict, "The Reserve holds a stack (item %d) with a volume of its own below 0, so the room in the boxes cannot be worked out. Nothing was changed.", s.ID)
+		}
 		if u, ok := unitVolume(s.Template, r["volume_override"]); ok {
 			s.Volume, s.Known = u*float64(s.Stack), true
 		} else {
 			p.Unknown += s.Stack
+			unknownItems[s.Template] += s.Stack
 		}
 		p.Units += s.Stack
 		p.Volume += s.Volume
@@ -368,6 +429,21 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 	}
 	if len(p.Stacks) == 0 {
 		return p, nil
+	}
+	// A volume limit cannot be kept when some of what goes in has no known volume: the units would count as none and a box could be filled past its limit. So the move is refused
+	// whenever a box has a volume limit and the Reserve holds such units. There is no option to allow it.
+	if p.Unknown > 0 {
+		for _, b := range p.Boxes {
+			if b.VolLimit > 0 {
+				var names []string
+				for t, n := range unknownItems {
+					names = append(names, fmt.Sprintf("%s (%s units)", itemLabel(t), commas(n)))
+				}
+				sort.Strings(names)
+				return nil, apierr.Newf(apierr.ErrConflict, "%s units in the Reserve have no known volume (%s: the game's item table has none and the stacks have none of their own), so the volume limit of the box %q cannot be kept. Nothing was changed. Move those stacks by hand in the game, then ask again.",
+					commas(p.Unknown), strings.Join(names, ", "), b.Name)
+			}
+		}
 	}
 
 	// first fit: each row, in the Reserve's order, goes into the first box with a free slot and room by volume
@@ -409,7 +485,7 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 		}
 	}
 	if p.Unknown > 0 {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("%s units in the Reserve have no known volume and were counted as none in the volume check.", commas(p.Unknown)))
+		p.Warnings = append(p.Warnings, fmt.Sprintf("%s units in the Reserve have no known volume; the boxes have no volume limit recorded, so no volume was checked.", commas(p.Unknown)))
 	}
 	return p, nil
 }
@@ -431,8 +507,8 @@ func moveShortfall(p *moveReservePlan, left []reserveStack) error {
 		}
 		parts = append(parts, fmt.Sprintf("%q has %s slots free and %s", b.Name, commas(fs), fv))
 	}
-	return apierr.Newf(apierr.ErrNoRoom, "The Reserve does not fit into the boxes, so nothing was changed. Needed: %s stacks (%s items, volume %s). Free: %s (%s slots in all). Short by %s stacks (volume %s) that fit in neither box. Free room in the boxes in the game, or name boxes with more room.",
-		commas(int64(len(p.Stacks))), commas(p.Units), fmtVol(p.Volume), strings.Join(parts, "; "), commas(freeSlots), commas(int64(len(left))), fmtVol(lv))
+	return apierr.Wrap(apierr.ErrNoRoom, fmt.Sprintf("The Reserve does not fit into the boxes, so nothing was changed. Needed: %s stacks (%s items, volume %s). Free: %s (%s slots in all). Short by %s stacks (volume %s) that fit in neither box. Free room in the boxes in the game, or name boxes with more room.",
+		commas(int64(len(p.Stacks))), commas(p.Units), fmtVol(p.Volume), strings.Join(parts, "; "), commas(freeSlots), commas(int64(len(left))), fmtVol(lv)), ErrMoveReserveNoRoom)
 }
 
 // PreviewMoveReserve says what moving the Reserve into the named boxes would do and the fingerprint the write must be sent. It does the whole edit, reads it back, runs the save

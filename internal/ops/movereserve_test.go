@@ -1,7 +1,9 @@
 package ops
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -39,14 +41,25 @@ insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rota
   (712,'/Game/BP_Box.BP_Box_C','HaggaBasin',5009,6000,7,0,0,0,1,0,0,5,1,jsonb('{}')),
   (713,'/Game/BP_Box.BP_Box_C','HaggaBasin',6001,6000,7,0,0,0,1,0,0,5,1,jsonb('{}')),
   (721,'/Game/BP_Box.BP_Box_C','DeepDesert',101,100,7,0,0,0,1,0,0,5,1,jsonb('{}')),
-  (722,'/Game/BP_Box.BP_Box_C',null,5010,6000,7,0,0,0,1,0,0,5,1,jsonb('{}'));
+  (722,'/Game/BP_Box.BP_Box_C',null,5010,6000,7,0,0,0,1,0,0,5,1,jsonb('{}')),
+  (631,'/Game/BP_Totem.BP_Totem_C',null,100,100,7,0,0,0,1,0,0,10,1,jsonb('{}')),
+  (641,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',100,100,7,0,0,0,1,0,5,10,1,jsonb('{}')),
+  (651,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',100,100,7,0,0,0,1,0,0,10,1,jsonb('{}')),
+  (723,'/Game/BP_Box.BP_Box_C','HaggaBasin',5011,6000,7,0,0,0,1,0,0,5,1,jsonb('{}')),
+  (724,'/Game/BP_Box.BP_Box_C','HaggaBasin',5012,6000,7,0,0,0,1,0,0,5,1,jsonb('{}')),
+  (725,'/Game/BP_Box.BP_Box_C','HaggaBasin',5013,6000,7,0,0,0,1,0,0,5,1,jsonb('{}')),
+  (726,'/Game/BP_Box.BP_Box_C','HaggaBasin',5014,6000,7,0,0,0,1,0,0,5,1,jsonb('{}'));
 insert into fgl_entities(entity_id,components) values (5764607523034234881, jsonb('{}')),(5764607523034234882, jsonb('{}')),(5764607523034234883, jsonb('{}')),(5764607523034234884, jsonb('{}')),(5764607523034234885, jsonb('{}'));
-insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,5764607523034234881,'Actor'),(611,5764607523034234882,'Actor'),(621,5764607523034234883,'Actor'),(801,5764607523034234884,'Actor');
-insert into totems(id) values (601),(611),(621),(801);
+insert into fgl_entities(entity_id,components) values (5764607523034234886, jsonb('{}')),(5764607523034234887, jsonb('{}')),(5764607523034234888, jsonb('{}'));
+insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,5764607523034234881,'Actor'),(611,5764607523034234882,'Actor'),(621,5764607523034234883,'Actor'),(801,5764607523034234884,'Actor'),
+  (631,5764607523034234886,'Actor'),(641,5764607523034234887,'Actor'),(651,5764607523034234888,'Actor');
+insert into totems(id) values (601),(611),(621),(801),(631),(641),(651);
+insert into base_backups(id,player_id,base_backup_name,last_edited_by_player_id) values (3,1,'##Totem_Placeable',1);
+insert into base_backup_linked_actors(id,actor_id) values (3,651);
 insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child,edited_by_player_id) values
   (601,'My base',3,3,0,0),(611,'Old base',3,3,0,0),(621,'Deep base',3,3,0,0),(801,'Other base',3,3,0,0),
   (703,'Box A',1,3,1,0),(704,'Box B',1,3,1,0),(705,'Twin',1,3,1,0),(706,'Twin',1,3,1,0),(707,'Holo',1,3,1,0),(708,'Theirs',1,3,1,0),(709,'Chest',1,3,1,0),(710,'Picked',1,3,1,0),
-  (711,'##Developer_StorageContainer_Placeable',1,3,1,0),(712,'Uncapped',1,3,1,0),(713,'Box C',1,3,1,0),(721,'DD Box',1,3,1,0),(722,'NoMap',1,3,1,0);
+  (711,'##Developer_StorageContainer_Placeable',1,3,1,0),(712,'Uncapped',1,3,1,0),(713,'Box C',1,3,1,0),(721,'DD Box',1,3,1,0),(722,'NoMap',1,3,1,0),(723,'TotemDD',1,3,1,0),(724,'TotemNoMap',1,3,1,0),(725,'TotemState',1,3,1,0),(726,'TotemLinked',1,3,1,0);
 insert into permission_actor_rank(permission_actor_id,player_id,rank) values (601,1,1),(611,1,1),(621,1,1),(801,99,1);
 insert into placeables(id,owner_entity_id,building_type,has_buildable_support,is_hologram) values
   (601,5764607523034234881,'Totem_Placeable',1,0),(611,5764607523034234882,'Totem_Placeable',1,0),(621,5764607523034234883,'Totem_Placeable',1,0),(801,5764607523034234884,'Totem_Placeable',1,0),
@@ -55,10 +68,12 @@ insert into placeables(id,owner_entity_id,building_type,has_buildable_support,is
   (707,5764607523034234881,'Developer_StorageContainer_Placeable',1,1),(708,5764607523034234884,'Developer_StorageContainer_Placeable',1,0),
   (709,5764607523034234881,'StorageContainer_Placeable',1,0),(710,5764607523034234881,'Developer_StorageContainer_Placeable',1,0),
   (711,5764607523034234881,'Developer_StorageContainer_Placeable',1,0),(712,5764607523034234881,'Developer_StorageContainer_Placeable',1,0),
-  (713,5764607523034234882,'Developer_StorageContainer_Placeable',1,0),(721,5764607523034234883,'Developer_StorageContainer_Placeable',1,0),(722,5764607523034234881,'Developer_StorageContainer_Placeable',1,0);
+  (713,5764607523034234882,'Developer_StorageContainer_Placeable',1,0),(721,5764607523034234883,'Developer_StorageContainer_Placeable',1,0),(722,5764607523034234881,'Developer_StorageContainer_Placeable',1,0),
+  (723,5764607523034234883,'Developer_StorageContainer_Placeable',1,0),(724,5764607523034234886,'Developer_StorageContainer_Placeable',1,0),
+  (725,5764607523034234887,'Developer_StorageContainer_Placeable',1,0),(726,5764607523034234888,'Developer_StorageContainer_Placeable',1,0);
 insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values
   (7003,703,4,%d,%g),(7004,704,4,%d,%g),(7005,705,4,10,1000),(7006,706,4,10,1000),(7007,707,4,10,1000),(7008,708,4,10,1000),(7009,709,4,10,1000),(7010,710,4,10,1000),
-  (7011,711,4,10,1000),(7012,712,4,-1,0),(7013,713,4,10,1000),(7021,721,4,10,1000),(7022,722,4,10,1000);
+  (7011,711,4,10,1000),(7012,712,4,-1,0),(7013,713,4,10,1000),(7021,721,4,10,1000),(7022,722,4,10,1000),(7023,723,4,10,1000),(7024,724,4,10,1000),(7025,725,4,10,1000),(7026,726,4,10,1000);
 insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values
   (8001,12,300,0,'ScrapMetal',0,1790000001,'{"a":1}',0,null),
   (8002,12,1,1,'CopperBar',1,1790000002,'{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":7.5}]}',3,null),
@@ -327,6 +342,10 @@ func TestMoveReserveRefusesBoxesItCannotFindOrMayNotUse(t *testing.T) {
 		{"a box never renamed has no name", []string{"Box A", "##Developer_StorageContainer_Placeable"}, MoveReserveOptions{}, apierr.ErrBadArgument, "not a name a box can be found by"},
 		{"an empty name", []string{"Box A", " "}, MoveReserveOptions{}, apierr.ErrBadArgument, "not a name a box can be found by"},
 		{"a box with no map recorded", []string{"Box A", "NoMap"}, MoveReserveOptions{}, apierr.ErrConflict, "has no map recorded"},
+		{"a box in a base on the Deep Desert", []string{"Box A", "TotemDD"}, MoveReserveOptions{}, apierr.ErrConflict, "which is on the Deep Desert"},
+		{"a box in a base with no map recorded", []string{"Box A", "TotemNoMap"}, MoveReserveOptions{}, apierr.ErrConflict, "which has no map recorded"},
+		{"a box in a base that is not in the normal state", []string{"Box A", "TotemState"}, MoveReserveOptions{}, apierr.ErrConflict, "base 641, which is not in the normal state"},
+		{"a box in a base that is part of a base backup", []string{"Box A", "TotemLinked"}, MoveReserveOptions{}, apierr.ErrConflict, "base 651, which is not in the normal state"},
 		{"a box with no slot count", []string{"Box A", "Uncapped"}, MoveReserveOptions{}, apierr.ErrConflict, "no slot count above 0"},
 		{"no names at all", nil, MoveReserveOptions{}, apierr.ErrBadArgument, "Name the storage boxes"},
 		{"a name is case sensitive", []string{"Box A", "box b"}, MoveReserveOptions{}, apierr.ErrNotFound, `named "box b"`},
@@ -526,12 +545,157 @@ func TestMoveReserveAnswerNamesTheBoxesAndTheirRoom(t *testing.T) {
 	}
 }
 
-// An item with no known volume counts as none, and the answer says so (the Reserve's Knife has no volume in the game's item table).
+// An item with no known volume is let through only into boxes that have no volume limit, and the answer says so (a Knife has no volume in the game's item table).
 func TestMoveReserveSaysWhenAnItemHasNoKnownVolume(t *testing.T) {
-	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, bigVol, bigVol)+`insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8006,12,3,7,'Knife',0,1,'{}',0);`)}
+	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 0, 0)+`insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8006,12,3,7,'Knife',0,1,'{}',0);`)}
 	r := moveApply(t, o, boxAB, MoveReserveOptions{})
 	w := fmt.Sprint(r["warnings"])
 	if r["stacks"] != 6 || !strings.Contains(w, "3 units in the Reserve have no known volume") {
 		t.Fatalf("%v", r)
+	}
+}
+
+// Units whose volume is not known cannot be kept under a volume limit: the move is refused when a box has a limit, naming the items, and changes nothing. A box with no limit takes them.
+func TestMoveReserveRefusesUnknownVolumeUnderAVolumeLimit(t *testing.T) {
+	stone, _ := catalog.Volume("Stone")
+	unknown := `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8006,12,10000,7,'Knife',0,1,'{}',0);`
+	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 40*stone+0.5, 0.5)+unknown)}
+	before := itemsSnapshot(t, o)
+	_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+	refusedWith(t, err, apierr.ErrConflict, "have no known volume")
+	for _, w := range []string{"10,000 units", "Knife (10,000 units)", "Nothing was changed", `"Box A"`} {
+		if !strings.Contains(err.Error(), w) {
+			t.Errorf("the refusal lacks %q: %v", w, err)
+		}
+	}
+	if IsMoveNoRoom(err) {
+		t.Error("an unknown volume is not a lack of room")
+	}
+	if _, err := o.MoveReserve(boxAB, "x", MoveReserveOptions{}); err == nil {
+		t.Fatal("the write must refuse too")
+	}
+	if itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
+		t.Fatal("a refusal changed the save")
+	}
+	// only one of the boxes has a limit: still refused (the units could go to either)
+	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 0, 0.5)+unknown)}
+	if _, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{}); err == nil {
+		t.Fatal("a limit on one box is enough to refuse")
+	}
+	// no volume limit on either box: accepted
+	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 0, 0)+unknown)}
+	if r := moveApply(t, o, boxAB, MoveReserveOptions{}); r["changed"] != true || rmCount(t, o, `items where inventory_id=12`) != 0 {
+		t.Fatalf("%v", r)
+	}
+}
+
+// The refusal of a Reserve that does not fit can be told from every other refusal by its kind, not by its words.
+func TestMoveReserveNoRoomHasItsOwnKind(t *testing.T) {
+	o := moveOps(t, 3, 2)
+	_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+	if !IsMoveNoRoom(err) || !errors.Is(err, apierr.ErrNoRoom) {
+		t.Fatalf("%v", err)
+	}
+	for _, other := range []error{nil, errors.New("does not fit"), apierr.New(apierr.ErrNoRoom, "The Reserve does not fit into the boxes"), apierr.New(apierr.ErrConflict, "x")} {
+		if IsMoveNoRoom(other) {
+			t.Errorf("%v is not the refusal of a Reserve that does not fit", other)
+		}
+	}
+	_, err = o.PreviewMoveReserve([]string{"Box A", "Nowhere"}, MoveReserveOptions{})
+	if IsMoveNoRoom(err) {
+		t.Fatal("a missing box is not a lack of room")
+	}
+}
+
+// A name is compared without the spaces around it on both sides: "Box B " in the save is "Box B", and two boxes that differ only in such spaces are two matches.
+func TestMoveReserveNamesAreComparedTrimmedOnBothSides(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, bigVol, bigVol)+`update permission_actor set actor_name='Box B ' where actor_id=704;`)}
+	r := moveApply(t, o, []string{"Box A", " Box B"}, MoveReserveOptions{})
+	if r["changed"] != true {
+		t.Fatalf("%v", r)
+	}
+	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, bigVol, bigVol)+`update permission_actor set actor_name='Box B ' where actor_id=704; update permission_actor set actor_name='Box B' where actor_id=705;`)}
+	before := itemsSnapshot(t, o)
+	_, err := o.PreviewMoveReserve([]string{"Box A", "Box B"}, MoveReserveOptions{})
+	refusedWith(t, err, apierr.ErrConflict, `2 Developer storage containers are named "Box B"`)
+	if itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
+		t.Fatal("a refusal changed the save")
+	}
+}
+
+// A box whose contents are in places the game would not use (two stacks on one slot, a stack beyond the slot count) is refused when the boxes are looked at.
+func TestMoveReserveRefusesABoxWithItemsInPlacesTheGameWouldNotUse(t *testing.T) {
+	row := `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (9002,7003,1,%d,'Stone',0,1,'{}',0);`
+	for name, c := range map[string]struct {
+		extra string
+		cap   int
+	}{
+		"two stacks share a slot":       {fmt.Sprintf(row, 0), 3},
+		"a stack beyond the slot count": {fmt.Sprintf(row, 3), 3},
+		"a stack far beyond":            {fmt.Sprintf(row, 900), 10},
+	} {
+		t.Run(name, func(t *testing.T) {
+			o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(c.cap, 10, bigVol, bigVol)+c.extra)}
+			before := itemsSnapshot(t, o)
+			_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+			refusedWith(t, err, apierr.ErrConflict, "has items in places the game would not use")
+			if !strings.Contains(err.Error(), `"Box A"`) || !strings.Contains(err.Error(), "it was not touched") && !strings.Contains(err.Error(), "so it cannot receive the Reserve") {
+				t.Errorf("the refusal names the box: %v", err)
+			}
+			if itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
+				t.Fatal("a refusal changed the save")
+			}
+		})
+	}
+}
+
+// A volume of its own below 0 is refused, in the Reserve and in a box.
+func TestMoveReserveRefusesANegativeVolumeOverride(t *testing.T) {
+	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, bigVol, bigVol)+`update items set volume_override=-1 where id=8005;`)}
+	_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+	refusedWith(t, err, apierr.ErrConflict, "volume of its own below 0")
+	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, bigVol, bigVol)+`update items set volume_override=-0.5 where id=9001;`)}
+	_, err = o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+	refusedWith(t, err, apierr.ErrConflict, "volume of their own below 0")
+}
+
+// The digest that proves a move changed nothing but the place of a row lists its columns by hand. This fails when the save's own items table has a column the digest (or the two
+// columns that make the place) does not name, so a column the game adds later is not left unchecked.
+func TestTheMoveDigestNamesEveryColumnOfTheItemsTable(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "kit", "schema", "schema.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ReplaceAll(string(b), "\r\n", "\n")
+	i := strings.Index(text, "CREATE TABLE items (")
+	if i < 0 {
+		t.Fatal("the schema has no items table")
+	}
+	body := text[i:]
+	body = body[:strings.Index(body, ") STRICT")]
+	var cols []string
+	for _, l := range strings.Split(body, "\n")[1:] {
+		if l = strings.TrimSpace(l); strings.HasPrefix(l, `"`) {
+			cols = append(cols, l[1:strings.Index(l[1:], `"`)+1])
+		}
+	}
+	want := map[string]bool{"inventory_id": true, "position_index": true}
+	for _, c := range digestColumns {
+		want[c] = true
+	}
+	got := map[string]bool{}
+	for _, c := range cols {
+		got[c] = true
+		if !want[c] {
+			t.Errorf("the items table has the column %q, which the move's digest does not list", c)
+		}
+	}
+	for c := range want {
+		if !got[c] {
+			t.Errorf("the digest lists %q, which the items table does not have", c)
+		}
+	}
+	if len(cols) < 8 {
+		t.Fatalf("the columns were not read: %v", cols)
 	}
 }

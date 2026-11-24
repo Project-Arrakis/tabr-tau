@@ -55,33 +55,39 @@ up, recreated or deleted. The stacks go in the order they have in the Reserve (s
 (box 1 until it is full, then box 2), into that box's lowest free slot. Nothing else in the save changes.
 
 **How the boxes are found.** By the **name you gave each box in the game**: the editor reads the name from the box's permission record (`permission_actor.actor_name`, the same name
-Bases > Inventory shows). Each name must match **exactly one** Developer storage container (`Developer_StorageContainer_Placeable`; names are matched **exactly, capitals included**, because the save keeps the name as it was typed in the game and nothing is known of the game ignoring case; and a box you never renamed
+Bases > Inventory shows). Each name must match **exactly one** Developer storage container (`Developer_StorageContainer_Placeable`; names are matched **exactly, capitals included**, because the save keeps the name as it was typed in the game and nothing is known of the game ignoring case; spaces, tabs and line ends at the start or end of a name are ignored, on both the name in the save and the name you type, and two boxes that differ only in such spaces count as two matches; and a box you never renamed
 has no name to be found by: its "name" is the game's placeholder). When a name finds no box, the message lists the names the editor did read from the save (and how many
 containers were never renamed), so you can see what to type; the save only holds a name once the game has saved after you renamed the box. That one box must also:
 
 - stand in a base of **yours** (your character holds its owner rank, alone), in the normal state, and not be a hologram;
-- **not be in the Deep Desert**;
+- **not be in the Deep Desert**, and its base must not be either: the base's totem must have a map recorded, must not be on the Deep Desert (in any capitals), must be in the normal state
+  (not picked up) and must not be part of a base backup;
 - **not be in a base that is being recycled** (the later multi-base run gives the editor those bases; a run by hand has none to give, so be sure yourself);
-- have a slot count above 0 (a box whose count is 0, -1 or empty is refused: the editor does not know what it is).
+- have a slot count above 0 (a box whose count is 0, -1 or empty is refused: the editor does not know what it is);
+- hold its contents in places the game would use: a box that already has two stacks on one slot, or a stack beyond its slot count, or a stack with a volume of its own below 0, is refused
+  ("the box ... has items in places the game would not use"), and is not touched. Put its contents in order in the game first.
 
 The two names must be different boxes. A name that matches **no** box, a name that matches **two or more** (the message says how many and where), the same box twice, a Deep Desert box,
 a box of another player, a hologram, a box that is not in the normal state: each **refuses the whole move**, names what was found, and changes nothing.
 
 **Room.** Before anything is changed the editor checks the whole Reserve against both boxes. A box holds `max_item_count` stacks (slots). Volume is checked when the box has a volume
 limit above 0 (`max_item_volume`; 0 or none recorded means no volume check, as a give reads it): each stack counts its unit volume times its size, the unit volume being the row's own
-`volume_override` when it has one and otherwise the game's item table. A stack whose item has no known volume counts as none; the answer says how many units that was. What is already in
+`volume_override` when it has one and otherwise the game's item table. **A Reserve that holds units with no known volume (not in the game's item table, no volume of its own) is refused when
+either box has a volume limit**, naming the items and their unit counts: such units would count as none and a box could be filled past its limit, and there is no option to allow it. Move those
+stacks by hand in the game, or use boxes with no volume limit (the editor then moves them and says how many units had no known volume). A stack with a volume of its own below 0 is refused. What is already in
 the box counts. If it does not fit, **nothing is changed**, and the message says what was needed, what each box has free (slots and volume), and the shortfall. The fit is worked out stack by
 stack in the order above, so a Reserve that would fit only with a different order is refused too: make room in the boxes or name boxes with more.
 
 **All or nothing.** One edit. Inside it the editor reads back what it wrote: the Reserve is empty, every stack is in the box and slot that was planned, no other column of any moved
 row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count. Any difference fails the whole edit and nothing changes. The save layer
 then runs its reference check and its check of stored JSON, as for a recycle. The write must be sent the **fingerprint** the question showed (the Reserve, the boxes and the plan), and
-is refused when anything changed in between. A backup of the save is taken first, as for every write. While a game process exists the edit is only queued, put back onto the save the
+is refused when anything changed in between. A backup of the save is taken first, as for every write. A real run from the command line takes **one more** backup first: a verified
+copy named `-manual`, which the editor never prunes (the write path then takes its own automatic backup as well, so a real run leaves two copies). While a game process exists the edit is only queued, put back onto the save the
 game wrote last, and **dropped, not written**, when the game saved a change to anything it read (a stack of the Reserve, a box, its contents).
 
 **An empty Reserve** is not an error: the answer says so and nothing is written (the boxes are still checked first, so a wrong name is always said).
 
-### Tonight: a walk-through
+### Walk-through
 
 1. **In the game, prepare two boxes.** Place two Developer storage containers in a base of yours that is not in the Deep Desert and is not one you are about to recycle. Name them in
    the game exactly `DD-1` and `DD-2` (capitals and the hyphen included; they are matched exactly). Make room: a Developer storage container holds 1,000 stacks in the saves seen, so two mostly empty boxes are plenty. Save and **close the game**.
@@ -94,8 +100,9 @@ game wrote last, and **dropped, not written**, when the game saved a change to a
    Change the path on that line if you keep `tabr-tau.exe` elsewhere. With more than one save on the machine, add `--save "<path to game.db>"` before the word `move-reserve`. The
    dry run reads the save and **writes nothing**; it prints how many stacks and items move, into which box, and how much room is left. A name it cannot find, a box it may not use or
    a Reserve that does not fit is printed as a refusal, and nothing was changed.
-3. **Run it.** The same line without `--dry-run`. It refuses while the game runs, takes a verified backup copy of the save (named in its output), moves the Reserve, writes the save through
-   the editor's own write path, then opens the written file again and checks that the Reserve is empty. It ends with the lines of the move.
+3. **Run it.** The same line without `--dry-run`. **Close the editor window first**: a real run refuses while the game runs and while the editor holds the save open. It takes a verified
+   backup copy of the save (named in its output; kept, never pruned), moves the Reserve, writes the save through the editor's own write path (which takes its own automatic backup too), then opens the written
+   file again and checks that the Reserve is empty. If the write cannot be made it says "not changed" and leaves nothing queued. It ends with the lines of the move.
 4. **Check in the game.** Start the game, load the save, open the Reserve (it should be empty) and the two boxes (the stacks are in them). If anything looks wrong, close the game and
    restore the backup copy from **Database > Save backups** (see [Undo](#undo-restore-the-save)).
 
