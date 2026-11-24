@@ -10,13 +10,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 )
 
 const (
-	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is only read.
+	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is only read, apart from the vehicle step and, with RecycleBases, the recycle of the Deep Desert bases (deepdesert.go, recycle.go).
 	FileName = "Game.ini"
 	// KeepBackups is how many timestamped copies of Game.ini are kept beside it.
 	KeepBackups = 10
@@ -41,8 +42,10 @@ type Options struct {
 	SavePath    string
 	SaveProblem string
 	Editor      string
-	Now         func() time.Time
-	Intn        func(n int) int
+	// RecycleBases switches on the step that recycles the player's Deep Desert bases before the roll (#1167, recycle.go). Off, a standing base refuses the roll, as it always did.
+	RecycleBases bool
+	Now          func() time.Time
+	Intn         func(n int) int
 	// GameRunning says whether the game may be running and, if so, why (the process found, or that the check could not be made: a check that cannot run counts as running).
 	GameRunning func() (bool, string)
 }
@@ -146,6 +149,13 @@ func Roll(o Options) (Result, error) {
 	if done, err := guardDeepDesert(o, &r, &st, now); done {
 		return r, err
 	}
+	// a failure after this point may come after bases were recycled and written (--recycle-bases): the message then says so and names the way back
+	late := func(err error) error {
+		if c := st.LastCheck; c != nil && c.written {
+			return fmt.Errorf("%v. %s", err, c.recycledNote())
+		}
+		return err
+	}
 
 	if o.DryRun {
 		pick := ""
@@ -162,7 +172,7 @@ func Roll(o Options) (Result, error) {
 	backup := ""
 	if existed {
 		if backup, err = writeBackup(o.ConfigDir, old, now, mode); err != nil {
-			return r, fmt.Errorf("not changed: the backup could not be made (%v)", err)
+			return r, late(fmt.Errorf("not changed: the backup could not be made (%v)", err))
 		}
 		r.say("Backup: %s", filepath.Base(backup))
 		if n := pruneBackups(o.ConfigDir); n > 0 {
@@ -172,17 +182,17 @@ func Roll(o Options) (Result, error) {
 	// the file must still be what was read, and the game still not running: otherwise another program changed it in between and nothing is written
 	if running, why := o.GameRunning(); running {
 		saveRun(o.StatePath, st, now, "not changed: the game is running")
-		return r, fmt.Errorf("not changed: %s (it started while this ran)", why)
+		return r, late(fmt.Errorf("not changed: %s (it started while this ran)", why))
 	}
 	again, _, _, err := readIni(path)
 	if err != nil || again != old {
-		return r, errors.New("not changed: Game.ini changed while this ran; run it again")
+		return r, late(errors.New("not changed: Game.ini changed while this ran; run it again"))
 	}
 	if mode == 0 {
 		mode = 0o644
 	}
 	if err := durable.WriteFile(path, []byte(text), mode, writeOptions()); err != nil {
-		return r, fmt.Errorf("the file Game.ini could not be written (%v); it was left as it was%s", err, backupNote(backup))
+		return r, late(fmt.Errorf("the file Game.ini could not be written (%v); it was left as it was%s", err, backupNote(backup)))
 	}
 	back, _, _, err := readIni(path)
 	if err != nil {
@@ -342,6 +352,62 @@ type state struct {
 	LastRoll  *rollRecord  `json:"lastRoll,omitempty"`
 	LastRun   *runRecord   `json:"lastRun,omitempty"`
 	LastCheck *checkRecord `json:"lastCheck,omitempty"` // what the last run that looked at the save found: the checkpoint, the reasons for a refusal, the base files exported (#1167)
+
+	// RecycleHistory is one entry per run that wrote recycled bases to the save, oldest first: LastCheck is replaced by the next run, so without this the checkpoint of an earlier run
+	// (the way back to before the first recycle) would be lost from the state file when a later run recycles the next base (#1167).
+	RecycleHistory []recycleHistoryEntry `json:"recycleHistory,omitempty"`
+}
+
+// maxRecycleHistory keeps the state file small; a weekly run adds at most one entry.
+const maxRecycleHistory = 20
+
+type recycleHistoryEntry struct {
+	At             time.Time `json:"at"`
+	Checkpoint     string    `json:"checkpoint"`
+	CheckpointPath string    `json:"checkpointPath,omitempty"`
+	SaveFile       string    `json:"saveFile,omitempty"`
+	Bases          []int64   `json:"bases"`
+	SolidoItems    []int64   `json:"solidoItems,omitempty"` // the ids of the Solido devices that hold the new Solidos
+}
+
+// line is the entry as one plain sentence.
+func (e recycleHistoryEntry) line() string {
+	ids := func(l []int64) string {
+		var p []string
+		for _, v := range l {
+			p = append(p, fmt.Sprintf("%d", v))
+		}
+		return strings.Join(p, ", ")
+	}
+	return fmt.Sprintf("%s (run of %s; base(s) %s; Solido device id(s) %s)", e.Checkpoint, e.At.Format("2006-01-02 15:04"), ids(e.Bases), ids(e.SolidoItems))
+}
+
+// recordRecycleRun adds or replaces (same run time) the history entry of the run that recycled the bases of rec.
+func (s *state) recordRecycleRun(rec *checkRecord) {
+	e := recycleHistoryEntry{At: rec.At, Checkpoint: rec.Checkpoint, CheckpointPath: rec.CheckpointPath, SaveFile: rec.SaveFile}
+	for _, b := range rec.Recycled {
+		e.Bases = append(e.Bases, b.ID)
+		e.SolidoItems = append(e.SolidoItems, b.SolidoItem)
+	}
+	for i := range s.RecycleHistory {
+		if s.RecycleHistory[i].At.Equal(rec.At) {
+			s.RecycleHistory[i] = e
+			return
+		}
+	}
+	s.RecycleHistory = append(s.RecycleHistory, e)
+	if len(s.RecycleHistory) > maxRecycleHistory {
+		s.RecycleHistory = s.RecycleHistory[len(s.RecycleHistory)-maxRecycleHistory:]
+	}
+}
+
+// historyLines is the history, oldest first, one sentence each.
+func (s *state) historyLines() []string {
+	var l []string
+	for _, e := range s.RecycleHistory {
+		l = append(l, e.line())
+	}
+	return l
 }
 
 const maxState = 64 << 10
