@@ -294,6 +294,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	var refused []string
 	var first recycledRecord
 	firstWhy := ""
+	var firstRoom error // the first base was refused for lack of room on the save as it is (asked again below when a Reserve an earlier run left can be moved first, #1201)
 	for i, b := range bases {
 		pv, err := previewRecycle(s, b.ID)
 		var d recycledRecord
@@ -307,7 +308,11 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 			}
 		case ops.IsRoomRefusal(err):
 			if i == 0 {
-				firstWhy = "there is no room for it: " + err.Error()
+				if emptyReserveInto != nil && room0.Reserve.Used > 0 {
+					firstRoom = err
+				} else {
+					firstWhy = "there is no room for it: " + err.Error()
+				}
 			}
 		default:
 			refused = append(refused, fmt.Sprintf("%s: %v", baseLabel(b), err))
@@ -336,6 +341,23 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	} else if firstWhy == "" && enforceEmptyReserve && room0.Reserve.Used > 0 {
 		firstWhy = reserveWhy(0, room0.Reserve.Used)
 	}
+	// The order of the run is: the Reserve an earlier run left is moved into the boxes first, and only then is the room for the first base asked about (applyEach does it in that order).
+	// So the question for the first base is put the same way here: when it was refused for room on the save as it is, and a Reserve is there that the run moves first, the move is
+	// played on the working copy, the first base is asked about again on it, and the copy is thrown away (the checks above ask nothing of the file; nothing reaches it before the one
+	// write). A Reserve with a slot limit that the leftover fills no longer gives 0 of N when moving the leftover makes room.
+	if firstWhy == "" && firstRoom != nil {
+		d, err := firstAfterLeftoverMove(s, bases)
+		switch {
+		case err == nil:
+			first = d
+		case ops.IsRoomRefusal(err):
+			firstWhy = "there is no room for it, even after the Reserve an earlier run left is moved into the boxes " + boxesWords + ": " + err.Error()
+		case isCannotMove(err):
+			firstWhy = reserveWhy(0, room0.Reserve.Used) + ", and " + reserveCannotWords(err)
+		default:
+			return halt("not changed: the first base could not be asked about", "the first base could not be asked about after the Reserve was moved (%v); nothing was recycled", err)
+		}
+	}
 	if firstWhy == "" {
 		if p := spaceProblems(room0, []recycledRecord{first}); len(p) > 0 {
 			firstWhy = "there is not enough room: " + strings.Join(p, "; ")
@@ -363,14 +385,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		}
 	}
 
-	// the save is locked against a second editor for the writes (a dry run writes nothing)
-	if !o.DryRun {
-		release, err := lockSave(s.Path)
-		if err != nil {
-			return halt("not changed: the save is in use", "the save is open in another TABR TAU window or program, so it is not written (%v). Close that and run this again", err)
-		}
-		defer release()
-	}
+	// the save is locked against a second editor, and the state file against a second layout roll, by the lock Roll holds for the whole real run (#1201); a dry run writes nothing
 
 	// 4b. one at a time on the working copy; nothing reaches the file
 	res, failed, err := applyEach(s, bases, room0, o.DryRun)
@@ -503,13 +518,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		rec.Recycled, rec.written, rec.SaveFile = done, true, s.Path
 		rec.ReserveMoves, rec.ReserveNote = res.moves, res.reserveNote
 	}
-	warn := func(err error) {
-		if err == nil {
-			return
-		}
-		rec.stateWarn = fmt.Sprintf("WARNING: the state file %s could not be updated after the save was written (%v). The save HAS been changed. The way back is in this output and in the note the state file got before the write; keep this output", filepath.Base(o.StatePath), err)
-		r.say("%s", rec.stateWarn)
-	}
+	warn := func(err error) { warnStateAfterWrite(o, r, rec, err) }
 	changed := func(outcome, why string) (recycleOutcome, error) {
 		msg := fmt.Sprintf("the save WAS changed (%d base(s) recycled) but %s. Look at it before the game starts", len(done), why)
 		rec.Blockers = append(rec.Blockers, msg)
@@ -571,6 +580,24 @@ func checkpointWords(o Options, rec *checkRecord) string {
 		return "a new one, taken by the run before anything is changed (a dry run takes none)"
 	}
 	return rec.Checkpoint
+}
+
+// firstAfterLeftoverMove asks about the first base the way the run will meet it (#1201): the Reserve an earlier run left is moved into the boxes on the working copy first, the base is
+// asked about on the copy as that left it, and the copy is thrown away (nothing reaches the file before the one write, and applyEach plays the same move again, with its records). The
+// error is the answer as it is: a refusal for room, a refusal of the boxes (cannotMove) or a failure.
+func firstAfterLeftoverMove(s *save.Save, bases []ops.HoldBase) (recycledRecord, error) {
+	var d recycledRecord
+	_, err := emptyReserveInto(s, holdIDs(bases), false)
+	if err == nil {
+		var pv map[string]any
+		if pv, err = previewRecycle(s, bases[0].ID); err == nil {
+			d, err = recordOf(bases[0], pv)
+		}
+	}
+	if derr := s.Discard(); derr != nil {
+		return d, fmt.Errorf("the working copy could not be reset after the question (%v)", derr)
+	}
+	return d, err
 }
 
 func reserveWhy(i int, used int64) string {
