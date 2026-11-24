@@ -44,7 +44,7 @@ Usage:
                                         (exporting those bases first); stores or moves your vehicles out of the Deep Desert (writes the save); the game must be restarted; --config names the config folder, --save the save)
   tabr-tau diff <before> <after> [--tables a,b] [--ignore-tables a,b] [--ignore-columns t.c,c] [--noise] [--float-eps E] [--max-rows N] [--no-redact]
                                         row- and JSON-path-level diff of two saves (read-only; ids redacted by default)
-  tabr-tau move-reserve --boxes "Name A,Name B" [--dry-run]
+  tabr-tau move-reserve [--boxes "DD-1,DD-2"] [--dry-run]
                                         move every stack of your character's Reserve into the two Developer storage boxes you named in the game (whole and unchanged,
                                         one all-or-nothing edit; --dry-run says what would happen and writes nothing; refuses while the game runs; --save names the save)
 

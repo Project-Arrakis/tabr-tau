@@ -20,14 +20,15 @@ const openBases = async (ui) => {
 };
 const type = (ui, id, v) => { const e = ui.doc.querySelector(id); e.value = v; e.dispatchEvent(new ui.w.Event('input', { bubbles: true })); };
 
-test('the Bases card has the button and two empty box-name fields, with an explanation that says it is not tried in the game', async () => {
+test('the Bases card has the button and two box-name fields that offer DD-1 and DD-2, with an explanation that says it is not tried in the game', async () => {
   const ui = await boots();
   const main = await openBases(ui);
   const b = main.querySelector('[data-act="reserveMove"]');
   assert.ok(b && b.textContent.trim() === 'Move the Reserve into storage');
   const tipBox = main.querySelector('#' + b.getAttribute('aria-describedby'));
   assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('Developer storage boxes') && tipBox.textContent.includes('Not yet tried in the game'), tipBox && tipBox.textContent);
-  assert.deepEqual(['#mrBox1', '#mrBox2'].map((s) => main.querySelector(s).value), ['', '']);
+  assert.deepEqual(['#mrBox1', '#mrBox2'].map((s) => main.querySelector(s).value), ['DD-1', 'DD-2']);
+  assert.ok(tipBox.textContent.includes('DD-1 and DD-2') && tipBox.textContent.includes('capitals'), tipBox.textContent);
   assert.equal(ui.posted.length, 0, 'drawing the card writes nothing');
   ui.dom.window.close();
 });
@@ -36,6 +37,7 @@ test('without both names nothing is asked of the server', async () => {
   const ui = await boots();
   await openBases(ui);
   type(ui, '#mrBox1', 'Dump Box');
+  type(ui, '#mrBox2', '  ');
   ui.click('[data-act="reserveMove"]'); await ui.settle();
   assert.ok(ui.doc.querySelector('#toast').textContent.includes('Type the names of the two storage boxes'));
   assert.equal(ui.fetchedUrls.filter((u) => u.startsWith('/api/bases/move-reserve')).length, 0);

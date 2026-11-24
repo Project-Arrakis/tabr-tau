@@ -55,8 +55,9 @@ up, recreated or deleted. The stacks go in the order they have in the Reserve (s
 (box 1 until it is full, then box 2), into that box's lowest free slot. Nothing else in the save changes.
 
 **How the boxes are found.** By the **name you gave each box in the game**: the editor reads the name from the box's permission record (`permission_actor.actor_name`, the same name
-Bases > Inventory shows). Each name must match **exactly one** Developer storage container (`Developer_StorageContainer_Placeable`; names are case sensitive, and a box you never renamed
-has no name to be found by: its "name" is the game's placeholder). That one box must also:
+Bases > Inventory shows). Each name must match **exactly one** Developer storage container (`Developer_StorageContainer_Placeable`; names are matched **exactly, capitals included**, because the save keeps the name as it was typed in the game and nothing is known of the game ignoring case; and a box you never renamed
+has no name to be found by: its "name" is the game's placeholder). When a name finds no box, the message lists the names the editor did read from the save (and how many
+containers were never renamed), so you can see what to type; the save only holds a name once the game has saved after you renamed the box. That one box must also:
 
 - stand in a base of **yours** (your character holds its owner rank, alone), in the normal state, and not be a hologram;
 - **not be in the Deep Desert**;
@@ -83,11 +84,11 @@ game wrote last, and **dropped, not written**, when the game saved a change to a
 ### Tonight: a walk-through
 
 1. **In the game, prepare two boxes.** Place two Developer storage containers in a base of yours that is not in the Deep Desert and is not one you are about to recycle. Name them in
-   the game (anything different, for example `Reserve 1` and `Reserve 2`; no commas). Make room: a Developer storage container holds 1,000 stacks in the saves seen, so two mostly empty boxes are plenty. Save and **close the game**.
+   the game exactly `DD-1` and `DD-2` (capitals and the hyphen included; they are matched exactly). Make room: a Developer storage container holds 1,000 stacks in the saves seen, so two mostly empty boxes are plenty. Save and **close the game**.
 2. **Dry run.** In PowerShell:
 
    ```powershell
-   & "$env:USERPROFILE\Downloads\tabr-tau\tabr-tau.exe" move-reserve --boxes "Reserve 1,Reserve 2" --dry-run
+   & "$env:USERPROFILE\Downloads\tabr-tau\tabr-tau.exe" move-reserve --boxes "DD-1,DD-2" --dry-run
    ```
 
    Change the path on that line if you keep `tabr-tau.exe` elsewhere. With more than one save on the machine, add `--save "<path to game.db>"` before the word `move-reserve`. The
@@ -98,7 +99,7 @@ game wrote last, and **dropped, not written**, when the game saved a change to a
 4. **Check in the game.** Start the game, load the save, open the Reserve (it should be empty) and the two boxes (the stacks are in them). If anything looks wrong, close the game and
    restore the backup copy from **Database > Save backups** (see [Undo](#undo-restore-the-save)).
 
-The editor does the same from **Player > Bases**: type the two names once in the **Box 1** and **Box 2** fields (the editor keeps them in this browser) and press **Move the Reserve into
+The editor does the same from **Player > Bases**: the **Box 1** and **Box 2** fields offer `DD-1` and `DD-2`; change them if your boxes are named otherwise (the editor keeps what you type in this browser) and press **Move the Reserve into
 storage**. The question lists the same numbers; OK writes it.
 
 **Not checked in the game.** That the game accepts a save in which the Reserve's stacks sit in a Developer storage container, and shows them there with the right slots and weight, has

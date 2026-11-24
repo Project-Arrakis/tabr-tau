@@ -499,6 +499,21 @@ func TestMoveReserveNeedsExactlyOneReserve(t *testing.T) {
 	refusedWith(t, err, apierr.ErrConflict, "2 Reserve inventories")
 }
 
+// A name that finds no box says which names the editor did read from the save, so the person can see what to type.
+func TestMoveReserveNoMatchListsTheNamesTheEditorRead(t *testing.T) {
+	o := moveOps(t, 10, 10)
+	_, err := o.PreviewMoveReserve([]string{"Box A", "DD-2"}, MoveReserveOptions{})
+	refusedWith(t, err, apierr.ErrNotFound, `named "DD-2"`)
+	for _, w := range []string{`"Box A" (1)`, `"Box B" (1)`, `"Twin" (2)`, "were never renamed", "matched exactly, capitals included"} {
+		if !strings.Contains(err.Error(), w) {
+			t.Errorf("the refusal lacks %q: %v", w, err)
+		}
+	}
+	if len(DefaultReserveBoxes) != 2 || DefaultReserveBoxes[0] != "DD-1" || DefaultReserveBoxes[1] != "DD-2" {
+		t.Fatalf("the default names: %v", DefaultReserveBoxes)
+	}
+}
+
 // The answer says where everything went and how much room is left.
 func TestMoveReserveAnswerNamesTheBoxesAndTheirRoom(t *testing.T) {
 	o := moveOps(t, 3, 10)

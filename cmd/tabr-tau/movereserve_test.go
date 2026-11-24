@@ -19,7 +19,7 @@ insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rota
   (701,'/Game/BP_Box.BP_Box_C','HaggaBasin',5001,6000,7,0,0,0,1,0),(702,'/Game/BP_Box.BP_Box_C','HaggaBasin',5002,6000,7,0,0,0,1,0);
 insert into fgl_entities(entity_id,components) values (5764607523034234881, jsonb('{}'));
 insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (601,5764607523034234881,'Actor');
-insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child,edited_by_player_id) values (601,'Home',3,3,0,0),(701,'Box A',1,3,1,0),(702,'Box B',1,3,1,0);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child,edited_by_player_id) values (601,'Home',3,3,0,0),(701,'DD-1',1,3,1,0),(702,'DD-2',1,3,1,0);
 insert into permission_actor_rank(permission_actor_id,player_id,rank) values (601,1,1);
 insert into placeables(id,owner_entity_id,building_type,has_buildable_support) values (601,5764607523034234881,'Totem_Placeable',1),
   (701,5764607523034234881,'Developer_StorageContainer_Placeable',1),(702,5764607523034234881,'Developer_StorageContainer_Placeable',1);
@@ -62,20 +62,20 @@ func TestMoveReserveDryRunWritesNothingAndSaysWhatItWouldDo(t *testing.T) {
 	p := moveSavePath(t)
 	before, _ := os.ReadFile(p)
 	var out bytes.Buffer
-	if err := runMoveReserve([]string{"--boxes", "Box A,Box B", "--dry-run"}, p, &out, moveEnv(false)); err != nil {
+	if err := runMoveReserve([]string{"--dry-run"}, p, &out, moveEnv(false)); err != nil { // no --boxes: the default names DD-1 and DD-2
 		t.Fatal(err)
 	}
 	after, _ := os.ReadFile(p)
 	if !bytes.Equal(before, after) {
 		t.Fatal("a dry run wrote the save")
 	}
-	for _, w := range []string{"Dry run: nothing is written", "Would move: 3 item stacks (60 items)", `Box "Box A"`, "would go in"} {
+	for _, w := range []string{"Dry run: nothing is written", "Would move: 3 item stacks (60 items)", `Box "DD-1"`, "would go in"} {
 		if !strings.Contains(out.String(), w) {
 			t.Errorf("the output lacks %q:\n%s", w, out.String())
 		}
 	}
 	// a dry run is allowed while the game runs: it only reads
-	if err := runMoveReserve([]string{"--boxes", "Box A,Box B", "--dry-run"}, p, &out, moveEnv(true)); err != nil {
+	if err := runMoveReserve([]string{"--boxes", "DD-1,DD-2", "--dry-run"}, p, &out, moveEnv(true)); err != nil {
 		t.Fatalf("a dry run reads only: %v", err)
 	}
 }
@@ -83,7 +83,7 @@ func TestMoveReserveDryRunWritesNothingAndSaysWhatItWouldDo(t *testing.T) {
 func TestMoveReserveWritesAndReadsBack(t *testing.T) {
 	p := moveSavePath(t)
 	var out bytes.Buffer
-	if err := runMoveReserve([]string{"--boxes", " Box A , Box B "}, p, &out, moveEnv(false)); err != nil {
+	if err := runMoveReserve([]string{"--boxes", " DD-1 , DD-2 "}, p, &out, moveEnv(false)); err != nil {
 		t.Fatalf("%v\n%s", err, out.String())
 	}
 	if r, a, b := reserveCount(t, p); r != 0 || a != 3 || b != 1 {
@@ -100,7 +100,7 @@ func TestMoveReserveWritesAndReadsBack(t *testing.T) {
 	}
 	// the second run has nothing to do and says so
 	out.Reset()
-	if err := runMoveReserve([]string{"--boxes", "Box A,Box B"}, p, &out, moveEnv(false)); err != nil || !strings.Contains(out.String(), "The Reserve is empty. Nothing was moved") {
+	if err := runMoveReserve([]string{"--boxes", "DD-1,DD-2"}, p, &out, moveEnv(false)); err != nil || !strings.Contains(out.String(), "The Reserve is empty. Nothing was moved") {
 		t.Fatalf("%v\n%s", err, out.String())
 	}
 }
@@ -109,13 +109,13 @@ func TestMoveReserveRefusesWhileTheGameRunsAndOnBadBoxes(t *testing.T) {
 	p := moveSavePath(t)
 	before, _ := os.ReadFile(p)
 	var out bytes.Buffer
-	if err := runMoveReserve([]string{"--boxes", "Box A,Box B"}, p, &out, moveEnv(true)); err == nil || !strings.Contains(err.Error(), "Dune.exe is running") || !strings.Contains(err.Error(), "not changed") {
+	if err := runMoveReserve([]string{"--boxes", "DD-1,DD-2"}, p, &out, moveEnv(true)); err == nil || !strings.Contains(err.Error(), "Dune.exe is running") || !strings.Contains(err.Error(), "not changed") {
 		t.Fatalf("%v", err)
 	}
-	if err := runMoveReserve([]string{"--boxes", "Box A,Nowhere"}, p, &out, moveEnv(false)); err == nil || !strings.Contains(err.Error(), `named "Nowhere"`) {
+	if err := runMoveReserve([]string{"--boxes", "DD-1,dd-2"}, p, &out, moveEnv(false)); err == nil || !strings.Contains(err.Error(), `named "dd-2"`) {
 		t.Fatalf("%v", err)
 	}
-	if err := runMoveReserve([]string{"--boxes", "Box A,Box A"}, p, &out, moveEnv(false)); err == nil || !strings.Contains(err.Error(), "named twice") {
+	if err := runMoveReserve([]string{"--boxes", "DD-1,DD-1"}, p, &out, moveEnv(false)); err == nil || !strings.Contains(err.Error(), "named twice") {
 		t.Fatalf("%v", err)
 	}
 	after, _ := os.ReadFile(p)
@@ -129,7 +129,7 @@ func TestMoveReserveRefusesWhileTheGameRunsAndOnBadBoxes(t *testing.T) {
 
 func TestMoveReserveChecksItsArguments(t *testing.T) {
 	var out bytes.Buffer
-	for _, args := range [][]string{nil, {"--boxes", ""}, {"--boxes", "A,B,C"}, {"--boxes", "A,B", "extra"}, {"--bogus"}} {
+	for _, args := range [][]string{{"--boxes", ""}, {"--boxes", "A,B,C"}, {"--boxes", "A,B", "extra"}, {"--bogus"}} {
 		if err := runMoveReserve(args, "x.db", &out, moveEnv(false)); err == nil || !strings.Contains(err.Error(), "usage: move-reserve") {
 			t.Errorf("%v: %v", args, err)
 		}

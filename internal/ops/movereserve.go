@@ -33,6 +33,10 @@ import (
 //
 // An empty Reserve is not an error and writes nothing.
 
+// DefaultReserveBoxes are the names of the two boxes the operator uses: the editor and the command offer them when none are typed. A name is matched exactly, capitals included: the
+// save keeps the name as it was typed in the game, and nothing is known of the game treating names as case-insensitive.
+var DefaultReserveBoxes = []string{"DD-1", "DD-2"}
+
 // MoveReserveOptions are the choices of one move.
 type MoveReserveOptions struct {
 	// ExcludeBases are the totems of the bases that are being recycled: a box in one of them is refused.
@@ -151,7 +155,7 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		return nil, err
 	}
 	if len(rows) == 0 {
-		return nil, apierr.Newf(apierr.ErrNotFound, "No Developer storage container in this save is named %q. Name the box in the game (the name is case sensitive), or check the spelling. Nothing was changed.", name)
+		return nil, apierr.Newf(apierr.ErrNotFound, "No Developer storage container in this save is named %q. Names are matched exactly, capitals included. %s Name the box in the game and let the game save, or check the spelling. Nothing was changed.", name, namesRead(q))
 	}
 	if len(rows) > 1 {
 		var where []string
@@ -233,6 +237,37 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 	}
 	b.Before = int64(len(have))
 	return b, nil
+}
+
+// namesRead lists the names the editor read from the save for every Developer storage container (the same list the Bases > Inventory tab shows), so that a refusal says what to look
+// for: "Developer storage containers named in this save: "DD-1" (1), "Dump Box" (1); 9 were never renamed."
+func namesRead(q baseQ) string {
+	rows, err := q.Query(`select coalesce(pa.actor_name,'') name, count(*) n from placeables p left join permission_actor pa on pa.actor_id=p.id
+		where lower(p.building_type)=? group by 1 order by 1`, strings.ToLower(devStorageType))
+	if err != nil {
+		return "(The names in the save could not be listed.)"
+	}
+	var named []string
+	var unnamed int64
+	for _, r := range rows {
+		n, _ := r["name"].(string)
+		c, _ := toInt(r["n"])
+		if n == "" || n == "None" || strings.HasPrefix(n, "##") {
+			unnamed += c
+			continue
+		}
+		if len(named) < 30 {
+			named = append(named, fmt.Sprintf("%q (%d)", importLabel(n), c))
+		}
+	}
+	out := "The save has no renamed Developer storage container."
+	if len(named) > 0 {
+		out = "Developer storage containers named in this save: " + strings.Join(named, ", ") + "."
+	}
+	if unnamed > 0 {
+		out += fmt.Sprintf(" %d were never renamed.", unnamed)
+	}
+	return out
 }
 
 // freePos is the lowest free position of the box that has not been given out yet, or false when there is none.

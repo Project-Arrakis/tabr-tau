@@ -11,7 +11,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-const moveReserveUsage = `usage: move-reserve --boxes "Name A,Name B" [--dry-run]`
+const moveReserveUsage = `usage: move-reserve [--boxes "DD-1,DD-2"] [--dry-run]`
 
 // moveReserveEnv is what a run asks of the machine. A test replaces it; a real run uses realMoveReserveEnv.
 type moveReserveEnv struct {
@@ -30,7 +30,7 @@ func realMoveReserveEnv() moveReserveEnv {
 func runMoveReserve(args []string, savePath string, out io.Writer, env moveReserveEnv) error {
 	fs := flag.NewFlagSet("move-reserve", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	boxes := fs.String("boxes", "", "the names of the two storage boxes, separated by a comma")
+	boxes := fs.String("boxes", strings.Join(ops.DefaultReserveBoxes, ","), "the names of the storage boxes, separated by a comma (matched exactly, capitals included)")
 	dry := fs.Bool("dry-run", false, "say what would be done and write nothing")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("%s: %v", moveReserveUsage, err)
