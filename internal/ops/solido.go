@@ -30,9 +30,9 @@ import (
 //     = the yaw, transform_yaw = the pitch and transform_roll = the roll (the console's own import swaps the same two names). hologram is 1.
 //   - Pentashields. One row for each Pentashield placeable that is kept: the three scale numbers are m_PersistentScale.X, .Y and .Z of the placeable's properties, times 10
 //     (27 of 27 values; a scale of 8.000014 is 80).
-//   - Numbering. The game numbers both from 0 with no gaps, in an order that is not that of the base's own ids (it repeats the type in runs, and the placeables look hash
-//     ordered). The numbers are only labels: nothing refers to one except the pentashield rows, which name the placeable's new number. This edit numbers pieces by the piece's
-//     own instance id and placeables by their actor id, ascending, which is also the order the base was built in.
+//   - Numbering. The game numbers both from 0 with no gaps. Its piece order is the base's own piece order, ascending, for 2,027 of 2,132 steps; its placeables are scattered; no rule
+//     was found for the rest. The numbers are only labels: nothing refers to the pieces' numbers (the base's instance_id is not copied anywhere), and the one reference, from a
+//     pentashield row to its placeable's number, is right in this edit's numbering. This edit numbers pieces by the piece's own instance id and placeables by their actor id, ascending.
 //
 // Only the pieces the base itself owns go in (the owner entity of the totem). A piece of the base's building actor with another owner entity or none is recycled with the actor (the
 // game moves a building actor whole) but is not in the Solido; the answer says how many, and the measured base had none.

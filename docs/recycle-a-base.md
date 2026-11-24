@@ -74,13 +74,18 @@ The answer and the question say where the device is.
 entity holds, or none, is still deleted by the recycle (the game moves a building actor whole, and the recycle deletes the actor), but it is **not in the Solido**. The answer says how
 many: "N pieces of the building actor that belong to no base or to another one are recycled with it but are not in the Solido". The measured base had none.
 
-**What is not the game's.** The game numbers the pieces 0 to n-1 and the placeables 0 to m-1 in an order that cannot be reproduced from the base's rows (it repeats a type in runs,
-and the placeables look hash-ordered). Nothing refers to those numbers except the pentashield rows, which name their placeable's number. The editor numbers pieces by the piece's
-own number and placeables by their own, in ascending order, which is also the order the base was built in. The rows are the same set; their numbers are different.
+**What is not the game's.** The game numbers the pieces 0 to n-1 and the placeables 0 to m-1. Its piece order follows the base's own piece numbers, ascending, in 2,027 of the 2,132
+steps from one piece to the next (the other 105 are out of order, and no rule for them was found); its placeables are scattered through the base's order, with no rule found either. The
+editor's order is simply the base's own, ascending, for both. Nothing refers to the pieces' numbers (the base's own `instance_id` is not copied anywhere), and the one reference there
+is, from a pentashield row to its placeable's number, is correct in the editor's numbering. The rows are the same set; their numbers are different.
 
 **Refused by name (not measured).** A base with more than one building actor or none; a building actor, a piece or a placeable that is tilted (pitch or roll: every one in the
 measured saves stood upright); a Pentashield whose scale cannot be read or is not a whole number of steps; a base with nothing a Solido can hold; a device whose stats are not a JSON
-object. Deep Desert bases work the same way as any other.
+object. A `Choam_PentashieldSurface*PlacementCorner` placeable (horizontal or vertical) that has no `m_PersistentScale` in its properties refuses the **whole** Solido, because a
+Pentashield's scale is part of its row and none is guessed: recycle that base without the Solido.
+
+**Deep Desert.** A Deep Desert base is made the same way as any other, but that rests on a stood-up copy: the check was made on a copy of a save in which a Deep Desert base was set
+standing again, not on a Solido that the game made of a Deep Desert base. The game's own Deep Desert Solido was not seen.
 
 **Not checked in the game.** The box's explanation and the question both say so: "Not yet tried in the game: keep your save backup until you have placed it." That the game shows this Solido in the backpack and previews the base from it, and that it can be placed, has not been tried: only that the rows are
 those the game wrote for a base of its own.
