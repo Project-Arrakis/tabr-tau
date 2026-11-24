@@ -89,7 +89,7 @@ func TestRecycleWithASolidoMakesItFirstInTheSameEditAndTheBaseStillGoes(t *testi
 
 		r := recycleWithSolido(t, o)
 		if !strings.Contains(r["summary"].([]string)[0], "Solido: made first from the base, in a blank Solido device that was already in your inventory (item 8800): 3 building pieces, 6 placeables (1 pentashields).") ||
-			!strings.Contains(r["summary"].([]string)[0], "1 pieces the game leaves out, 1 doors, the claim totem") {
+			!strings.Contains(r["summary"].([]string)[0], "1 pieces the game leaves out, 1 doors and gates, the claim totem") {
 			t.Fatalf("the answer: %v", r["summary"])
 		}
 		// the base is gone as in any recycle
@@ -373,6 +373,27 @@ update markers set map_name='DeepDesert' where marker_hash_id=111; update player
 	r := recycleWithSolido(t, o)
 	if s := r["solido"].(map[string]any); s["pieces"] != int64(3) || s["placeables"] != int64(6) || r["costPercent"] != int64(50) {
 		t.Fatalf("%v", r)
+	}
+}
+
+// The doors the Solido leaves out include the gate that is a door's sibling (Gate_M_SquishUp_Placeable beside Door_S_SquishUp_Placeable), with or without an owner's prefix;
+// every other type stays, a gate piece type among them.
+func TestTheSolidoLeavesOutDoorsAndTheirSiblingGates(t *testing.T) {
+	var pl []solidoSrcPlaceable
+	for i, ty := range []string{"Door_S_SquishUp_Placeable", "Gate_M_SquishUp_Placeable", "Choam_Door_S_SquishUp_Placeable", "Choam_Gate_M_SquishUp_Placeable", "Choam_Level2_Door_Placeable",
+		"Sardaukar_Railing_Gate", "Table_Placeable"} {
+		pl = append(pl, solidoSrcPlaceable{ID: int64(10 + i), Type: ty, QW: 1})
+	}
+	rows, err := convertSolido(solidoSource{OriginQW: 1, TotemID: 1, Placeables: pl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kept []string
+	for _, p := range rows.Placeables {
+		kept = append(kept, p.Type)
+	}
+	if rows.SkippedDoors != 5 || strings.Join(kept, ",") != "Sardaukar_Railing_Gate,Table_Placeable" {
+		t.Fatalf("left out %d, kept %v", rows.SkippedDoors, kept)
 	}
 }
 

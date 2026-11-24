@@ -24,8 +24,9 @@ import (
 //     world position minus the actor's, turned by minus the actor's yaw; its blueprint yaw is its yaw minus the actor's. Height is a plain difference.
 //   - Pieces. All of the base's pieces except those whose building_flags has bit 4 set (8 of 2,141 in the measured base: exactly the 8 that the game left out; the bit's meaning is
 //     not known). provides_stability is bit 1 of building_flags (flags 0 and 2 gave 0, flag 1 gave 1: 282 of 282). health is 0 and hologram is 1 for every row.
-//   - Placeables. All the placeables the totem owns except the totem itself and the doors (a type with "Door" in its name: both doors of the base were left out, and no other
-//     type was). Holograms and placeables with no hit on the ground are kept. Position as for a piece. The three angle columns hold, in the game's own labelling, transform_pitch
+//   - Placeables. All the placeables the totem owns except the totem itself and the doors and gates (a type with "Door" in its name: both doors of the base were left out, and no
+//     other type was; the gate Gate_M_SquishUp_Placeable is the door Door_S_SquishUp_Placeable's sibling and is left out the same way, by the same rule, though no gate was in the
+//     measured base: see solidoIsDoor). Holograms and placeables with no hit on the ground are kept. Position as for a piece. The three angle columns hold, in the game's own labelling, transform_pitch
 //     = the yaw, transform_yaw = the pitch and transform_roll = the roll (the console's own import swaps the same two names). hologram is 1.
 //   - Pentashields. One row for each Pentashield placeable that is kept: the three scale numbers are m_PersistentScale.X, .Y and .Z of the placeable's properties, times 10
 //     (27 of 27 values; a scale of 8.000014 is 80).
@@ -171,6 +172,13 @@ func solidoScale(v [3]float64, ok bool) ([3]int64, error) {
 	return out, nil
 }
 
+// solidoIsDoor says whether a placeable type is one the Solido leaves out as a door: a type with "Door" in its name, and the gate that is a door's sibling
+// (Gate_M_SquishUp_Placeable beside Door_S_SquishUp_Placeable, and the same with an owner's prefix, as Choam_Door_S_SquishUp_Placeable). The cost table holds no other Gate type
+// among the placeables (the other Gate types in it are building pieces, which the game's flag decides on, not the name).
+func solidoIsDoor(t string) bool {
+	return strings.Contains(t, "Door") || strings.Contains(t, "Gate_M_SquishUp")
+}
+
 // convertSolido is the whole conversion, from a base's rows to a Solido's rows. It reads nothing and writes nothing.
 func convertSolido(src solidoSource) (*solidoRows, error) {
 	bx, by, bz, bw, ok := solidoQuat(src.OriginQX, src.OriginQY, src.OriginQZ, src.OriginQW)
@@ -236,7 +244,7 @@ func convertSolido(src solidoSource) (*solidoRows, error) {
 		if p.Type == "" {
 			return nil, fmt.Errorf("placeable %d has no type", p.ID)
 		}
-		if strings.Contains(p.Type, "Door") {
+		if solidoIsDoor(p.Type) {
 			out.SkippedDoors++
 			continue
 		}
@@ -661,7 +669,7 @@ func solidoWords(s map[string]any) string {
 		out = append(out, fmt.Sprintf("%d pieces the game leaves out", n))
 	}
 	if n := s["doorsLeftOut"].(int64); n > 0 {
-		out = append(out, fmt.Sprintf("%d doors", n))
+		out = append(out, fmt.Sprintf("%d doors and gates", n))
 	}
 	out = append(out, "the claim totem")
 	return w + " Left out, as the game leaves them: " + strings.Join(out, ", ") + "."

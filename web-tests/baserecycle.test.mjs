@@ -154,7 +154,7 @@ test('with the box ticked the preview is asked for a Solido, the question says i
   const q = ui.doc.querySelector('#ask');
   const items = [...q.querySelectorAll('li')].map((l) => l.textContent);
   assert.ok(items[0].includes('A Solido of the base is made first, in the same edit') && items[0].includes('2,133 building pieces') && items[0].includes('251 placeables') && items[0].includes('9 pentashields') &&
-    items[0].includes('the blank Solido device (item 61428455) that is already in your inventory') && items[0].includes('the claim totem, 2 doors, 8 pieces') &&
+    items[0].includes('the blank Solido device (item 61428455) that is already in your inventory') && items[0].includes('the claim totem, 2 doors and gates, 8 pieces') &&
     items[0].endsWith('Not yet tried in the game: keep your save backup until you have placed it.'), items[0]);
   assert.ok(items[1].includes('2,141 building pieces') && items[1].includes('No base backup is made'), items[1]);
   assert.ok(q.textContent.includes('A Solido of the base is made first, then the base is deleted'));
