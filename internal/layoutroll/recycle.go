@@ -41,6 +41,11 @@ var enforceEmptyReserve = true
 
 // The reads and writes of this step, as variables only so that a test can make one fail. Nothing else changes them.
 var (
+	// emptyReserveInto is the call point of the move of the Reserve into the character's storage boxes (#1191, built apart from this change). It is called on the working copy after each
+	// base is recycled and verified, and must leave the Reserve empty (the run checks that, and the final read of the written file expects it). It is nil today, which is the behaviour
+	// described above: the Reserve stays full, the next base is held back, and the run stops and asks the person to empty it. Wiring #1191 in is setting this one variable.
+	emptyReserveInto func(s *save.Save) error
+
 	otherBases     = func(s *save.Save) ([]ops.HoldBase, error) { return (&ops.Ops{S: s}).OtherDeepDesertBases() }
 	roomOf         = func(s *save.Save) (ops.RecycleRoom, error) { return (&ops.Ops{S: s}).RecycleRoom() }
 	previewRecycle = func(s *save.Save, id int64) (map[string]any, error) {
@@ -90,7 +95,11 @@ var (
 		if err != nil {
 			return err
 		}
-		if want := start.Reserve.Used + reserveNeed(done); room.Reserve.Used != want {
+		want := start.Reserve.Used + reserveNeed(done)
+		if emptyReserveInto != nil {
+			want = 0 // each base's Reserve was moved into storage right after it
+		}
+		if room.Reserve.Used != want {
 			return fmt.Errorf("the Reserve holds %d stacks, and %d were planned", room.Reserve.Used, want)
 		}
 		return nil
@@ -433,6 +442,19 @@ func applyEach(s *save.Save, bases []ops.HoldBase, room0 ops.RecycleRoom) (res e
 		}
 		if want := now.Reserve.Used + d.StoredStacks + d.RefundStacks; after.Reserve.Used != want {
 			return res, i, fmt.Errorf("%s: the Reserve holds %d stacks after the recycle, and %d were planned", baseLabel(b), after.Reserve.Used, want)
+		}
+		// the call point of the move into storage (#1191): nil today, so the Reserve stays full and the next base is held back by the rule above
+		if emptyReserveInto != nil {
+			if err := emptyReserveInto(s); err != nil {
+				return res, i, fmt.Errorf("%s: the Reserve could not be moved into storage after it was recycled (%v)", baseLabel(b), err)
+			}
+			emptied, err := roomOf(s)
+			if err != nil {
+				return res, i, fmt.Errorf("%s: the room could not be read after the Reserve was moved (%v)", baseLabel(b), err)
+			}
+			if emptied.Reserve.Used != 0 {
+				return res, i, fmt.Errorf("%s: the Reserve still holds %d stack(s) after it was moved into storage", baseLabel(b), emptied.Reserve.Used)
+			}
 		}
 		res.done = append(res.done, d)
 	}

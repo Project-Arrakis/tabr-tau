@@ -415,3 +415,46 @@ func TestABaseThatTheRecycleSaysIsOnAnotherMapIsNeverRecycled(t *testing.T) {
 	}
 	mustContain(t, err.Error(), "not the Deep Desert")
 }
+
+// The call point of the move into storage (#1191): with it set, every base is followed by an emptied Reserve, so all the bases are recycled in one run and the roll goes on. A move
+// that fails, or leaves something in the Reserve, stops the run with the save untouched.
+func TestTheStorageCallPointLetsSeveralBasesGoInOneRun(t *testing.T) {
+	move := func(s *save.Save) error {
+		_, err := s.Mutate("test move", func(m *save.Mut) error {
+			_, err := m.Exec(`delete from items where inventory_id=12`)
+			return err
+		})
+		return err
+	}
+	t.Run("emptied", func(t *testing.T) {
+		e, o := rcEnv(t, rcWorld(ddBases(3)...))
+		swapVar(t, &emptyReserveInto, move)
+		r, err := Roll(o)
+		if err != nil || !r.Wrote || e.ini() == iniWith("11") || len(standingIDs(t, e.save)) != 0 {
+			t.Fatalf("%v\n%s", err, lines(r))
+		}
+		if c := readState(t, e.state).LastCheck; len(c.Recycled) != 3 {
+			t.Fatalf("%+v", c)
+		}
+	})
+	t.Run("the move fails", func(t *testing.T) {
+		e, o := rcEnv(t, rcWorld(ddBases(2)...))
+		swapVar(t, &emptyReserveInto, func(*save.Save) error { return errors.New("no storage box") })
+		before := sha(t, e.save)
+		_, err := Roll(o)
+		if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
+			t.Fatalf("%v", err)
+		}
+		mustContain(t, err.Error(), "no storage box", "NOTHING is changed")
+	})
+	t.Run("the Reserve is not empty afterwards", func(t *testing.T) {
+		e, o := rcEnv(t, rcWorld(ddBases(2)...))
+		swapVar(t, &emptyReserveInto, func(*save.Save) error { return nil })
+		before := sha(t, e.save)
+		_, err := Roll(o)
+		if err == nil || sha(t, e.save) != before {
+			t.Fatalf("%v", err)
+		}
+		mustContain(t, err.Error(), "still holds")
+	})
+}
