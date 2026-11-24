@@ -20,7 +20,7 @@ import (
 // Desert, and exports each such base to a console base backup file first. The vehicles of the player that stand in the Deep Desert are taken out by the run itself (#1174): stored in
 // the game's own vehicle backup (a Scout, a Sandbike) or moved to the character's map in front of the character (every other type), in one edit of the save that is read back, written
 // through the editor's own write path (the game must be closed) and read back again from the file; then the guard looks once more and must find none. A run that is going to refuse for
-// another reason (a base, the character) changes nothing, vehicles included. No base is moved, deleted or picked up by this run.
+// another reason (a base, the character) changes nothing, vehicles included. No base is moved, deleted or picked up by this run unless it was started with --recycle-bases, which recycles the player's bases first (recycle.go).
 
 // exportFolderPrefix names the dated folder (beside the state file) that holds the base files of one refused run.
 const exportFolderPrefix = "layout-roll-bases-"
@@ -57,6 +57,24 @@ type checkRecord struct {
 	ExportFolder     string    `json:"exportFolder,omitempty"`     // the dated folder the base files were written to
 	ExportFiles      []string  `json:"exportFiles,omitempty"`      // their names
 	Vehicles         []string  `json:"vehicles,omitempty"`         // what was done with each vehicle of the player in the Deep Desert, one line each (#1174)
+
+	// --recycle-bases (#1167): the checkpoint's full path and the save file (for the way back), the bases recycled and written in this run (per base: the Solido device and blueprint,
+	// what moved to the Reserve), and the room table of the plan
+	CheckpointPath string           `json:"checkpointPath,omitempty"`
+	SaveFile       string           `json:"saveFile,omitempty"`
+	Recycled       []recycledRecord `json:"recycled,omitempty"`
+	RecycleSpace   []string         `json:"recycleSpace,omitempty"`
+	written        bool             // the save file was written by the recycle step of this run
+}
+
+// recycledNote is said with every stop after the bases were written: what was done and the way back.
+func (c *checkRecord) recycledNote() string {
+	return fmt.Sprintf("NOTE: %d base(s) WERE recycled and written to the save earlier in this run. The checkpoint %s holds the save as it was before this run; to go back, close the game and restore it in Database > Save backups, or in PowerShell: Copy-Item -Force \"%s\" \"%s\"", len(c.Recycled), c.Checkpoint, c.CheckpointPath, c.SaveFile)
+}
+
+// exportFolderOf is the dated folder, beside the state file, for the base files of this run.
+func exportFolderOf(o Options, rec *checkRecord) string {
+	return filepath.Join(filepath.Dir(o.StatePath), exportFolderPrefix+rec.At.Format("20060102-150405.000"))
 }
 
 // guardDeepDesert is the whole guard. done is true when the run must end now: with err when it refused or stopped (nothing was changed), and with err nil in a dry run that shows it
@@ -68,6 +86,12 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 		if o.DryRun {
 			r.say("Dry run: it would stop here: %v.", e)
 			return true, nil
+		}
+		if rec.written {
+			n := rec.recycledNote()
+			r.say("%s", n)
+			e = fmt.Errorf("%v. %s", e, n)
+			outcome += " (bases were recycled and written earlier in this run)"
 		}
 		st.LastCheck = &rec
 		saveRun(o.StatePath, *st, now, outcome)
@@ -100,7 +124,7 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 			r.say("Not changed: the checkpoint of the save could not be taken (%v).", err)
 			return stop("not changed: the checkpoint of the save could not be taken", fmt.Errorf("not changed: the checkpoint of the save could not be taken (%v)", err))
 		}
-		rec.Checkpoint, rec.CheckpointSHA256 = cp.Name, cp.SHA256
+		rec.Checkpoint, rec.CheckpointSHA256, rec.CheckpointPath = cp.Name, cp.SHA256, cp.Path
 		r.say("Checkpoint of the save: %s (%d bytes, SHA-256 %s), verified. It stays in the save's backup folder.", cp.Name, cp.Size, cp.SHA256)
 	}
 
@@ -112,6 +136,34 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 		return stop("not changed: the save could not be checked", fmt.Errorf("not changed: the save could not be checked (%v)", err))
 	}
 	r.say("Deep Desert check: %d base(s) and %d vehicle(s) of yours looked at, and the character.", h.Checked.Bases, h.Checked.Vehicles)
+
+	// 3a (#1167, only with --recycle-bases). The bases of the player in the Deep Desert are recycled, one at a time, when nothing else blocks the roll (recycle.go). A run that stops
+	// there ends the guard; one that recycled every base goes on, and the save is looked at again: no base may be left.
+	if o.RecycleBases {
+		out, err := recycleStep(o, r, &rec, s, h, stop)
+		if out.done {
+			return true, err
+		}
+		switch {
+		case out.planned:
+			h.Bases = nil // the plan above is what a real run does; nothing was written, so there is nothing to look at again
+		case len(rec.Recycled) > 0:
+			if h, err = inspectSave(s); err != nil {
+				rec.Blockers = append(rec.Blockers, "the save could not be checked again: "+err.Error())
+				r.say("Stopped: the save could not be checked again after the bases were recycled (%v).", err)
+				_, e := stop("stopped: the save could not be checked again", fmt.Errorf("stopped: the save could not be checked again (%v)", err))
+				return true, e
+			}
+			r.say("Deep Desert check again: %d base(s) of yours still stand in the Deep Desert.", len(h.Bases))
+			if len(h.Bases) > 0 {
+				msg := fmt.Sprintf("the check after the recycle still finds %d base(s) of yours in the Deep Desert (%s)", len(h.Bases), strings.Join(blockerLines(h), "; "))
+				rec.Blockers = append(rec.Blockers, msg)
+				r.say("Stopped: %s.", msg)
+				_, e := stop("stopped: a base is still in the Deep Desert after the recycle", errors.New("stopped: "+msg))
+				return true, e
+			}
+		}
+	}
 
 	// 3b (#1174). The vehicles of the player in the Deep Desert are stored or moved out, but only when nothing else blocks the roll: a run that will refuse changes nothing.
 	if len(h.Vehicles) > 0 && !h.BlockedBesidesVehicles() {
@@ -151,7 +203,7 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 
 	// 4. the bases are exported before the refusal, so a copy of each exists
 	if len(h.Bases) > 0 {
-		folder := filepath.Join(filepath.Dir(o.StatePath), exportFolderPrefix+now.Format("20060102-150405.000"))
+		folder := exportFolderOf(o, &rec)
 		if o.DryRun {
 			r.say("Dry run: would write a console base backup file of each of the %d base(s) to %s and read each back.", len(h.Bases), folder)
 		} else {

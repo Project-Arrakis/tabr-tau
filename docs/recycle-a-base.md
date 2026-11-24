@@ -95,7 +95,7 @@ those the game wrote for a base of its own.
 ### Which bases
 
 Only your own bases that stand. The totem must hold the owner rank (1) for your character and for nobody else, the same check as Back up and remove. Any map, the Deep Desert
-included. One base at a time. Refused, with nothing changed:
+included. One base at a time (the layout roll can recycle several bases in a row, one recycle each, and then waits for the Reserve to be emptied: see [Recycling the Deep Desert bases](help/deep-desert-layout-roll.md#recycling-the-deep-desert-bases---recycle-bases-off-unless-you-give-it)). Refused, with nothing changed:
 
 - a base of another player, a base you are only a member of, a base nobody holds the owner rank over;
 - a base the game already picked up (a base backup), and a base or an actor of it that is not in the normal state;
@@ -300,6 +300,7 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 - **A Solido is optional, and its numbering is not the game's.** See [Make a Solido first](#make-a-solido-of-the-base-first-option). The editor never reads or places a Solido,
   and it does not check that one exists before a recycle without the box.
 - **Storage boxes as the destination are phase 2.** Everything goes to the Reserve. Moving it on into chosen storage boxes, in the same step, is not built.
+  The weekly layout roll (`layout-roll --recycle-bases`, #1167) recycles the Deep Desert bases of the character one at a time, each with its Solido, and needs the Reserve to be empty before each base, so it does one base per run until the Reserve can be emptied by a step of its own (#1191).
 - **The game's own recycle returns about half.** The editor returns everything, by the operator's choice. A base recycled here gives more than the same base recycled in the
   game. An "as the game does" mode is not built: the game's rate and rounding are known from one base only.
 - **Deep Desert rounding.** Half of an odd cost is rounded up per unit. What the game charges for such a piece there has not been measured.
