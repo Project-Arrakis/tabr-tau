@@ -16,7 +16,8 @@ import (
 //   - A Scout (the light ornithopter) or a Sandbike goes into the game's own vehicle backup. A real before/after pair of a Scout stored by the game shows exactly this and nothing else:
 //     the vehicle's actor goes from state 0 to state 2, and ONE row is added to backup_vehicles (the character, the vehicle, and the vehicle's customization id, which is the
 //     m_CustomizationId the vehicle's own properties already hold). The table allows one row per character (UNIQUE(character_id)), so only one vehicle can be stored this way, and
-//     only when the character has no row there yet; a vehicle that cannot be stored is moved (below), and the answer says why.
+//     only when the character has no row there yet (a row for any vehicle counts). When both a Scout and a Sandbike could be stored, the Scout is (operator rule, 2026-11-24); between
+//     two of one type the lowest vehicle number is. A vehicle that cannot be stored is moved (below), and the answer says why.
 //   - Every other vehicle (a buggy, a crawler, a carrier, an assault ornithopter, a transport) is moved to the character's own map by editing its actor's map, dimension and place,
 //     exactly as Bring vehicle does it (a real test moved a vehicle from the Deep Desert to the Hagga Basin that way). The places come from placeLine: in front of the character's saved
 //     facing, 10 m ahead for a ground vehicle, 30 m ahead and 7 m up for an aircraft, several in a line at least 12 m apart, clear of base pieces, claims and other vehicles. The
@@ -123,6 +124,12 @@ func planDeepDesertVehicles(p player, query rowReader, one oneReader) ([]Vehicle
 	}
 	var plan []VehicleMove
 	var moving []int // the indexes in plan of the vehicles that are moved
+	type storable struct {
+		at     int // the index in plan
+		scout  bool
+		custom string
+	}
+	var canStore []storable // the vehicles the backup could take, in the order of their numbers
 	sizeOf := map[int]vehicleSize{}
 	for _, r := range rows {
 		m, _ := r["map"].(string)
@@ -156,14 +163,30 @@ func planDeepDesertVehicles(p player, query rowReader, one oneReader) ([]Vehicle
 			case slotTaken:
 				v.Reason = "the vehicle backup (one place for each character) already holds a vehicle"
 			default:
-				v.Action, v.Custom = "store", custom
-				slotTaken = true
+				canStore = append(canStore, storable{at: len(plan), scout: key == "OrnithopterLight", custom: custom})
 			}
 		}
 		plan = append(plan, v)
-		if v.Action == "move" {
-			moving = append(moving, len(plan)-1)
-			sizeOf[len(plan)-1] = sizeOfVehicle(class)
+	}
+	// The backup takes one vehicle for each character. A Scout is stored before a Sandbike; within one type the lowest vehicle number goes (rows come in that order). The others are moved.
+	win := -1
+	for i, c := range canStore {
+		if win < 0 || (c.scout && !canStore[win].scout) {
+			win = i
+		}
+	}
+	for i, c := range canStore { // (never filled when the slot is taken: those vehicles were given their reason above)
+		if i == win {
+			plan[c.at].Action, plan[c.at].Custom = "store", c.custom
+			continue
+		}
+		w := plan[canStore[win].at]
+		plan[c.at].Reason = fmt.Sprintf("the vehicle backup (one place for each character) takes one vehicle, and %s (vehicle %d) is stored in it first", w.Name, w.ID)
+	}
+	for i := range plan {
+		if plan[i].Action == "move" {
+			moving = append(moving, i)
+			sizeOf[i] = sizeOfVehicle(plan[i].Class)
 		}
 	}
 	if len(moving) > 0 {
