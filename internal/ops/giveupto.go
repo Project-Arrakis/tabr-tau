@@ -85,13 +85,9 @@ func volumeLeftInTx(m baseQ, inventoryID int64, template string) (fit int64, che
 	if !known {
 		return -1, false, "Volume was not checked: the editor has no volume for this item.", nil
 	}
-	rows, err := m.Query(`select max_item_volume v from inventories where id=?`, inventoryID)
+	limit, err := inventoryVolumeLimitInTx(m, inventoryID)
 	if err != nil {
 		return -1, false, "", err
-	}
-	var limit float64
-	if len(rows) > 0 {
-		limit, _ = rows[0]["v"].(float64)
 	}
 	if limit <= 0 {
 		return -1, false, "Volume was not checked: this inventory has no volume limit recorded.", nil
@@ -99,6 +95,43 @@ func volumeLeftInTx(m baseQ, inventoryID int64, template string) (fit int64, che
 	if unit <= 0 {
 		return -1, true, "", nil // the item takes no volume
 	}
+	used, unknown, err := inventoryVolumeUsedInTx(m, inventoryID)
+	if err != nil {
+		return -1, false, "", err
+	}
+	if unknown > 0 {
+		note = fmt.Sprintf("%s units already there have no known volume and were counted as none.", commas(unknown))
+	}
+	return unitsLeftByVolume(limit, used, unit), true, note, nil
+}
+
+// The volume rules, shared by the give and by the move of the Reserve (#1191), so that both count the same way.
+
+// unitVolume is the volume of one unit of a row: its own volume_override when it has one (the game reads it per unit), else the game's item table (catalog.Volume). known is false for
+// an item with neither: it counts as none.
+func unitVolume(template string, override any) (v float64, known bool) {
+	if o, ok := override.(float64); ok {
+		return o, true
+	}
+	return catalog.Volume(template)
+}
+
+// inventoryVolumeLimitInTx is the inventory's max_item_volume; 0 when it is NULL, not above 0, or the inventory is not there: no volume limit recorded.
+func inventoryVolumeLimitInTx(m baseQ, inventoryID int64) (float64, error) {
+	rows, err := m.Query(`select max_item_volume v from inventories where id=?`, inventoryID)
+	if err != nil {
+		return 0, err
+	}
+	var limit float64
+	if len(rows) > 0 {
+		limit, _ = rows[0]["v"].(float64)
+	}
+	return max(limit, 0), nil
+}
+
+// inventoryVolumeUsedInTx is the volume of what the inventory holds: each row's unit volume (unitVolume) times its stack. unknown is the number of units whose volume is not known
+// (they count as none).
+func inventoryVolumeUsedInTx(m baseQ, inventoryID int64) (used float64, unknown int64, err error) {
 	// a save whose items table has no volume_override column (the game's has it; an older or hand-made file may not) counts every row at the item table's volume
 	override := "null"
 	if c, e := m.Query(`select count(*) n from pragma_table_info('items') where name='volume_override'`); e == nil && len(c) > 0 && c[0]["n"] == int64(1) {
@@ -106,27 +139,25 @@ func volumeLeftInTx(m baseQ, inventoryID int64, template string) (fit int64, che
 	}
 	have, err := m.Query(`select template_id t, `+override+` o, sum(stack_size) n from items where inventory_id=? group by template_id, `+override, inventoryID)
 	if err != nil {
-		return -1, false, "", err
+		return 0, 0, err
 	}
-	var used float64
-	var unknown int64
 	for _, r := range have {
 		n, _ := r["n"].(int64)
-		if o, ok := r["o"].(float64); ok { // per unit, as the game reads it
-			used += o * float64(n)
-		} else if u, ok := catalog.Volume(fmt.Sprint(r["t"])); ok {
+		if u, ok := unitVolume(fmt.Sprint(r["t"]), r["o"]); ok {
 			used += u * float64(n)
 		} else {
 			unknown += n
 		}
 	}
-	if unknown > 0 {
-		note = fmt.Sprintf("%s units already there have no known volume and were counted as none.", commas(unknown))
-	}
+	return used, unknown, nil
+}
+
+// unitsLeftByVolume is how many whole units of volume unit (above 0) the limit leaves room for when used is already taken: 0 when it is full.
+func unitsLeftByVolume(limit, used, unit float64) int64 {
 	if used >= limit {
-		return 0, true, note, nil
+		return 0
 	}
-	return int64((limit-used)/unit + 1e-9), true, note, nil
+	return int64((limit-used)/unit + 1e-9)
 }
 
 // giveUpToInTx gives up to qty of an item the way the game holds it: stacks of the same item and grade that are in the inventory and not full are filled first, then new stacks are
@@ -269,4 +300,13 @@ func giveAnswer(g giveOutcome, what string) map[string]any {
 	}
 	return map[string]any{"ok": true, "itemId": first, "stacks": len(g.IDs), "requested": g.Requested, "given": g.Given, "reason": g.reason(what), "limit": g.Limit,
 		"volumeChecked": g.VolumeChecked, "volumeNote": g.VolumeNote}
+}
+
+// stackFitsByVolume says whether a whole stack of n units of unit volume fits under the limit when used is already taken. It uses the give's own count (unitsLeftByVolume). A limit
+// not above 0 (none recorded) and a unit not above 0 (no volume, or not known) do not limit.
+func stackFitsByVolume(limit, used, unit float64, n int64) bool {
+	if limit <= 0 || unit <= 0 {
+		return true
+	}
+	return unitsLeftByVolume(limit, used, unit) >= n
 }

@@ -70,13 +70,16 @@ containers were never renamed), so you can see what to type; the save only holds
 The two names must be different boxes. A name that matches **no** box, a name that matches **two or more** (the message says how many and where), the same box twice, a Deep Desert box,
 a box of another player, a hologram, a box that is not in the normal state: each **refuses the whole move**, names what was found, and changes nothing.
 
-**Room.** Before anything is changed the editor checks the whole Reserve against both boxes. A box holds `max_item_count` stacks (slots). Volume is checked when the box has a volume
-limit above 0 (`max_item_volume`; 0 or none recorded means no volume check, as a give reads it): each stack counts its unit volume times its size, the unit volume being the row's own
-`volume_override` when it has one and otherwise the game's item table. **A Reserve that holds units with no known volume (not in the game's item table, no volume of its own) is refused when
-either box has a volume limit**, naming the items and their unit counts: such units would count as none and a box could be filled past its limit, and there is no option to allow it. Move those
-stacks by hand in the game, or use boxes with no volume limit (the editor then moves them and says how many units had no known volume). A stack with a volume of its own below 0 is refused. What is already in
-the box counts. If it does not fit, **nothing is changed**, and the message says what was needed, what each box has free (slots and volume), and the shortfall. The fit is worked out stack by
-stack in the order above, so a Reserve that would fit only with a different order is refused too: make room in the boxes or name boxes with more.
+**Room: the same slot and volume rules as Give item.** Before anything is changed the editor checks the whole Reserve against both boxes, with the code Give item uses (the same free-slot
+count, the same unit volumes, the same volume count), applied to each whole stack. A box holds `max_item_count` stacks (slots), and **every stack takes one slot, whatever it is**: cosmetics
+and unique items take one slot each, like any other stack. Volume is checked when the box has a volume limit above 0 (`max_item_volume`; 0 or none recorded means no volume check, as a
+give reads it): each stack counts its unit volume times its size, the unit volume being the row's own `volume_override` when it has one (per unit) and otherwise the game's item table.
+**Units with no known volume (cosmetics, unique items and placeables that have no volume in the game's item table and none of their own) count as none by volume, exactly as in a give**:
+they cost their slot and no volume, and the answer says how many units had no known volume (the same goes for such units already in a box). A stack with a volume of its own below 0 is
+refused. What is already in the box counts. If it does not fit, **nothing is changed**, and the message says what was needed, what each box has free (slots and volume), and the shortfall.
+The fit is worked out stack by stack in the order above, so a Reserve that would fit only with a different order is refused too: make room in the boxes or name boxes with more.
+One difference from a give is kept on purpose: a give treats a box whose slot count is -1, 0 or empty as having no limit, but the move refuses such a box (see the list above), because a
+Developer storage container holds 1,000 slots in every save seen, so a box without a count is something this version does not know, and a move cannot be undone in the game.
 
 **All or nothing.** One edit. Inside it the editor reads back what it wrote: the Reserve is empty, every stack is in the box and slot that was planned, no other column of any moved
 row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count. Any difference fails the whole edit and nothing changes. The save layer

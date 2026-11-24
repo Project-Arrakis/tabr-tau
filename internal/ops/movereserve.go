@@ -5,11 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
-	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
@@ -24,7 +22,9 @@ import (
 //   - What moves: EVERY item row of the Reserve, each as it is. Only inventory_id and position_index of a row change (the same two columns a recycle changes when it moves what a base
 //     stored); a row is never split, merged, topped up, recreated or deleted. The rows go in their order in the Reserve (position, then id), each into the first box that has both a
 //     free slot and room by volume, into that box's lowest free position.
-//   - Room: a box holds max_item_count stacks (the slots; a box with no count above 0 is refused: this edit does not know what such a box is) and max_item_volume of volume (a limit
+//   - Room, by the give's own rules (giveupto.go: freeSlotsInTx, inventoryVolumeLimitInTx, inventoryVolumeUsedInTx, unitVolume, stackFitsByVolume), applied to whole stacks. Every stack
+//     takes one slot (cosmetics and uniques too). A box holds max_item_count stacks (the slots; a box with no count above 0 is refused although a give would call it unlimited: a Developer
+//     storage container always holds 1,000 slots, so such a box is unknown, and a move cannot be undone in the game) and max_item_volume of volume (a limit
 //     of 0 or none recorded means no limit, as a give reads it). Volume is each row's unit volume (its volume_override when it has one, else the game's item table, catalog.Volume)
 //     times its stack. A row whose item has no known volume counts as none and the answer says how many units that was. When the Reserve does not fit, nothing is changed and the answer
 //     says what was needed, what each box has free, and the shortfall.
@@ -64,8 +64,9 @@ type reserveStack struct {
 	Template string
 	Stack    int64
 	Pos      int64
+	Unit     float64 // the unit volume (unitVolume); 0 when the item has no known volume
 	Volume   float64 // the stack's volume: the unit volume times the stack
-	Known    bool    // false when the item has no known volume (counted as none)
+	Known    bool    // false when the item has no known volume (counted as none, as a give counts it)
 }
 
 type moveBox struct {
@@ -76,11 +77,12 @@ type moveBox struct {
 	BaseName string
 	Map      string
 	Cap      int64   // slots
+	Free0    int64   // the free slots before the move (freeSlotsInTx, the give's count)
 	VolLimit float64 // 0 = no limit recorded
 	Used     map[int64]bool
-	UsedVol  float64
-	Unknown  int64 // units already there with no known volume
-	Before   int64 // stacks in the box before the move
+	UsedVol  float64 // the volume already in the box (inventoryVolumeUsedInTx, the give's count)
+	Unknown  int64   // units already there with no known volume
+	Before   int64   // stacks in the box before the move
 	// planned
 	nextPos        int64
 	Stacks, Units  int64
@@ -120,14 +122,6 @@ func (p *moveReservePlan) fingerprint() string {
 		fmt.Fprintf(h, "%d>%d@%d;", mv.Item, mv.Box, mv.Slot)
 	}
 	return hex.EncodeToString(h.Sum(nil))
-}
-
-// unitVolume is the volume of one unit of a row: its own volume_override when it has one (the game reads it per unit), else the item table's. known is false for an item with neither.
-func unitVolume(template string, override any) (v float64, known bool) {
-	if o, ok := override.(float64); ok {
-		return o, true
-	}
-	return catalog.Volume(template)
 }
 
 // negativeVolume says whether a row carries a volume of its own below 0, which no game row has: such a row would make the room of a box add up wrongly.
@@ -231,7 +225,7 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 	} else if !mine {
 		return refuse(fmt.Sprintf("stands in base %d, which is not yours (the character does not hold its owner rank alone)", base))
 	}
-	invs, err := q.Query(`select id, max_item_count cap, max_item_volume vol from inventories where actor_id=? and item_id is null order by id`, id)
+	invs, err := q.Query(`select id, max_item_count cap from inventories where actor_id=? and item_id is null order by id`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -241,11 +235,16 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 	b := &moveBox{Name: name, Actor: id, Base: base, Map: mp, Used: map[int64]bool{}, positionsTaken: map[int64]bool{}}
 	b.Inv, _ = toInt(invs[0]["id"])
 	b.Cap, _ = toInt(invs[0]["cap"])
-	if b.Cap <= 0 {
+	// The slots are counted by the give's own rule (freeSlotsInTx). One deliberate difference: a give treats a count of -1, 0 or none as "no limit", but this move refuses such a box,
+	// because every Developer storage container in the saves seen holds 1,000 slots, so a box without a count is unknown, and a move cannot be undone in the game.
+	if b.Free0, err = freeSlotsInTx(q, b.Inv); err != nil {
+		return nil, err
+	}
+	if b.Free0 < 0 {
 		return refuse("has no slot count above 0 recorded (this version does not know what such a box is)")
 	}
-	if v, ok := invs[0]["vol"].(float64); ok && v > 0 {
-		b.VolLimit = v
+	if b.VolLimit, err = inventoryVolumeLimitInTx(q, b.Inv); err != nil {
+		return nil, err
 	}
 	if bn, err := q.One(`select coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type from totems t left join permission_actor pa on pa.actor_id=t.id left join placeables tp on tp.id=t.id where t.id=?`, base); err == nil && bn != nil {
 		rn, _ := bn["name"].(string)
@@ -253,7 +252,7 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		b.BaseName = backupDisplayName(rn, tt)
 	}
 	// what is in the box now
-	have, err := q.Query(`select template_id t, position_index p, stack_size n, volume_override o from items where inventory_id=?`, b.Inv)
+	have, err := q.Query(`select position_index p, volume_override o from items where inventory_id=?`, b.Inv)
 	if err != nil {
 		return nil, err
 	}
@@ -271,12 +270,6 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		if negativeVolume(h["o"]) {
 			negative++
 		}
-		n, _ := toInt(h["n"])
-		if u, known := unitVolume(fmt.Sprint(h["t"]), h["o"]); known {
-			b.UsedVol += u * float64(n)
-		} else {
-			b.Unknown += n
-		}
 	}
 	if shared > 0 || beyond > 0 {
 		return refuse(fmt.Sprintf("has items in places the game would not use (%d stacks share a slot with another, %d lie beyond its %d slots), so it was not touched; put its contents in order in the game first", shared, beyond, b.Cap))
@@ -285,6 +278,9 @@ func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*m
 		return refuse(fmt.Sprintf("holds %d stacks with a volume of their own below 0, so its room cannot be worked out", negative))
 	}
 	b.Before = int64(len(have))
+	if b.UsedVol, b.Unknown, err = inventoryVolumeUsedInTx(q, b.Inv); err != nil {
+		return nil, err
+	}
 	return b, nil
 }
 
@@ -321,7 +317,7 @@ func namesRead(q baseQ) string {
 
 // freePos is the lowest free position of the box that has not been given out yet, or false when there is none.
 func (b *moveBox) freePos() (int64, bool) {
-	if int64(len(b.Used))+b.slotsTaken >= b.Cap {
+	if b.slotsTaken >= b.Free0 {
 		return 0, false
 	}
 	for b.nextPos < b.Cap && (b.Used[b.nextPos] || b.positionsTaken[b.nextPos]) {
@@ -333,8 +329,10 @@ func (b *moveBox) freePos() (int64, bool) {
 	return b.nextPos, true
 }
 
-func (b *moveBox) volumeFits(v float64) bool {
-	return b.VolLimit <= 0 || b.UsedVol+b.Volume+v <= b.VolLimit+1e-6
+// volumeFits says whether a whole stack of n units of unit volume still fits by volume next to what is in the box and what the move has already put there: the give's own count,
+// applied to the whole stack (stackFitsByVolume).
+func (b *moveBox) volumeFits(unit float64, n int64) bool {
+	return stackFitsByVolume(b.VolLimit, b.UsedVol+b.Volume, unit, n)
 }
 
 // digestColumns are every column of an item row except its place (inventory_id and position_index): what a move must leave exactly as it was. A test holds this list against the
@@ -407,7 +405,6 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 		return nil, apierr.Newf(apierr.ErrConflict, "The Reserve holds %s stacks, more than one move writes (%s). Nothing was changed.", commas(int64(len(rows))), commas(maxMoveReserveStacks))
 	}
 	p.Digest = contentDigest(rows)
-	unknownItems := map[string]int64{}
 	for _, r := range rows {
 		s := reserveStack{}
 		s.ID, _ = toInt(r["id"])
@@ -418,10 +415,9 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 			return nil, apierr.Newf(apierr.ErrConflict, "The Reserve holds a stack (item %d) with a volume of its own below 0, so the room in the boxes cannot be worked out. Nothing was changed.", s.ID)
 		}
 		if u, ok := unitVolume(s.Template, r["volume_override"]); ok {
-			s.Volume, s.Known = u*float64(s.Stack), true
+			s.Unit, s.Volume, s.Known = u, u*float64(s.Stack), true
 		} else {
-			p.Unknown += s.Stack
-			unknownItems[s.Template] += s.Stack
+			p.Unknown += s.Stack // counts as none, as in a give
 		}
 		p.Units += s.Stack
 		p.Volume += s.Volume
@@ -430,28 +426,13 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 	if len(p.Stacks) == 0 {
 		return p, nil
 	}
-	// A volume limit cannot be kept when some of what goes in has no known volume: the units would count as none and a box could be filled past its limit. So the move is refused
-	// whenever a box has a volume limit and the Reserve holds such units. There is no option to allow it.
-	if p.Unknown > 0 {
-		for _, b := range p.Boxes {
-			if b.VolLimit > 0 {
-				var names []string
-				for t, n := range unknownItems {
-					names = append(names, fmt.Sprintf("%s (%s units)", itemLabel(t), commas(n)))
-				}
-				sort.Strings(names)
-				return nil, apierr.Newf(apierr.ErrConflict, "%s units in the Reserve have no known volume (%s: the game's item table has none and the stacks have none of their own), so the volume limit of the box %q cannot be kept. Nothing was changed. Move those stacks by hand in the game, then ask again.",
-					commas(p.Unknown), strings.Join(names, ", "), b.Name)
-			}
-		}
-	}
-
-	// first fit: each row, in the Reserve's order, goes into the first box with a free slot and room by volume
+	// first fit: each row, in the Reserve's order, goes into the first box with a free slot (the give's count) and room by volume (the give's count, for the whole stack). Units with
+	// no known volume (cosmetics, uniques, placeables with no entry in the item table) count as none by volume and take one slot per stack, as in a give.
 	var left []reserveStack
 	for _, s := range p.Stacks {
 		placed := false
 		for i, b := range p.Boxes {
-			if !b.volumeFits(s.Volume) {
+			if !b.volumeFits(s.Unit, s.Stack) {
 				continue
 			}
 			pos, ok := b.freePos()
@@ -475,7 +456,7 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 		return nil, moveShortfall(p, left)
 	}
 	for _, b := range p.Boxes {
-		b.FreeSlots = b.Cap - int64(len(b.Used)) - b.Stacks
+		b.FreeSlots = b.Free0 - b.Stacks
 		b.FreeVolume = -1
 		if b.VolLimit > 0 {
 			b.FreeVolume = b.VolLimit - b.UsedVol - b.Volume
@@ -485,7 +466,7 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 		}
 	}
 	if p.Unknown > 0 {
-		p.Warnings = append(p.Warnings, fmt.Sprintf("%s units in the Reserve have no known volume; the boxes have no volume limit recorded, so no volume was checked.", commas(p.Unknown)))
+		p.Warnings = append(p.Warnings, fmt.Sprintf("%s units in the Reserve have no known volume and were counted as none (each stack still takes a slot), as Give item counts them.", commas(p.Unknown)))
 	}
 	return p, nil
 }
@@ -499,7 +480,7 @@ func moveShortfall(p *moveReservePlan, left []reserveStack) error {
 	var parts []string
 	var freeSlots int64
 	for _, b := range p.Boxes {
-		fs := b.Cap - int64(len(b.Used))
+		fs := b.Free0
 		freeSlots += fs
 		fv := "no volume limit"
 		if b.VolLimit > 0 {
