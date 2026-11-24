@@ -204,9 +204,10 @@ func TestConsoleFileRefusalsLeaveTheSaveAsItWas(t *testing.T) {
 		"a reference to an item that is not in the file": {func(h cf.Data, e *[]cf.Entry) {
 			cf.DataOf(*e, cf.EntChest)["components"] = cf.Data{"A": "!!itm@999"}
 		}, "not in the file"},
-		"an item in no inventory": {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, 12)["inventory_id"] = 4000 }, "not in the file"},
-		"a standing actor":        {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, cf.Chest)["state"] = "Normal" }, "BaseBackup"},
-		"an unknown field":        {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, cf.Chest)["account"] = 5 }, "does not know"},
+		"an item in no inventory":                           {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, 12)["inventory_id"] = 4000 }, "not in the file"},
+		"a piece with a health above the most its type has": {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, 18)["health"] = 99999 }, "the health of this building piece is 99999"},
+		"a standing actor":                                  {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, cf.Chest)["state"] = "Normal" }, "BaseBackup"},
+		"an unknown field":                                  {func(h cf.Data, e *[]cf.Entry) { cf.DataOf(*e, cf.Chest)["account"] = 5 }, "does not know"},
 		"a player's actor": {func(h cf.Data, e *[]cf.Entry) {
 			cf.DataOf(*e, cf.Chest)["class"] = "/Game/BP_PlayerCharacter.BP_PlayerCharacter_C"
 		}, "player"},

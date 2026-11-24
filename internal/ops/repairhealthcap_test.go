@@ -163,39 +163,27 @@ insert into placeables(id,health,building_type,owner_entity_id) values
 	}
 }
 
-// The overall caps and the per-type caps agree with the figures they were measured from, and a type name is quoted safely in the statement.
-func TestHealthCapsAreAboveWhatWasMeasured(t *testing.T) {
-	if MaxRepairPieceHealth != 8750 || MaxRepairPlaceableHealth != 25000 {
-		t.Fatalf("the overall caps are %v and %v", MaxRepairPieceHealth, MaxRepairPlaceableHealth)
-	}
-	for ty, seen := range pieceTypeHealthSeen {
-		if seen > pieceHealthSeen || healthCapOf(seen) > MaxRepairPieceHealth || healthCapOf(seen) < seen {
-			t.Errorf("%s: seen %v does not fit the caps of the pieces", ty, seen)
-		}
-	}
-	for ty, seen := range placeableTypeHealthSeen {
-		if seen > placeableHealthSeen || healthCapOf(seen) > MaxRepairPlaceableHealth || healthCapOf(seen) < seen {
-			t.Errorf("%s: seen %v does not fit the caps of the placeables", ty, seen)
-		}
-	}
+// A type name is quoted safely in the statement (the caps themselves are checked against the figures they were measured from in internal/policy).
+func TestACapValueQuotesATypeName(t *testing.T) {
 	if got := capValues(map[string]float64{"A'B": 100}); got != "('A''B',125)" {
 		t.Fatalf("a quote in a type name must be doubled: %s", got)
 	}
 }
 
-// A real import of a backup whose pieces carry a high (but in-range) health does not raise what Repair buildings writes to the pieces that stand.
+// A real import of a backup whose pieces carry the highest health the file check allows (the overall caps of the two tables) does not raise what Repair buildings writes to the
+// pieces that stand.
 func TestImportedHighHealthBackupDoesNotRaiseTheRepairTarget(t *testing.T) {
 	high := editFile(t, exportedFile(t), func(tb map[string][]map[string]any) {
 		for _, r := range tb["building_instances"] {
-			r["health"] = json.Number("900000")
+			r["health"] = json.Number("8750")
 		}
 		for _, r := range tb["placeables"] {
-			r["health"] = json.Number("900000")
+			r["health"] = json.Number("25000")
 		}
 	})
 	o := capOps(t)
 	mustImport(t, o, high)
-	if cnt(t, o, `select count(*) from building_instances where health=900000`) == 0 {
+	if cnt(t, o, `select count(*) from building_instances where health=8750`) == 0 {
 		t.Fatal("the imported pieces are not in the save")
 	}
 	if _, err := o.RepairBuildings(); err != nil {
