@@ -32,3 +32,21 @@ func danglingError(base, now map[string]int) error {
 	}
 	return fmt.Errorf("this edit would leave dangling references (%s%s); nothing was changed", strings.Join(bad, "; "), more)
 }
+
+// CheckJSON runs, inside the edit, the other check Mutate runs when the edit's function has returned: the JSON cells the edit wrote so far must be ones the game can read
+// (jsoncheck.go). Like CheckReferences it is for a preview that does the whole edit and rolls it back by returning an error. It only reads: the watch stays in place, so the
+// check at the end of an edit that goes on is the same as without this call.
+func (m *Mut) CheckJSON() error {
+	if m.jw == nil || len(m.jw.columns) == 0 {
+		return nil
+	}
+	n, err := m.jw.logged()
+	if err != nil || n == 0 {
+		return err
+	}
+	problems, err := m.jw.check()
+	if err != nil {
+		return err
+	}
+	return jsonProblemsError(problems)
+}

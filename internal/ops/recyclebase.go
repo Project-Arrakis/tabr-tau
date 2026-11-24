@@ -87,11 +87,11 @@ func recycleOtherRefs(q baseQ, actors, inventories string) ([]string, error) {
 		tbl, _ := f["tbl"].(string)
 		col, _ := f["col"].(string)
 		ref, _ := f["ref"].(string)
-		if recycleHandledRefs[tbl+"."+col+">"+ref] || !sqlNameRe.MatchString(tbl) || !sqlNameRe.MatchString(col) {
-			if !recycleHandledRefs[tbl+"."+col+">"+ref] {
-				return nil, apierr.Newf(apierr.ErrConflict, "The save has a table or column name this version cannot read (%s.%s), so what points at the base cannot be checked. Nothing was changed.", tbl, col)
-			}
+		if recycleHandledRefs[tbl+"."+col+">"+ref] {
 			continue
+		}
+		if !sqlNameRe.MatchString(tbl) || !sqlNameRe.MatchString(col) {
+			return nil, apierr.Newf(apierr.ErrConflict, "The save has a table or column name this version cannot read (%s.%s), so what points at the base cannot be checked. Nothing was changed.", tbl, col)
 		}
 		in := actors
 		switch ref {
@@ -186,6 +186,48 @@ func addCost(total, cost map[string]int64, n, percent int64) {
 	for item, c := range cost {
 		total[item] += unitCost(c, percent) * n
 	}
+}
+
+// refundTotals works out what the base gives back: for every piece type (rows of t, n) and every placeable type (rows of t, h, n) the cost of one unit times the count, by
+// the fixed rules. It returns the sum per item, the types the cost table does not know, and every type with its count (for the fingerprint), and it counts the pieces, the
+// holograms and the Developer storage containers into the plan.
+func refundTotals(p *recyclePlan, pieces, plcs []save.Row) (map[string]int64, []string, []string) {
+	total := map[string]int64{}
+	var missing, types []string
+	num := func(r save.Row, k string) int64 { n, _ := toInt(r[k]); return n }
+	for _, r := range pieces {
+		t, _ := r["t"].(string)
+		n := num(r, "n")
+		p.Pieces += n
+		types = append(types, fmt.Sprintf("b:%s=%d", t, n))
+		cost, ok := catalog.PieceCost(t)
+		if !ok {
+			missing = append(missing, t)
+			continue
+		}
+		addCost(total, cost, n, p.Percent)
+	}
+	for _, r := range plcs {
+		t, _ := r["t"].(string)
+		n := num(r, "n")
+		holo := num(r, "h") != 0
+		types = append(types, fmt.Sprintf("p:%s/%v=%d", t, holo, n))
+		switch {
+		case holo: // a hologram was not paid for
+			p.Holograms += n
+		case t == devStorageType:
+			p.DevStorage += n
+			total[devStorageItem] += devStorageAmount * n
+		default:
+			cost, ok := catalog.PlaceableCost(t)
+			if !ok {
+				missing = append(missing, t)
+				continue
+			}
+			addCost(total, cost, n, p.Percent)
+		}
+	}
+	return total, missing, types
 }
 
 // planBaseRecycle reads the save (or the edit's view of it) and works out what the recycle deletes, moves and gives back, or says why this base cannot be recycled. It writes nothing.
@@ -313,48 +355,15 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 	}
 
 	// The refund: every piece and placeable, from the game's building tables.
-	total := map[string]int64{}
-	var missing, types []string
 	pieces, err := q.Query(`select building_type t, count(*) n from building_instances where building_id in (` + bl + `) group by 1 order by 1`)
 	if err != nil {
 		return nil, err
-	}
-	for _, r := range pieces {
-		t, _ := r["t"].(string)
-		n := num(r, "n")
-		p.Pieces += n
-		types = append(types, fmt.Sprintf("b:%s=%d", t, n))
-		cost, ok := catalog.PieceCost(t)
-		if !ok {
-			missing = append(missing, t)
-			continue
-		}
-		addCost(total, cost, n, p.Percent)
 	}
 	plcs, err := q.Query(`select building_type t, is_hologram h, count(*) n from placeables where id in (` + idList(p.Actors) + `) group by 1,2 order by 1,2`)
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range plcs {
-		t, _ := r["t"].(string)
-		n := num(r, "n")
-		holo := num(r, "h") != 0
-		types = append(types, fmt.Sprintf("p:%s/%v=%d", t, holo, n))
-		switch {
-		case holo: // a hologram was not paid for
-			p.Holograms += n
-		case t == devStorageType:
-			p.DevStorage += n
-			total[devStorageItem] += devStorageAmount * n
-		default:
-			cost, ok := catalog.PlaceableCost(t)
-			if !ok {
-				missing = append(missing, t)
-				continue
-			}
-			addCost(total, cost, n, p.Percent)
-		}
-	}
+	total, missing, types := refundTotals(p, pieces, plcs)
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		return nil, apierr.Newf(apierr.ErrConflict, "The building cost of %s is not known to this version (the cost table has no entry), so what the base gives back cannot be worked out. Nothing was changed. Report the type so the table can be completed.", strings.Join(missing, ", "))
@@ -497,10 +506,10 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 }
 
 // PreviewBaseRecycle says what recycling this base would do: what is deleted, how many item stacks move to the Reserve, the refund per item, what is dropped, and the
-// fingerprint the write must be sent. It does the whole edit, reads it back, runs the save layer's own reference check on it (CheckReferences: the check a write gets when its
-// function has returned, which a rolled back edit would otherwise never reach) and rolls it back. So a base the plan refuses, a base whose read back differs and a base whose
-// edit would leave a dangling reference are all refused here, and nothing in the save changes. What a preview cannot see: the check of the JSON cells an edit wrote (this edit
-// writes none), and anything that changes in the save between the question and the answer (that is what the fingerprint is for).
+// fingerprint the write must be sent. It does the whole edit, reads it back, runs the save layer's two checks on it (CheckReferences and CheckJSON: the checks a write gets
+// when its function has returned, which a rolled back edit would otherwise never reach; the refund stacks carry items.stats, a JSON cell) and rolls it back. So a base the plan
+// refuses, a base whose read back differs and a base whose edit would leave a dangling reference or a JSON cell the game may not read are all refused here, and nothing in the
+// save changes. What a preview cannot see is anything that changes in the save between the question and the answer; that is what the fingerprint is for.
 func (o *Ops) PreviewBaseRecycle(totem int64) (any, error) { return o.recycleBase(totem, "", true) }
 
 // RecycleBase recycles the standing base with this totem: the base is deleted, what it stored and what it cost go to the character's Reserve. fingerprint is the one the
@@ -541,6 +550,10 @@ func (o *Ops) recycleBase(totem int64, want string, dry bool) (any, error) {
 			// The save layer checks the references of an edit when the edit's function has returned without an error. A preview ends with an error (to be rolled back), so
 			// it would never get there: the same check is run here, and a base the write would be refused for is refused when the question is asked.
 			if err := m.CheckReferences(); err != nil {
+				return apierr.Newf(apierr.ErrConflict, "This base cannot be recycled by this version: %v. Report this so the case can be covered.", err)
+			}
+			// The same for the JSON cells the edit wrote: the refund stacks carry items.stats, which the save layer checks at the end of a write.
+			if err := m.CheckJSON(); err != nil {
 				return apierr.Newf(apierr.ErrConflict, "This base cannot be recycled by this version: %v. Report this so the case can be covered.", err)
 			}
 			return errRecycleDry

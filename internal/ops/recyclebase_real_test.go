@@ -16,7 +16,7 @@ import (
 
 // An acceptance run on a real save (#1176). It is for the person who has one, and it skips unless the variables name it. It copies the save, recycles a standing base in the
 // copy with this editor, and checks the result against the pattern of the game's own recycle (the before and after pair of 2026-11-23): rows go from exactly the tables the game
-// deleted from (plus the three a standing base still has rows in), no table that the game left alone changes, no base backup row is written, every stored item row is in the
+// deleted from (plus the four a standing base can still have rows in), no table that the game left alone changes, no base backup row is written, every stored item row is in the
 // Reserve unchanged, and the refund is there as new rows. The copy is left where TABR_RECYCLE_OUT says, so that `tabr-tau diff` can compare it with the save it was made from.
 // The save is never read from the repository and nothing of it is kept here.
 //
