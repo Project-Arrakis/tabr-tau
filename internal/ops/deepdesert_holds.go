@@ -23,14 +23,13 @@ type HoldBase struct {
 	Y    float64 `json:"y"`
 }
 
-// HoldVehicle is a vehicle of the player (stored or placed) that is in the Deep Desert (or whose map cannot be read).
+// HoldVehicle is a vehicle of the player, standing in the world, that is in the Deep Desert (or whose map cannot be read). A stored vehicle is never one (see DeepDesertHolds).
 type HoldVehicle struct {
-	ID     int64   `json:"id"`
-	Name   string  `json:"name"`
-	Map    string  `json:"map"` // "" when the save does not say
-	Stored bool    `json:"stored"`
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
+	ID   int64   `json:"id"`
+	Name string  `json:"name"`
+	Map  string  `json:"map"` // "" when the save does not say
+	X    float64 `json:"x"`
+	Y    float64 `json:"y"`
 }
 
 // HoldCharacter says where the character is when that is the Deep Desert (or cannot be told).
@@ -58,13 +57,20 @@ func (h DeepDesertHolds) Blocked() bool {
 	return len(h.Bases) > 0 || h.Character != nil || len(h.Vehicles) > 0 || len(h.Problems) > 0
 }
 
+// BlockedBesidesVehicles is true when something other than a vehicle was found or could not be read. The layout roll takes the vehicles out itself (deepdesert_vehicles.go), but only
+// when nothing else stands in the way of the roll: a run that is going to refuse changes nothing.
+func (h DeepDesertHolds) BlockedBesidesVehicles() bool {
+	return len(h.Bases) > 0 || h.Character != nil || len(h.Problems) > 0
+}
+
 // DeepDesertHolds reads the player's bases, the character's place and the player's vehicles, and lists those in the Deep Desert.
 //
 //   - Bases: the totems the player owns (the owner rank, 1, in the totem's permission record) that stand in the world (not picked up with the game's tool: actor state 5). Other
 //     players' bases, and bases the player is only a member of, never count.
 //   - Character: the controller, the body and the player state; any of them in the Deep Desert counts, and so does a controller whose map is not recorded.
-//   - Vehicles: those the player owns (ownedVehicleSQL: the owner rank of the vehicle's permission record; the world's own vehicles have none), stored or placed, by the map of the
-//     vehicle's actor. A vehicle with no actor or no map counts. Vehicles that exist only as a row of the recovery or backup table, with no actor, have no map and are not counted.
+//   - Vehicles: those the player owns (ownedVehicleSQL: the owner rank of the vehicle's permission record; the world's own vehicles have none) and that stand in the world, by the map of
+//     the vehicle's actor. A vehicle with no actor or no map counts. A STORED vehicle (storedVehicleSQL: in the vehicle backup, state 2, or stored for recovery, state 4) does not
+//     count (#1174): it keeps the last place it stood but is not in the world, so a new layout cannot bury it. (Until #1174 it did count; that was the open question of the issue.)
 func (o *Ops) DeepDesertHolds() (DeepDesertHolds, error) {
 	h := DeepDesertHolds{Bases: []HoldBase{}, Vehicles: []HoldVehicle{}, Problems: []string{}}
 	p, err := o.player()
@@ -146,6 +152,9 @@ func (o *Ops) DeepDesertHolds() (DeepDesertHolds, error) {
 	}
 	for _, v := range vs {
 		h.Checked.Vehicles++
+		if st, _ := toInt(v["stored"]); st == 1 {
+			continue // stored: not in the world, whatever place it keeps
+		}
 		m, _ := v["map"].(string)
 		if m != "" && !isDeepDesertMap(m) {
 			continue
@@ -159,8 +168,7 @@ func (o *Ops) DeepDesertHolds() (DeepDesertHolds, error) {
 		if cls, _ := v["class"].(string); cls == "" {
 			name = "vehicle"
 		}
-		stored, _ := toInt(v["stored"])
-		h.Vehicles = append(h.Vehicles, HoldVehicle{ID: id, Name: name, Map: m, Stored: stored == 1, X: num(v["x"]), Y: num(v["y"])})
+		h.Vehicles = append(h.Vehicles, HoldVehicle{ID: id, Name: name, Map: m, X: num(v["x"]), Y: num(v["y"])})
 	}
 	return h, nil
 }

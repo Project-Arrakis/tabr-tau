@@ -193,7 +193,12 @@ type rowReader func(q string, args ...any) ([]save.Row, error)
 
 // loadPlaceWorld reads the pieces, placeables and vehicles within reach of (cx, cy) on the map, and the land claims. exclude is a vehicle that is being moved (its own old place is not an obstacle).
 func loadPlaceWorld(query rowReader, mapName string, dim int64, cx, cy float64, exclude int64) (*placeWorld, error) {
-	reach := placeMaxRadius + 4000
+	return loadPlaceWorldFar(query, mapName, dim, cx, cy, exclude, 0)
+}
+
+// loadPlaceWorldFar is loadPlaceWorld for a line of vehicles whose far end is `extra` farther out than a single vehicle's search reaches (placeLineNamed).
+func loadPlaceWorldFar(query rowReader, mapName string, dim int64, cx, cy float64, exclude int64, extra float64) (*placeWorld, error) {
+	reach := placeMaxRadius + 4000 + extra
 	x0, x1, y0, y1 := cx-reach, cx+reach, cy-reach, cy+reach
 	w := &placeWorld{mapName: mapName}
 	pieces, err := query(`select bi.building_id b, bi.building_type t, bi.location_x x, bi.location_y y, bi.location_z z, bi.rotation_x qx, bi.rotation_y qy, bi.rotation_z qz, bi.rotation_w qw
@@ -582,7 +587,8 @@ func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placem
 		passes = 2 // the front half, then the rest of each ring
 	}
 	for pass := 0; pass < passes; pass++ {
-		for ring := firstRing; ring <= placeMaxRadius; ring += placeStep {
+		// the search reaches 80 m from the character, and a line of vehicles reaches as much farther as the vehicles before this one take up (pose.Advance; 0 for a single vehicle)
+		for ring := firstRing; ring <= placeMaxRadius+pose.Advance; ring += placeStep {
 			if facingFirst && pass == 0 && ring > firstRing+placeFrontReach {
 				break
 			}
@@ -634,7 +640,7 @@ func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placem
 	if first != nil {
 		return *first, nil
 	}
-	return placement{}, apierr.Newf(apierr.ErrBadArgument, "there is no clear spot for a %s within %d m of the character: base pieces, buildings or other vehicles are in the way. Walk to open ground, or give a place", strings.ToLower(label), int(placeMaxRadius/100))
+	return placement{}, apierr.Newf(apierr.ErrBadArgument, "there is no clear spot for a %s within %d m of the character: base pieces, buildings or other vehicles are in the way. Walk to open ground, or give a place", strings.ToLower(label), int((placeMaxRadius+pose.Advance)/100))
 }
 
 func absInt(k int) int {
@@ -663,7 +669,24 @@ func sideOf(pose charPose, dx, dy float64) string {
 // placeLine puts several vehicles of the given sizes down in one go: the first as choosePlace does, each next one 12 m farther along the facing (more when the two footprints are wider), and every vehicle put down before it counts as an
 // obstacle, so none overlaps another (#480). It is for a caller that puts several vehicles down in one edit; the places come back in the order of the sizes.
 func placeLine(query rowReader, mapName string, dim int64, pose charPose, sizes []vehicleSize, exclude int64, label string) ([]placement, error) {
-	w, err := loadPlaceWorld(query, mapName, dim, pose.X, pose.Y, exclude)
+	labels := make([]string, len(sizes))
+	for k := range labels {
+		labels[k] = label
+	}
+	return placeLineNamed(query, mapName, dim, pose, sizes, labels, exclude)
+}
+
+// placeLineNamed is placeLine with a name for each vehicle (labels has one per size), so that the refusal for a vehicle with no clear spot names that vehicle (the layout roll, #1174).
+func placeLineNamed(query rowReader, mapName string, dim int64, pose charPose, sizes []vehicleSize, labels []string, exclude int64) ([]placement, error) {
+	if len(labels) != len(sizes) {
+		return nil, fmt.Errorf("placeLineNamed: %d names for %d vehicles (a bug)", len(labels), len(sizes))
+	}
+	// the world is read as far out as the far end of the line (the sum of the gaps between the vehicles)
+	far := 0.0
+	for k := 1; k < len(sizes); k++ {
+		far += math.Max(placeLineGap, sizes[k-1].Radius+sizes[k].Radius+2*placeMargin)
+	}
+	w, err := loadPlaceWorldFar(query, mapName, dim, pose.X, pose.Y, exclude, far)
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +696,7 @@ func placeLine(query rowReader, mapName string, dim int64, pose charPose, sizes 
 			// 12 m from the one before, or the two footprints and their margins when those are wider: a line, not a pile
 			pose.Advance += math.Max(placeLineGap, sizes[k-1].Radius+sz.Radius+2*placeMargin)
 		}
-		p, err := w.choose(pose, sz, label)
+		p, err := w.choose(pose, sz, labels[k])
 		if err != nil {
 			return nil, err
 		}
