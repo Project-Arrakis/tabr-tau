@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -169,6 +170,26 @@ update building_instances set location_x=5000,location_y=6000,location_z=7,rotat
 	}
 	after, _ := os.ReadFile(s2.Save.Path)
 	if string(before) != string(after) || len(s2.Save.Pending()) != 0 {
+		t.Fatal("a refusal wrote or queued something")
+	}
+}
+
+// The game allows one Reserve: both routes refuse while it holds a stack (#1202), with the words of the layout roll and the way out, and write or queue nothing.
+func TestRecycleRoutesRefuseWhileTheReserveHoldsAStack(t *testing.T) {
+	s := backupServer(t, recycleRouteWorld+`insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8000,12,7,0,'CopperOre',0,1790000000,'{}',0),(8001,12,3,1,'Stone',0,1790000000,'{}',0);`)
+	s.KeepPendingEdits(t.TempDir())
+	before, _ := os.ReadFile(s.Save.Path)
+	for _, w := range []*httptest.ResponseRecorder{
+		kitGet(t, s, "/api/bases/recycle-preview?base=601"),
+		kitGet(t, s, "/api/bases/recycle-preview?base=601&solido=1"),
+		postEdit(t, s, "/api/bases/recycle", `{"base_id":601,"fingerprint":"x"}`),
+	} {
+		if w.Code != 409 || !strings.Contains(w.Body.String(), "The Reserve is not empty (it holds 2 stack(s)) and no recycle can happen until it is empty") || !strings.Contains(w.Body.String(), "Move the Reserve into storage") {
+			t.Fatalf("%d %s", w.Code, w.Body.String())
+		}
+	}
+	after, _ := os.ReadFile(s.Save.Path)
+	if string(before) != string(after) || len(s.Save.Pending()) != 0 {
 		t.Fatal("a refusal wrote or queued something")
 	}
 }

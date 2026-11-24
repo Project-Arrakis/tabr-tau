@@ -21,7 +21,6 @@ import (
 // LargeWaterCistern_Placeable DuraluminumRod 115 + Silicone 120 + T4HarkSpiceSiloComponent1 20.
 const recycleWorld = `
 insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (12,2,33,-1,0.0);
-insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (8000,12,7,1,'CopperOre',0,1790000000,'{}',0,null);
 insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,dimension_index,state,serial,owner_account_id,properties) values
   (99,'/Game/BP_Other.BP_Other_C','HaggaBasin',0,0,0,0,0,0,1,0,0,1,1,jsonb('{}')),
   (601,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',5000.9,6000.4,7.7,0,0,0,1,0,0,10,1,jsonb('{}')),
@@ -197,13 +196,12 @@ func TestRecycleDeletesTheBaseAndReturnsEverythingToTheReserve(t *testing.T) {
 		if fmt.Sprint(pm) != "[map[h:222] map[h:333]]" || rmCount(t, o, o.S.MarkersTable()+` mk`) != 3 || r["markerRemoved"] != true {
 			t.Fatalf("markers: %v", pm)
 		}
-		// the Reserve receives the stored items unchanged: only the inventory and the position of a row change; the stack that was there keeps its place
-		moved, _ := o.S.Query(`select id, inventory_id inv, position_index pos, stack_size n, template_id t, is_new new, acquisition_time at, stats, quality_level q, volume_override v from items where id in (8000,9001,9002,9003,9005) order by id`)
-		wantMoved := "[map[at:1790000000 id:8000 inv:12 n:7 new:0 pos:1 q:0 stats:{} t:CopperOre v:<nil>] " +
-			"map[at:1790000001 id:9001 inv:12 n:300 new:0 pos:0 q:0 stats:{\"a\":1} t:CopperOre v:<nil>] " +
-			"map[at:1790000002 id:9002 inv:12 n:2 new:1 pos:2 q:3 stats:{\"FItemStackAndDurabilityStats\":[[],{\"CurrentDurability\":7.5}]} t:Knife v:<nil>] " +
-			"map[at:1790000003 id:9003 inv:12 n:40 new:0 pos:3 q:0 stats:{} t:WindTrapFilter4 v:2.5] " +
-			"map[at:1790000005 id:9005 inv:12 n:10 new:0 pos:4 q:0 stats:{} t:HeavyAmmo v:<nil>]]"
+		// the Reserve receives the stored items unchanged: only the inventory and the position of a row change (the Reserve is empty before a recycle, #1202)
+		moved, _ := o.S.Query(`select id, inventory_id inv, position_index pos, stack_size n, template_id t, is_new new, acquisition_time at, stats, quality_level q, volume_override v from items where id in (9001,9002,9003,9005) order by id`)
+		wantMoved := "[map[at:1790000001 id:9001 inv:12 n:300 new:0 pos:0 q:0 stats:{\"a\":1} t:CopperOre v:<nil>] " +
+			"map[at:1790000002 id:9002 inv:12 n:2 new:1 pos:1 q:3 stats:{\"FItemStackAndDurabilityStats\":[[],{\"CurrentDurability\":7.5}]} t:Knife v:<nil>] " +
+			"map[at:1790000003 id:9003 inv:12 n:40 new:0 pos:2 q:0 stats:{} t:WindTrapFilter4 v:2.5] " +
+			"map[at:1790000005 id:9005 inv:12 n:10 new:0 pos:3 q:0 stats:{} t:HeavyAmmo v:<nil>]]"
 		if fmt.Sprint(moved) != wantMoved {
 			t.Fatalf("moved items:\n%v\nwant\n%s", moved, wantMoved)
 		}
@@ -212,7 +210,7 @@ func TestRecycleDeletesTheBaseAndReturnsEverythingToTheReserve(t *testing.T) {
 		if fmt.Sprint(ref) != "[map[n:115 rows:1 t:DuraluminumRod] map[n:10 rows:1 t:IronBar] map[n:150 rows:1 t:ScrapMetal] map[n:120 rows:1 t:Silicone] map[n:52 rows:1 t:Stone] map[n:20 rows:1 t:T4HarkSpiceSiloComponent1]]" {
 			t.Fatalf("refund rows: %v", ref)
 		}
-		if rmCount(t, o, `items where inventory_id=12`) != 11 || rmCount(t, o, `(select distinct position_index from items where inventory_id=12)`) != 11 {
+		if rmCount(t, o, `items where inventory_id=12`) != 10 || rmCount(t, o, `(select distinct position_index from items where inventory_id=12)`) != 10 {
 			t.Fatal("every stack of the Reserve has its own position")
 		}
 		// vehicles are untouched, with what they hold; so are the other bases
@@ -527,8 +525,8 @@ func TestThePreviewRefusesAnEditThatWouldLeaveADanglingReference(t *testing.T) {
 
 // A Reserve with a slot limit (none was seen in a real save, where it is -1) that has no room for everything is a refusal, never a partial return.
 func TestAReserveWithNoRoomForEverythingIsRefused(t *testing.T) {
-	// the base returns 4 stored stacks and 6 refund stacks; the Reserve holds 1 stack already
-	o := recycleOps(t, `update inventories set max_item_count=10 where id=12;`)
+	// the base returns 4 stored stacks and 6 refund stacks; the Reserve is empty (a recycle needs that, #1202)
+	o := recycleOps(t, `update inventories set max_item_count=9 where id=12;`)
 	before := everything(t, o)
 	_, err := o.PreviewBaseRecycle(601)
 	refusedWith(t, err, apierr.ErrConflict, "The Reserve of this save has room for 9 stacks and the base returns 10")
@@ -536,8 +534,8 @@ func TestAReserveWithNoRoomForEverythingIsRefused(t *testing.T) {
 		t.Fatal("a refusal must change nothing")
 	}
 	// exactly enough room is enough
-	o2 := recycleOps(t, `update inventories set max_item_count=11 where id=12;`)
-	if r := recycle(t, o2, 601); r["itemStacksMoved"] != int64(4) || r["refundStacks"] != int64(6) || rmCount(t, o2, `items where inventory_id=12`) != 11 {
+	o2 := recycleOps(t, `update inventories set max_item_count=10 where id=12;`)
+	if r := recycle(t, o2, 601); r["itemStacksMoved"] != int64(4) || r["refundStacks"] != int64(6) || rmCount(t, o2, `items where inventory_id=12`) != 10 {
 		t.Fatalf("%v", r)
 	}
 }
@@ -583,5 +581,79 @@ delete from player_markers where marker_hash_id=111;`)
 	// the building actor and the placeables that belonged to nobody after the edit above are not this base's: they stay
 	if rmCount(t, o, `actors where id in (602,701,702,703,704,705,706)`) != 7 {
 		t.Fatal("actors that are not the base's were deleted")
+	}
+}
+
+// The game allows one Reserve, so Recycle base refuses while it holds any stack (#1202), in the question and in the write, with the words of the layout roll and a pointer to the move
+// into storage. An empty Reserve behaves as it always did, and so does the Solido option.
+const reserveStacks = `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values
+  (8000,12,7,1,'CopperOre',0,1790000000,'{}',0,null),(8001,12,3,2,'Stone',0,1790000000,'{}',0,null),(8002,12,1,3,'Knife',0,1790000000,'{}',0,null);`
+
+func TestARecycleIsRefusedWhileTheReserveHoldsAStack(t *testing.T) {
+	for name, c := range map[string]struct {
+		extra string
+		n     int
+	}{
+		"one stack":      {reserveStacks[:strings.Index(reserveStacks, ",(8001")] + ";", 1},
+		"several stacks": {reserveStacks, 3},
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, opt := range []RecycleOptions{{RequireEmptyReserve: true}, {Solido: true, RequireEmptyReserve: true}} {
+				o := recycleOps(t, c.extra)
+				before := everything(t, o)
+				want := fmt.Sprintf("The Reserve is not empty (it holds %d stack(s)) and no recycle can happen until it is empty", c.n)
+				_, err := o.PreviewBaseRecycleWith(601, opt)
+				refusedWith(t, err, apierr.ErrConflict, want)
+				if !strings.Contains(err.Error(), "Move the Reserve into storage") || !strings.Contains(err.Error(), "Nothing was changed") || !strings.Contains(err.Error(), ReserveNotEmptyWhy(int64(c.n))[1:]) {
+					t.Fatalf("the refusal points at the move into storage: %v", err)
+				}
+				_, err = o.RecycleBaseWith(601, "any", opt)
+				refusedWith(t, err, apierr.ErrConflict, want)
+				if everything(t, o) != before || len(o.S.Ops()) != 0 || len(o.S.Pending()) != 0 {
+					t.Fatal("a refusal must change nothing")
+				}
+			}
+		})
+	}
+}
+
+func TestARecycleIsAllowedWhenTheReserveIsEmptyAndTheSolidoIsUnaffected(t *testing.T) {
+	o := recycleOps(t, "")
+	if r := recycle(t, o, 601); r["ok"] != true || r["itemStacksMoved"] != int64(4) || r["refundStacks"] != int64(6) {
+		t.Fatalf("%v", r)
+	}
+	// the rule counts stacks in the Reserve only: a stack in the backpack or in a chest is not in the way
+	o2 := recycleOps(t, `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (8100,1,5,30,'Stone',0,1790000000,'{}',0,null);`)
+	if r := recycle(t, o2, 601); r["ok"] != true {
+		t.Fatalf("%v", r)
+	}
+}
+
+// The game may save a change to the Reserve between the question and the write: the write plans again inside its own transaction and refuses, whatever the question saw.
+func TestARecycleIsRefusedAtWriteTimeWhenTheQuestionSawAnEmptyReserve(t *testing.T) {
+	o := recycleOps(t, "")
+	pv, err := o.PreviewBaseRecycle(601)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testsave.Exec(t, o.S, reserveStacks)
+	before, pending := everything(t, o), len(o.S.Pending())
+	_, err = o.RecycleBase(601, pv.(map[string]any)["fingerprint"].(string))
+	refusedWith(t, err, apierr.ErrConflict, "The Reserve is not empty (it holds 3 stack(s)) and no recycle can happen until it is empty")
+	if everything(t, o) != before || len(o.S.Pending()) != pending {
+		t.Fatal("a refused write changed the save")
+	}
+	// emptied again, the same question's answer is good: the refusal was about the Reserve, not about the base
+	testsave.Exec(t, o.S, `delete from items where inventory_id=12;`)
+	if _, err := o.RecycleBase(601, pv.(map[string]any)["fingerprint"].(string)); err != nil {
+		t.Fatalf("an emptied Reserve recycles with the same question: %v", err)
+	}
+}
+
+// The layout roll does not set the option: it asks about its bases before it moves the Reserve into the boxes and keeps its own rule (internal/layoutroll), so its question is not refused here.
+func TestTheLayoutRollsQuestionWithoutTheOptionIsNotRefusedForAReserveThatHoldsStacks(t *testing.T) {
+	o := recycleOps(t, reserveStacks)
+	if _, err := o.PreviewBaseRecycleWith(601, RecycleOptions{Solido: true}); err != nil {
+		t.Fatal(err)
 	}
 }

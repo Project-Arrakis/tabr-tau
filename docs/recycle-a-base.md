@@ -28,6 +28,7 @@ project's operator, not a copy of the game.
    Reserve. A base in use changes all the time (water, fuel, a chest you open), so a recycle queued while you play is likely to be dropped. The editor says so when it happens
    and nothing is recycled; ask again with the game closed.
 2. Let every crafting queue in the base finish, or cancel it in the game. A base with a running queue is refused.
+   **The Reserve must be empty.** The game allows one Reserve, so no base is recycled while it holds any stack. If an earlier recycle left stacks in it, press [Move the Reserve into storage](#move-the-reserve-into-two-storage-boxes) first: it empties the Reserve into your two storage boxes. Pressing Recycle base with a Reserve that is not empty is refused with "the Reserve is not empty (it holds N stack(s)) and no recycle can happen until it is empty", and nothing is changed.
 3. Press **Recycle base** on the base. The editor works out the whole edit and asks first: it does the edit, reads it back, runs the save's reference check and its check of stored JSON on it and undoes
    it, so a base that cannot be recycled is refused here, before any question. Nothing has been written at this point. The question lists:
    - how many building pieces and placeables are deleted;
@@ -178,13 +179,14 @@ included. One base at a time (the layout roll can recycle several bases in a row
 - a base that a row of any other table of the save points at (for example a game event, a spawner's actor, a travelling actor): the message names the table and the number
   of rows. Every reference the save's own layout declares to an actor, an inventory or an entity is looked up, so nothing is left pointing at a row that is gone;
 - a building actor that also holds pieces of another base;
-- a save in which the character does not have exactly one Reserve.
+- a save in which the character does not have exactly one Reserve;
+- a Reserve that holds any stack (#1202): the game allows one Reserve, so no further base can be recycled until it is emptied. The question and the write both refuse, and the write checks again inside its own transaction, so a Reserve change the game saved in between is caught. Use Move the Reserve into storage to empty it.
 
 ### The refund: 100% of the building cost
 
 For every building piece and every placeable of the base, the refund is what the game's own building tables say one unit costs to place, in the same items (Granite Stone,
 Salvaged Metal, ingots, components). The amounts are summed per item and written to the Reserve as new stacks of the item's own stack size (500 for building materials), the
-last stack holding the rest. Existing stacks in the Reserve are not topped up: the game's own recycle also wrote new stacks.
+last stack holding the rest. The Reserve is empty when a recycle starts (see above), so every stack in it afterwards is the base's own stored items or the refund.
 
 Materials are not split further. The cost of a refinery is returned as the ingots and components it was built from, not as ore and water.
 
@@ -372,7 +374,7 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 - **A Solido is optional, and its numbering is not the game's.** See [Make a Solido first](#make-a-solido-of-the-base-first-option). The editor never reads or places a Solido,
   and it does not check that one exists before a recycle without the box.
 - **Storage boxes as the destination are a separate step.** A recycle puts everything into the Reserve; [Move the Reserve into storage](#move-the-reserve-into-two-storage-boxes) empties it into two
-  named boxes afterwards (#1191). The recycle button itself does one base and leaves the Reserve full; only the layout roll does both in one run, base after base (next item).
+  named boxes afterwards (#1191). The recycle button itself does one base and leaves the Reserve full, and **it refuses the next base until the Reserve is emptied** (the game allows one Reserve, #1202): press Move the Reserve into storage between two recycles. Only the layout roll does both in one run, base after base (next item).
   The weekly layout roll (`layout-roll --recycle-bases`, #1167) recycles the Deep Desert bases of the character one at a time, each with its Solido, and needs the Reserve to be empty before each base: it empties the Reserve into the boxes named `DD-1` and `DD-2` between the bases (and after the last one), on the same working copy and with the same move, so several bases go in one run when the boxes have room. When a box is missing or full it recycles the bases that fit and stops before the roll; a re-run continues.
 - **The game's own recycle returns about half.** The editor returns everything, by the operator's choice. A base recycled here gives more than the same base recycled in the
   game. An "as the game does" mode is not built: the game's rate and rounding are known from one base only.

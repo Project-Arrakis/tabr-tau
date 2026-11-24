@@ -26,6 +26,18 @@ type InventoryRoom struct {
 	VolumeNote string `json:"volumeNote"` // why the volume was not checked, when it was not
 }
 
+// ReserveNotEmptyWhy is why no base can be recycled while the Reserve holds stacks (#1202). The game allows one Reserve: the operator's rule is that a recycle needs it empty. The words
+// are the layout roll's own, so that the manual Recycle base and the roll say the same thing.
+func ReserveNotEmptyWhy(stacks int64) string {
+	return fmt.Sprintf("the Reserve is not empty (it holds %d stack(s)) and no recycle can happen until it is empty", stacks)
+}
+
+// ReserveNotEmptyRefusal is the refusal of Recycle base (its question and its write) for a Reserve that holds stacks, with where to empty it.
+func ReserveNotEmptyRefusal(stacks int64) error {
+	why := ReserveNotEmptyWhy(stacks)
+	return apierr.Newf(apierr.ErrConflict, "%s%s. Use Move the Reserve into storage (Player > Bases) to empty it into your two storage boxes, then ask again. Nothing was changed.", strings.ToUpper(why[:1]), why[1:])
+}
+
 // RecycleRoom is the room the three destinations have now.
 type RecycleRoom struct {
 	Reserve  InventoryRoom `json:"reserve"`
