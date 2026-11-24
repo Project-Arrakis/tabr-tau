@@ -821,6 +821,14 @@ func (s *Server) routes() {
 		}
 		return o.RecycleBaseWith(id, a.Str("fingerprint"), ops.RecycleOptions{Solido: a.Bool("solido", false)})
 	})
+	// Move the Reserve into two storage boxes the person named (#1191). The preview reads and changes nothing (it is the edit, rolled back); the write is the ordinary edit (written
+	// after a backup, or queued while a game process exists) and must be sent the fingerprint the preview gave. The boxes are found by the name the person gave them in the game.
+	s.get("/api/bases/move-reserve-preview", func(r *http.Request) (any, error) {
+		return o.PreviewMoveReserve([]string{r.URL.Query().Get("box1"), r.URL.Query().Get("box2")}, ops.MoveReserveOptions{})
+	})
+	s.post("/api/bases/move-reserve", func(a ops.Args) (any, error) {
+		return o.MoveReserve([]string{a.Str("box1"), a.Str("box2")}, a.Str("fingerprint"), ops.MoveReserveOptions{})
+	})
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
 	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
 	s.get("/api/bases/list", func(r *http.Request) (any, error) { return o.BaseList() })

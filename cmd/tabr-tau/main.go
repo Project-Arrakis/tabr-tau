@@ -45,6 +45,9 @@ Usage:
                                         --recycle-bases recycles your Deep Desert bases first, one at a time with a Solido each, instead of refusing while one stands: see docs/help/deep-desert-layout-roll.md)
   tabr-tau diff <before> <after> [--tables a,b] [--ignore-tables a,b] [--ignore-columns t.c,c] [--noise] [--float-eps E] [--max-rows N] [--no-redact]
                                         row- and JSON-path-level diff of two saves (read-only; ids redacted by default)
+  tabr-tau move-reserve [--boxes "DD-1,DD-2"] [--dry-run]
+                                        move every stack of your character's Reserve into the two Developer storage boxes you named in the game (whole and unchanged,
+                                        one all-or-nothing edit; --dry-run says what would happen and writes nothing; refuses while the game runs; --save names the save)
 
 Flags:
 `, versionLine())
@@ -311,6 +314,8 @@ func runCommand(args []string, cfgDir, savePath string) error {
 		return runDiff(args[1:])
 	case "licenses":
 		fmt.Print(notices.Text)
+	case "move-reserve":
+		return runMoveReserve(args[1:], savePath, os.Stdout, realMoveReserveEnv())
 	case "layout-roll":
 		return runLayoutRoll(args[1:], cfgDir, os.Stdout, realLayoutRollOptions(savePath))
 	default:
