@@ -6,9 +6,56 @@
 | `stacks.json` | For 221 item template ids, the most of the item one inventory slot holds (`{"max": {"<template id>": n}}`) | The game's own item tables: the base item rows, `StackAndDurability.MaxStackSize`. Only items that stack are listed | #240, 2026-10-22 |
 | `volumes.json` | For 4,210 item template ids, the volume of one unit (`{"size": {"<template id>": n}}`; 1,760 are above 0, the rest are listed with no volume) | The game's own item tables: the base item rows of the 20 `DT_BaseItems_*` tables, `StaticData.ItemSize` (no row has an `ItemSizeOverride`). 17 ids that two tables list with different sizes (`D_Turret`, `Thumper`, `Stilltent`, `RespawnBeacon`, `D_Totem`, the seismic probes and thumpers, three Halloween 2026 clothing variants) are left out, not guessed | #357, 2026-10-24 |
 | `customization_unlocks.json` | For 392 cosmetic item template ids, the customization ids that using the item unlocks (625 entries, 614 distinct ids) | The game's own item table `DT_ItemTableCustomizations`, `CustomizationItemStats.UnlockableCustomizations` | #216, 2026-10-20 |
+| `buildcosts.json` | For 752 building piece types and 527 placeable types, what one unit costs to place (`{"pieces": {"<building type>": {"<item template id>": n}}, "placeables": {...}}`), and for the one map that has its own, the share of that cost a piece costs there (`"placementCostPercent": {"DeepDesert": 50}`) | The game's own building data tables: the type's row (`DT_BuildingData_*`, `DT_PlaceableData_*`) names a group and a tier, and the group table (`DT_BuildableGroupData_Building`, `DT_BuildableGroupData_Placeable`) gives `m_PlacementCosts` for that tier; the map's row in `DT_BuildableMapRegion` gives `m_PlacementCostMultiplier`. Game build `26592269`, read on 2026-11-23 | #1176, 2026-11-23 |
 
 `stacks.json`, `volumes.json` and `customization_unlocks.json` contain only the game's identifiers and integers: no names, text, images or code. They are
 read by `catalog.go` (`MaxStack`, `Volume`, `Unlocks`) and nothing else.
+
+## buildcosts.json (#1176)
+
+**What it is.** The placement cost of one building piece and of one placeable, by type, as the game's own tables list it: item template ids and whole numbers, nothing else (no
+names, text, images or code). Recycle base (`internal/ops/recyclebase.go`) reads it through `buildcosts.go` (`PieceCost`, `PlaceableCost`, `PlacementCostPercent`) to give back
+what a base cost. Nothing else reads it.
+
+**Source.** The game's own data tables of game build `26592269` (the installed game's Steam manifest, `appmanifest_1172710.acf`, read on 2026-11-23), all under
+`DuneSandbox/Content/Dune/Systems/Building/Data/`:
+
+| Table | What is taken |
+|---|---|
+| `BuildingData/DT_BuildingData_<Set>` (10 tables: Atreides, Blockout, Choam, Choam_Level2, Choam_Shelter, Harkonnen, MiniSets, Sardaukar, Smugglers, Watershippers) | The row name is `building_instances.building_type` of a save. `m_BuildableGroupType` and `m_BuildableTier` |
+| `PlaceableData/DT_PlaceableData_Functional`, `_Functional_1510`, `_Functional_PolarCap`, `_Decoration` | The row name is `placeables.building_type`. The same two fields. `DT_PlaceableData_Vehicle` is not read: vehicles are not part of a base's recycle |
+| `BuildableGroupData/DT_BuildableGroupData_Building`, `_Placeable` | `m_BuildableTierData[<tier>].m_PlacementCosts`: item id to amount |
+| `DT_BuildableMapRegion` | Per map, `m_DefaultRegionData.m_DefaultModifiers.m_PlacementCostMultiplier`: 0.5 for `DeepDesert` (a piece costs half there), -1 (the game's default, the full cost) for `HaggaBasin` |
+
+The rule is a two-step lookup: `cost(type) = group table[row.m_BuildableGroupType].tiers[row.m_BuildableTier].m_PlacementCosts`. No table of the game holds a recycle or refund
+amount per piece.
+
+**How it was extracted, and what is repeatable.** Two steps.
+
+1. *Table dumps (a one-off extraction, not repeatable from this repository).* The tables were read from the installed game's content files, read-only, with a one-off reader:
+   it wrote each table's raw bytes and its list of names, and a short script read the tagged properties of every row into one JSON file per table (a row name to its fields; a
+   map property as a list of `{"key", "value"}` pairs). The usual table dumps of a content-file reader do not show these costs, because they are map properties that need the
+   game's own property layout to read; that is why the rows were read from the raw bytes. Neither the reader nor the script is in this repository. To redo this step a person
+   needs: the installed game (its `Content/Paks` folder), a reader of Unreal Engine 5.2 IoStore containers that can give a data table's raw export bytes and name map, and a
+   reader of Unreal's tagged property format (name, type, size, value; `MapProperty`, `StructProperty`, `ArrayProperty`, `NameProperty`, `IntProperty`) to turn each row into
+   JSON of the shape above. Nothing in the game is changed by reading its files.
+2. *From the dumps to the file (repeatable).* `tools/buildcostsgen` reads the folder of dumps and writes the file; its comment gives the rule and the shape of the input:
+   `go run ./tools/buildcostsgen -dumps <folder of dumps> -build 26592269 -read 2026-11-23 -out internal/catalog/buildcosts.json`. The same dumps give the same file, byte for byte.
+
+**What the run left out.** One placeable type has a row and no cost in the tables (`Ladder_Placeable`: its tier is not in its group), and one test row (`MLS_TEST`) is listed
+by two tables with different costs. Neither is in the file. A type that is not in the file is never treated as free: Recycle base refuses a base that holds one and names the type.
+
+**How it was checked.** Every building piece type and every placeable type of two real single-player saves (72 and 69 types across four bases, among them a base of 2,141
+pieces in 64 types and 254 placeables in 57 types) has an entry. The one base the game's own recycle was measured on (23 pieces, a totem, a door, a silo) costs Stone 242 and
+ScrapMetal 75 by this file; the game returned Stone 125 and ScrapMetal 37, about half (`TestTheMeasuredBaseCostsWhatTheResearchFound`). 20 of the 41 item ids that appear as a
+cost (deployables such as `Stilltent` and `Thumper`, which cost one of themselves) have no entry in `stacks.json`; a refund in such an item is a stack of one when the item
+catalog knows the id and a refusal when it does not.
+
+**Not checked.** That the game charges exactly these amounts when a piece is placed (the amounts are the table's; no placement was checked against an inventory in the game),
+and how the game rounds half of an odd cost in the Deep Desert (Recycle base rounds a half up, per unit).
+
+**Licence position.** As for the other files of this folder that come from the game's tables: identifiers and whole numbers only; the game and its data belong to Funcom and
+this project is unofficial. The notice is in `internal/notices/THIRD-PARTY-NOTICES.md` ("Building costs").
 
 **How `items.json` was refreshed (#405, 2026-10-25).** Copied from the console fork at commit `82548d72` (`runtime/data/admin-items.json`, git blob `ecffc834`; the fork had merged the upstream release v1.4.52 by then). The one item the earlier copy (fork commit `ca3f4cd7`, blob `2746a605`) lacked is `MTX_IxianTotem_Patent`, "Ixian Icon", a building set. Its id is also in the game's own item tables (it has a row in `volumes.json`), so it is an
 item of the game and not only of the console. The ids and names, categories, sources and DLC names of the other 2,558 items were already the same as in the fork's file. What the refresh added

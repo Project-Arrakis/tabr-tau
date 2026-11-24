@@ -1,0 +1,3959 @@
+{
+ "build": "26592269",
+ "read": "2026-11-23",
+ "placementCostPercent": {
+  "DeepDesert": 50
+ },
+ "pieces": {
+  "Atreides_Garage_Door_Frame": {
+   "Plastone": 25
+  },
+  "Atreides_Outpost_Column": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Column_Corner": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Door_Frame": {
+   "Plastone": 10
+  },
+  "Atreides_Outpost_Door_Frame_Tall": {
+   "Plastone": 10
+  },
+  "Atreides_Outpost_Door_Frame_Wide": {
+   "Plastone": 25
+  },
+  "Atreides_Outpost_Door_Frame_Wide_02": {
+   "Plastone": 25
+  },
+  "Atreides_Outpost_Floor": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Floor_Round_Corner": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Floor_Round_Corner_Inverted": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Floor_Triangle_Wide_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Floor_Triangle_Wide_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Floor_Wedge": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Foundation": {
+   "Plastone": 18
+  },
+  "Atreides_Outpost_Foundation_Round_Corner": {
+   "Plastone": 18
+  },
+  "Atreides_Outpost_Foundation_Wedge": {
+   "Plastone": 18
+  },
+  "Atreides_Outpost_Gate_Big": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Hatch": {
+   "Plastone": 10
+  },
+  "Atreides_Outpost_Ladder": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Passageway": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Pillar_Bottom": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Pillar_Middle": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Pillar_Top": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_PrudenceDoor_Frame": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Railing": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Railing_Gate": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Railing_Inclined": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Railing_Inclined_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Railing_Round_Corner": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Corner": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Corner_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Corner_Half_Inward": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Corner_Inward": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Edge_Wide_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Edge_Wide_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Ramp_Wide": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Corner_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Corner_Half_Inward": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Cover_Bottom_Half_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Cover_Bottom_Half_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Cover_Top_Half_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Cover_Top_Half_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Round_Corner_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Wedge_Bottom_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Roof_Wedge_Top_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Rooftop_01": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Rooftop_02": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Rooftop_Round_Corner": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Rooftop_Round_Corner_Inverted": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Rooftop_Wedge": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stair_Wide": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stairs": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stairs_Corner": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stairs_Corner_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stairs_Corner_Half_Inward": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stairs_Corner_Inward": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Stairs_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_01": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_02": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_03": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_04": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Inclined_Wide_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Inclined_Wide_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Round_Corner_01": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Round_Corner_02": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Round_Corner_03": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Round_Corner_Half": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Bottom_Half_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Bottom_Half_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Bottom_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Bottom_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Top_Half_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Top_Half_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Top_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Top_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Top_Wide_Left": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Wall_Triangle_Top_Wide_Right": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Window_01": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Window_02": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Window_03": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Window_04": {
+   "Plastone": 12
+  },
+  "Blockout_Arch": {
+   "Stone": 12
+  },
+  "Blockout_Column": {
+   "Stone": 8
+  },
+  "Blockout_Column_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Door_Frame": {
+   "Stone": 5
+  },
+  "Blockout_Door_Frame_Garage": {
+   "Stone": 16
+  },
+  "Blockout_Door_Frame_Tall": {
+   "Stone": 5
+  },
+  "Blockout_Door_Frame_Wide": {
+   "Stone": 16
+  },
+  "Blockout_Floor": {
+   "Stone": 8
+  },
+  "Blockout_Floor_Round_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Floor_Round_Corner_Inverted": {
+   "Stone": 8
+  },
+  "Blockout_Floor_Triangle_Wide_Left": {
+   "Stone": 8
+  },
+  "Blockout_Floor_Triangle_Wide_Right": {
+   "Stone": 8
+  },
+  "Blockout_Floor_Wedge": {
+   "Stone": 8
+  },
+  "Blockout_Foundation": {
+   "Stone": 12
+  },
+  "Blockout_Foundation_Round_Corner": {
+   "Stone": 12
+  },
+  "Blockout_Foundation_Wedge": {
+   "Stone": 12
+  },
+  "Blockout_Gate_Big": {
+   "Stone": 8
+  },
+  "Blockout_Hatch": {
+   "Stone": 5
+  },
+  "Blockout_Ladder": {
+   "Stone": 8
+  },
+  "Blockout_Passageway": {
+   "Stone": 8
+  },
+  "Blockout_Pillar_Bottom": {
+   "Stone": 8
+  },
+  "Blockout_Pillar_Middle": {
+   "Stone": 8
+  },
+  "Blockout_Pillar_Top": {
+   "Stone": 8
+  },
+  "Blockout_Railing": {
+   "Stone": 8
+  },
+  "Blockout_Railing_Gate": {
+   "Stone": 8
+  },
+  "Blockout_Railing_Inclined": {
+   "Stone": 8
+  },
+  "Blockout_Railing_Inclined_Half": {
+   "Stone": 8
+  },
+  "Blockout_Railing_Round_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Ramp": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Corner_Half": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Corner_Half_Inward": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Corner_Inward": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Edge_Wide_Left": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Edge_Wide_Right": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Half": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Wedge_Bottom": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Wedge_Top": {
+   "Stone": 8
+  },
+  "Blockout_Ramp_Wide": {
+   "Stone": 8
+  },
+  "Blockout_Roof": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Corner_Half": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Corner_Half_Inward": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Corner_Inward": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Bottom_Half_Left": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Bottom_Half_Right": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Bottom_Left": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Bottom_Right": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Top_Half_Left": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Top_Half_Right": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Top_Left": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Cover_Top_Right": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Half": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Round_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Round_Corner_Half": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Wedge_Bottom": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Wedge_Bottom_Half": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Wedge_Top": {
+   "Stone": 8
+  },
+  "Blockout_Roof_Wedge_Top_Half": {
+   "Stone": 8
+  },
+  "Blockout_Rooftop": {
+   "Stone": 8
+  },
+  "Blockout_Stair_Wide": {
+   "Stone": 8
+  },
+  "Blockout_Stairs": {
+   "Stone": 8
+  },
+  "Blockout_Stairs_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Stairs_Corner_Half": {
+   "Stone": 8
+  },
+  "Blockout_Stairs_Corner_Half_Inward": {
+   "Stone": 8
+  },
+  "Blockout_Stairs_Corner_Inward": {
+   "Stone": 8
+  },
+  "Blockout_Stairs_Half": {
+   "Stone": 8
+  },
+  "Blockout_Tower": {
+   "Stone": 8
+  },
+  "Blockout_Wall": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Corner_Tall": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Half": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Inclined_Tall": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Inclined_Wide_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Inclined_Wide_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Protuding": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Round_Corner": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Round_Corner_Half": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Bottom_Half_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Bottom_Half_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Bottom_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Bottom_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Bottom_Tall_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Bottom_Tall_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Half_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Half_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Tall_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Tall_Right": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Wide_Left": {
+   "Stone": 8
+  },
+  "Blockout_Wall_Triangle_Top_Wide_Right": {
+   "Stone": 8
+  },
+  "Blockout_Window": {
+   "Stone": 8
+  },
+  "Blockout_Window_Round_Corner": {
+   "Stone": 8
+  },
+  "Choam_Level2_Column": {
+   "Stone": 10
+  },
+  "Choam_Level2_Column_Corner": {
+   "Stone": 10
+  },
+  "Choam_Level2_Door_Frame": {
+   "Stone": 7
+  },
+  "Choam_Level2_Door_Frame_Wide": {
+   "Stone": 20
+  },
+  "Choam_Level2_Floor": {
+   "Stone": 10
+  },
+  "Choam_Level2_Floor_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Level2_Floor_Round_Corner_Inverted": {
+   "Stone": 10
+  },
+  "Choam_Level2_Floor_Wedge": {
+   "Stone": 10
+  },
+  "Choam_Level2_Foundation": {
+   "Stone": 15
+  },
+  "Choam_Level2_Foundation_Round_Corner": {
+   "Stone": 15
+  },
+  "Choam_Level2_Foundation_Wedge": {
+   "Stone": 15
+  },
+  "Choam_Level2_Garage_Door_Frame": {
+   "Stone": 20
+  },
+  "Choam_Level2_Hatch": {
+   "Stone": 7
+  },
+  "Choam_Level2_Ladder": {
+   "Stone": 10
+  },
+  "Choam_Level2_Passageway": {
+   "Stone": 10
+  },
+  "Choam_Level2_Pillar_Bottom": {
+   "Stone": 10
+  },
+  "Choam_Level2_Pillar_Middle": {
+   "Stone": 10
+  },
+  "Choam_Level2_Pillar_Top": {
+   "Stone": 10
+  },
+  "Choam_Level2_PrudenceDoor": {
+   "Stone": 10
+  },
+  "Choam_Level2_Railing": {
+   "Stone": 10
+  },
+  "Choam_Level2_Railing_Gate": {
+   "Stone": 10
+  },
+  "Choam_Level2_Railing_Inclined": {
+   "Stone": 10
+  },
+  "Choam_Level2_Railing_Inclined_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Railing_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Level2_Ramp": {
+   "Stone": 10
+  },
+  "Choam_Level2_Ramp_Corner": {
+   "Stone": 10
+  },
+  "Choam_Level2_Ramp_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Ramp_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Choam_Level2_Ramp_Corner_Inward": {
+   "Stone": 10
+  },
+  "Choam_Level2_Ramp_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Cover_Bottom_Half_Left": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Cover_Bottom_Half_Right": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Round_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Wedge_Bottom_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Roof_Wedge_Top_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Rooftop_01": {
+   "Stone": 10
+  },
+  "Choam_Level2_Rooftop_02": {
+   "Stone": 10
+  },
+  "Choam_Level2_Rooftop_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Level2_Rooftop_Round_Corner_Inverted": {
+   "Stone": 10
+  },
+  "Choam_Level2_Rooftop_Wedge": {
+   "Stone": 10
+  },
+  "Choam_Level2_Stairs": {
+   "Stone": 10
+  },
+  "Choam_Level2_Stairs_Corner": {
+   "Stone": 10
+  },
+  "Choam_Level2_Stairs_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Stairs_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Choam_Level2_Stairs_Corner_Inward": {
+   "Stone": 10
+  },
+  "Choam_Level2_Stairs_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_01": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_02": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Round_Corner_01": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Round_Corner_02": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Round_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Bottom_Half_Left": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Bottom_Half_Right": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Top_Half_Left": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Top_Half_Right": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "Choam_Level2_Wall_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "Choam_Level2_Window_01": {
+   "Stone": 10
+  },
+  "Choam_Level2_Window_02": {
+   "Stone": 10
+  },
+  "Choam_Level2_Window_Round_Corner_01": {
+   "Stone": 10
+  },
+  "Choam_Level2_Window_Round_Corner_02": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Column": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Column_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Column_Corner_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Column_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Door_Frame": {
+   "Stone": 7
+  },
+  "Choam_Shelter_Door_Frame_New": {
+   "Stone": 5
+  },
+  "Choam_Shelter_Door_Frame_Wide_New": {
+   "Stone": 16
+  },
+  "Choam_Shelter_Floor": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Floor_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Floor_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Floor_Round_Corner_Inverted": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Floor_Round_Corner_Inverted_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Floor_Round_Corner_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Floor_Wedge": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Floor_Wedge_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Foundation": {
+   "Stone": 15
+  },
+  "Choam_Shelter_Foundation_New": {
+   "Stone": 12
+  },
+  "Choam_Shelter_Foundation_Round_Corner": {
+   "Stone": 15
+  },
+  "Choam_Shelter_Foundation_Round_Corner_New": {
+   "Stone": 12
+  },
+  "Choam_Shelter_Foundation_Wedge": {
+   "Stone": 15
+  },
+  "Choam_Shelter_Foundation_Wedge_New": {
+   "Stone": 12
+  },
+  "Choam_Shelter_Hatch": {
+   "Stone": 7
+  },
+  "Choam_Shelter_Hatch_New": {
+   "Stone": 5
+  },
+  "Choam_Shelter_Ladder": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ladder_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Passageway_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Pillar_Bottom": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Pillar_Bottom_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Pillar_Middle": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Pillar_Middle_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Pillar_Top": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Pillar_Top_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_PrudenceDoor_Frame": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Railing": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Railing_Gate": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Railing_Gate_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Railing_Inclined": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Railing_Inclined_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Railing_Inclined_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Railing_Inclined_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Railing_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Railing_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Railing_Round_Corner_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Ramp": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ramp_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ramp_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ramp_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ramp_Corner_Half_Inward_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Ramp_Corner_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Ramp_Corner_Inward": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ramp_Corner_Inward_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Ramp_Corner_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Ramp_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Ramp_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Ramp_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Corner_Half_Inward_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Corner_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Cover_Bottom_Half_Left": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Cover_Bottom_Half_Right": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Cover_Half_Left_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Cover_Half_Right_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Round_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Round_Corner_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Wedge_Bottom": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Wedge_Bottom_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Roof_Wedge_Top": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Roof_Wedge_Top_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Rooftop": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Rooftop_02": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Rooftop_02_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Rooftop_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Rooftop_Round_Corner_Inverted_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Rooftop_Round_Corner_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Rooftop_Wedge_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Stairs": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Stairs_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Stairs_Corner_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Stairs_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Stairs_Corner_Half_Inward_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Stairs_Corner_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Stairs_Corner_Inward": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Stairs_Corner_Inward_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Stairs_Corner_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Stairs_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Stairs_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Stairs_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_01": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_01_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_02": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_02_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_03_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Half": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Round_Corner": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Round_Corner_01_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Round_Corner_02_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Round_Corner_Half_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Half_Left": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Half_Left_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Half_Right": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Half_Right_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Left_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Bottom_Right_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Half_Left": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Half_Left_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Half_Right": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Half_Right_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Left_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Wall_Triangle_Top_Right_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Window": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Window_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Window_Round_Corner_01": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Window_Round_Corner_01_New": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Window_Round_Corner_02": {
+   "Stone": 10
+  },
+  "Choam_Shelter_Window_Round_Corner_02_New": {
+   "Stone": 8
+  },
+  "Harkonnen_Garage_Door_Frame": {
+   "Plastone": 25
+  },
+  "Harkonnen_Outpost_Column": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Column_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Door_Frame": {
+   "Plastone": 10
+  },
+  "Harkonnen_Outpost_Door_Frame_Tall": {
+   "Plastone": 10
+  },
+  "Harkonnen_Outpost_Door_Frame_Wide": {
+   "Plastone": 25
+  },
+  "Harkonnen_Outpost_Floor": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Floor_Round_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Floor_Round_Inverted": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Floor_Wedge": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Foundation": {
+   "Plastone": 18
+  },
+  "Harkonnen_Outpost_Foundation_Round_Corner": {
+   "Plastone": 18
+  },
+  "Harkonnen_Outpost_Foundation_Wedge": {
+   "Plastone": 18
+  },
+  "Harkonnen_Outpost_Gate_Big": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Hatch": {
+   "Plastone": 10
+  },
+  "Harkonnen_Outpost_Ladder": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Passageway": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Pillar_Bottom": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Pillar_Middle": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Pillar_Top": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_PrudenceDoor_Frame": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Railing": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Railing_Gate": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Railing_Inclined": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Railing_Inclined_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Railing_Round_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Ramp": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Ramp_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Ramp_Corner_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Ramp_Corner_Half_Inward": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Ramp_Corner_Inward": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Ramp_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_01": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_02": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Corner_Inward": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Cover_Bottom_Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Cover_Bottom_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Round_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Wedge_Bottom": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Roof_Wedge_Top": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Rooftop": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Rooftop_02": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Rooftop_Round_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Rooftop_Round_Inverted": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Rooftop_Wedge": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Stairs": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Stairs_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Stairs_Corner_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Stairs_Corner_Half_Inward": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Stairs_Corner_Inward": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Stairs_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Tower": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_01": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_02": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_03": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_04": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Corner_Tall": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Inclined_Tall": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Round_Corner": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Round_Corner_02": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Round_Corner_03": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Round_Corner_Half": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Bottom_Half_Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Bottom_Half_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Bottom_Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Bottom_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Bottom_Tall_Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Bottom_Tall_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Top_Half-Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Top_Half_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Top_Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Top_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Top_Tall_Left": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Wall_Triangle_Top_Tall_Right": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Window": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Window_Round_Corner": {
+   "Plastone": 12
+  },
+  "LandingPad_Floor": {
+   "Stone": 10
+  },
+  "LandingPad_Floor_Round_Corner": {
+   "Stone": 10
+  },
+  "LandingPad_Wall": {
+   "Stone": 10
+  },
+  "LandingPad_Wall_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "MTX_Atre_BreakfastRoom_Floor": {
+   "Stone": 8
+  },
+  "MTX_Atre_BreakfastRoom_FloorRoundCorner": {
+   "Stone": 8
+  },
+  "MTX_Atre_BreakfastRoom_WallRoundCorner": {
+   "Stone": 8
+  },
+  "MTX_Atre_BreakfastRoom_Wall_01": {
+   "Stone": 8
+  },
+  "MTX_Atreides_Outpost_Bookshelf": {
+   "Stone": 8
+  },
+  "MTX_Atreides_Outpost_DoorFrame": {
+   "Stone": 8
+  },
+  "MTX_Atreides_Outpost_FloorLight_Movie": {
+   "Stone": 8
+  },
+  "MTX_Atreides_Outpost_Window_Movie": {
+   "Stone": 8
+  },
+  "MTX_B1C5_Choam_Level2Extention_Column": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Column_Corner": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Floor_01": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Passageway_01": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Rooftop_01": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Wall_01": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Wall_02": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Wall_03": {
+   "Stone": 10
+  },
+  "MTX_B1C5_Choam_Level2Extention_Wall_Round_Corner": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Column": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Column_02": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Door": {
+   "Stone": 7
+  },
+  "MTX_Choam_TwitchReward_Floor": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Floor_Round": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Foundation": {
+   "Stone": 15
+  },
+  "MTX_Choam_TwitchReward_Foundation_Round_Corner": {
+   "Stone": 15
+  },
+  "MTX_Choam_TwitchReward_Half_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Half_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Half_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Half_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Hatch": {
+   "Stone": 7
+  },
+  "MTX_Choam_TwitchReward_Ladder": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Passageway": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Pillar_Bottom": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Pillar_Middle": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Pillar_Top": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Railing_01": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Railing_Corner_Round": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Railing_Gate": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Railing_Inclined": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Roof_Corner": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Roof_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Roof_Corner_Round": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Roof_Half": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Rooftop": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Stairs": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Stairs_Corner": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Stairs_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Wall_01": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Wall_02": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Wall_Half": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Wall_Round": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Window_01": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Window_Round": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Center_Column": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Corner_Column": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Door_Frame_Wide": {
+   "Stone": 20
+  },
+  "MTX_Neut_DesertMechanic_Floor": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Floor_Wedge": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Foundation": {
+   "Stone": 15
+  },
+  "MTX_Neut_DesertMechanic_Foundation_Wedge": {
+   "Stone": 15
+  },
+  "MTX_Neut_DesertMechanic_Garage_Door_Frame": {
+   "Stone": 20
+  },
+  "MTX_Neut_DesertMechanic_Passageway": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Prudence_Door_Frame": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Railing": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Ramp": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Rooftop": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Rooftop_Corner": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Rooftop_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Staircase": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Wall": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Wall_02": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Wall_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Wall_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Wall_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Wall_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Window_01": {
+   "Stone": 10
+  },
+  "MTX_Neut_Gunner_Column": {
+   "Stone": 10
+  },
+  "MTX_Neut_Gunner_Floor": {
+   "Stone": 10
+  },
+  "MTX_Neut_Gunner_Foundation": {
+   "Stone": 15
+  },
+  "MTX_Neut_Gunner_Railing_01": {
+   "Stone": 10
+  },
+  "MTX_Neut_Gunner_Railing_02": {
+   "Stone": 10
+  },
+  "MTX_Neut_Gunner_Railing_Round_Corner": {
+   "Stone": 10
+  },
+  "MTX_Neut_JailSet_Door_Frame": {
+   "Stone": 7
+  },
+  "MTX_Neut_JailSet_Floor": {
+   "Stone": 10
+  },
+  "MTX_Neut_JailSet_Foundation": {
+   "Stone": 15
+  },
+  "MTX_Neut_JailSet_Wall_01": {
+   "Stone": 10
+  },
+  "MTX_Neut_JailSet_Wall_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Column": {
+   "Stone": 10
+  },
+  "MTX_Smug_Corner_Column": {
+   "Stone": 10
+  },
+  "MTX_Smug_Door_Frame": {
+   "Stone": 7
+  },
+  "MTX_Smug_Door_Frame_Wide": {
+   "Stone": 20
+  },
+  "MTX_Smug_Floor": {
+   "Stone": 10
+  },
+  "MTX_Smug_Floor_Round_Corner": {
+   "Stone": 10
+  },
+  "MTX_Smug_Floor_Round_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Smug_Floor_Wedge": {
+   "Stone": 10
+  },
+  "MTX_Smug_Foundation": {
+   "Stone": 15
+  },
+  "MTX_Smug_Foundation_Round_Corner": {
+   "Stone": 15
+  },
+  "MTX_Smug_Foundation_Wedge": {
+   "Stone": 15
+  },
+  "MTX_Smug_Garage_Door_Frame": {
+   "Stone": 20
+  },
+  "MTX_Smug_Hatch": {
+   "Stone": 7
+  },
+  "MTX_Smug_Ladder": {
+   "Stone": 10
+  },
+  "MTX_Smug_Passageway": {
+   "Stone": 10
+  },
+  "MTX_Smug_Pillar_Bottom": {
+   "Stone": 10
+  },
+  "MTX_Smug_Pillar_Middle": {
+   "Stone": 10
+  },
+  "MTX_Smug_Pillar_Top": {
+   "Stone": 10
+  },
+  "MTX_Smug_Prudence_Door_Frame": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing_Gate": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing_Inclined_Half_Left": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing_Inclined_Left": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing_Inclined_Right": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing_Inclined_Right_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Railing_Round_Corner": {
+   "Stone": 10
+  },
+  "MTX_Smug_Ramp": {
+   "Stone": 10
+  },
+  "MTX_Smug_Ramp_Corner": {
+   "Stone": 10
+  },
+  "MTX_Smug_Ramp_Corner_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Ramp_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Smug_Ramp_Corner_Inverted_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Ramp_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Corner_Half_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Corner_Half_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Corner_Half_Inverted_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Corner_Half_Inverted_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Cover_Bottom_Half_L": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Cover_Bottom_Half_R": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Half_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Half_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Round_Corner_Half_01_A": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Round_Corner_Half_01_B": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Round_Corner_Half_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Roof_Wedge_Bottom_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Rooftop_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Rooftop_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Rooftop_Round_Corner": {
+   "Stone": 10
+  },
+  "MTX_Smug_Rooftop_Round_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Smug_Rooftop_Wedge": {
+   "Stone": 10
+  },
+  "MTX_Smug_Rooftop_Wedge_Top_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Stairs": {
+   "Stone": 10
+  },
+  "MTX_Smug_Stairs_Corner": {
+   "Stone": 10
+  },
+  "MTX_Smug_Stairs_Corner_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Stairs_Corner_Inverted": {
+   "Stone": 10
+  },
+  "MTX_Smug_Stairs_Corner_Inverted_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Stairs_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_03": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_04": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Round_Corner_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Round_Corner_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Round_Corner_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Bottom_Left_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Bottom_Right_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Top_Left_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "MTX_Smug_Wall_Triangle_Top_Right_Half": {
+   "Stone": 10
+  },
+  "MTX_Smug_Window_01": {
+   "Stone": 10
+  },
+  "MTX_Smug_Window_02": {
+   "Stone": 10
+  },
+  "MTX_Smug_Window_Round_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Column": {
+   "Stone": 10
+  },
+  "Sardaukar_Column_corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Door_Frame": {
+   "Stone": 7
+  },
+  "Sardaukar_Door_Frame_L": {
+   "Stone": 7
+  },
+  "Sardaukar_Door_Frame_Tall": {
+   "Stone": 7
+  },
+  "Sardaukar_Door_Frame_Tall_L": {
+   "Stone": 7
+  },
+  "Sardaukar_Door_Frame_Wide": {
+   "Stone": 20
+  },
+  "Sardaukar_Floor": {
+   "Stone": 10
+  },
+  "Sardaukar_Floor_02": {
+   "Stone": 10
+  },
+  "Sardaukar_Floor_Round_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Floor_Round_Corner_02": {
+   "Stone": 10
+  },
+  "Sardaukar_Floor_Round_Inverted": {
+   "Stone": 10
+  },
+  "Sardaukar_Floor_Wedge": {
+   "Stone": 10
+  },
+  "Sardaukar_Foundation": {
+   "Stone": 15
+  },
+  "Sardaukar_Foundation_Round_Corner": {
+   "Stone": 15
+  },
+  "Sardaukar_Foundation_Wedge": {
+   "Stone": 15
+  },
+  "Sardaukar_Garage_Door_Frame": {
+   "Stone": 20
+  },
+  "Sardaukar_Passageway": {
+   "Stone": 10
+  },
+  "Sardaukar_Pillar_Bottom": {
+   "Stone": 10
+  },
+  "Sardaukar_Pillar_Middle": {
+   "Stone": 10
+  },
+  "Sardaukar_Pillar_Top": {
+   "Stone": 10
+  },
+  "Sardaukar_PrudenceDoor_Frame": {
+   "Stone": 10
+  },
+  "Sardaukar_PrudenceDoor_Frame_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Railing": {
+   "Stone": 10
+  },
+  "Sardaukar_Railing_Gate": {
+   "Stone": 10
+  },
+  "Sardaukar_Railing_Inclined": {
+   "Stone": 10
+  },
+  "Sardaukar_Railing_Inclined_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Railing_Round_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Ramp": {
+   "Stone": 10
+  },
+  "Sardaukar_Ramp_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Ramp_Corner_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Ramp_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Sardaukar_Ramp_Corner_Inward": {
+   "Stone": 10
+  },
+  "Sardaukar_Ramp_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_01": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_02": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_02_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_03": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_03_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_Corner_Inward": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_Round_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_Wedge_Bottom": {
+   "Stone": 10
+  },
+  "Sardaukar_Roof_Wedge_Top": {
+   "Stone": 10
+  },
+  "Sardaukar_Rooftop_01": {
+   "Stone": 10
+  },
+  "Sardaukar_Rooftop_02": {
+   "Stone": 10
+  },
+  "Sardaukar_Rooftop_Round_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Rooftop_Round_Inverted": {
+   "Stone": 10
+  },
+  "Sardaukar_Rooftop_Wedge": {
+   "Stone": 10
+  },
+  "Sardaukar_Stairs": {
+   "Stone": 10
+  },
+  "Sardaukar_Stairs_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Stairs_Corner_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Stairs_Corner_Half_Inward": {
+   "Stone": 10
+  },
+  "Sardaukar_Stairs_Corner_Inward": {
+   "Stone": 10
+  },
+  "Sardaukar_Stairs_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_01": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_02": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_02_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_03": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Inclined_Corner_Tall": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Inclined_Corner_Tall_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Inclined_Tall_01": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Inclined_Tall_01_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Inclined_Tall_02": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Inclined_Tall_02_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Round_Corner": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Round_Corner_Half": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Bottom_Half_Left": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Bottom_Half_Right": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Bottom_Left": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Bottom_Right": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Bottom_Tall_Left": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Bottom_Tall_Right": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Top_Half_Left": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Top_Half_Right": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Top_Left": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Top_Right": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Top_Tall_Left": {
+   "Stone": 10
+  },
+  "Sardaukar_Wall_Triangle_Top_Tall_Right": {
+   "Stone": 10
+  },
+  "Sardaukar_Window": {
+   "Stone": 10
+  },
+  "Sardaukar_Window_Inclined_Tall": {
+   "Stone": 10
+  },
+  "Sardaukar_Window_Inclined_Tall_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Window_L": {
+   "Stone": 10
+  },
+  "Sardaukar_Window_Round_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Arch_01": {
+   "Stone": 15
+  },
+  "Watershippers_Column": {
+   "Stone": 10
+  },
+  "Watershippers_Corner_Column": {
+   "Stone": 10
+  },
+  "Watershippers_Door_Frame": {
+   "Stone": 7
+  },
+  "Watershippers_Door_Frame_Wide": {
+   "Stone": 20
+  },
+  "Watershippers_Floor_01": {
+   "Stone": 10
+  },
+  "Watershippers_Floor_02": {
+   "Stone": 10
+  },
+  "Watershippers_Floor_Round_Corner_01": {
+   "Stone": 10
+  },
+  "Watershippers_Floor_Round_Corner_02": {
+   "Stone": 10
+  },
+  "Watershippers_Floor_Round_Corner_In": {
+   "Stone": 10
+  },
+  "Watershippers_Foundation": {
+   "Stone": 15
+  },
+  "Watershippers_Foundation_Round_Corner": {
+   "Stone": 15
+  },
+  "Watershippers_Garage_Door_Big_Frame": {
+   "Stone": 20
+  },
+  "Watershippers_Passageway": {
+   "Stone": 10
+  },
+  "Watershippers_Pillar_Bottom": {
+   "Stone": 10
+  },
+  "Watershippers_Pillar_Middle": {
+   "Stone": 10
+  },
+  "Watershippers_Pillar_Top": {
+   "Stone": 10
+  },
+  "Watershippers_Prudence_Door_Frame": {
+   "Stone": 10
+  },
+  "Watershippers_Railing": {
+   "Stone": 10
+  },
+  "Watershippers_Railing_Gate": {
+   "Stone": 10
+  },
+  "Watershippers_Railing_Inclined_L": {
+   "Stone": 10
+  },
+  "Watershippers_Railing_Inclined_R": {
+   "Stone": 10
+  },
+  "Watershippers_Railing_Round_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Ramp": {
+   "Stone": 10
+  },
+  "Watershippers_Ramp_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Ramp_Corner_Inwards": {
+   "Stone": 10
+  },
+  "Watershippers_Roof_01": {
+   "Stone": 10
+  },
+  "Watershippers_Roof_02": {
+   "Stone": 10
+  },
+  "Watershippers_Roof_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Roof_Corner_In": {
+   "Stone": 10
+  },
+  "Watershippers_Roof_Round_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Rooftop_01": {
+   "Stone": 10
+  },
+  "Watershippers_Rooftop_02": {
+   "Stone": 10
+  },
+  "Watershippers_Stairs": {
+   "Stone": 10
+  },
+  "Watershippers_Stairs_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Stairs_Corner_In": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_01": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_02": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_03": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Half": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Bottom_Half_L": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Bottom_Half_R": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Bottom_L": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Bottom_R": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Top_Half_L": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Top_Half_R": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Top_L": {
+   "Stone": 10
+  },
+  "Watershippers_Wall_Triangle_Top_R": {
+   "Stone": 10
+  },
+  "Watershippers_Window_01": {
+   "Stone": 10
+  },
+  "Watershippers_Window_02": {
+   "Stone": 10
+  },
+  "Watershippers_Window_Round_Corner": {
+   "Stone": 10
+  },
+  "Watershippers_Window_Wide": {
+   "Stone": 10
+  }
+ },
+ "placeables": {
+  "AdvancedWeaponsFabricator_Placeable": {
+   "CobaltBar": 110,
+   "Silicone": 150,
+   "T2MachineComponent": 80,
+   "T5FactionBaseComponent1": 30,
+   "T6RefinedResourceA": 115
+  },
+  "AdvancedWearablesFabricator_Placeable": {
+   "CobaltBar": 110,
+   "Silicone": 150,
+   "T2HeavyComponent": 90,
+   "T2MachineComponent": 80,
+   "T6RefinedResourceA": 115
+  },
+  "Advanced_SurvivalFabricator_Placeable": {
+   "CobaltBar": 110,
+   "Silicone": 150,
+   "T2MachineComponent": 80,
+   "T5DeepDesertShieldWallComponent": 25,
+   "T6RefinedResourceA": 115
+  },
+  "Advanced_VehiclesFabricator_Placeable": {
+   "CobaltBar": 110,
+   "Silicone": 150,
+   "T2MachineComponent": 80,
+   "T4HarkSpiceSiloComponent1": 40,
+   "T6RefinedResourceA": 115
+  },
+  "Atre_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Atre_Bed_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Cabinet_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Carpet_01_Placeable": {
+   "PlantFiber": 50
+  },
+  "Atre_Carpet_02_Placeable": {
+   "PlantFiber": 50
+  },
+  "Atre_Chair_1_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Chair_2_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Chandelier_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "Atre_CouchCorner_1_Placeable": {
+   "Stone": 50
+  },
+  "Atre_CouchCorner_In_1_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Couch_1_Placeable": {
+   "Stone": 50
+  },
+  "Atre_DLC_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Atre_Deco_Books_01_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Books_02_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Books_03_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Glass_Bowl_Placeable": {
+   "Plastone": 25
+  },
+  "Atre_Deco_Glass_Carafe_Placeable": {
+   "Plastone": 25
+  },
+  "Atre_Deco_Glass_Cup_Placeable": {
+   "Plastone": 25
+  },
+  "Atre_Deco_Glass_SpiceJar_Placeable": {
+   "Plastone": 25
+  },
+  "Atre_Deco_Hologram_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Plate_01_Placeable": {
+   "Plastone": 25
+  },
+  "Atre_Deco_Plate_02_Placeable": {
+   "Plastone": 25
+  },
+  "Atre_Deco_Trophy_01_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Vase_01_A_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Vase_01_B_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Vase_01_C_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Vase_02_A_Placeable": {
+   "Stone": 25
+  },
+  "Atre_Deco_Vase_02_B_Placeable": {
+   "Stone": 25
+  },
+  "Atre_DiningTable_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Emperor_Painting_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Garage_Door_Placeable": {
+   "Stone": 10
+  },
+  "Atre_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Atre_LightCeiling_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "Atre_LightFloor_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Atre_LightWall_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Atre_OfficeTable_Placeable": {
+   "Stone": 50
+  },
+  "Atre_PlateDeco_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Shelves_01_Placeable": {
+   "Stone": 50
+  },
+  "Atre_SideTable_Placeable": {
+   "Stone": 50
+  },
+  "Atre_SmallStorageDrawer_Placeable": {
+   "Stone": 50
+  },
+  "Atre_StandingLight_01_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Atre_StandingLight_02_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Atre_WallArt_01_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Atre_WallPartition_Placeable": {
+   "Stone": 50
+  },
+  "Atre_Wardrobe_Placeable": {
+   "Stone": 50
+  },
+  "Atreides_Chair_01_Placeable": {
+   "Stone": 50
+  },
+  "Atreides_DoorTall_Placeable": {
+   "Plastone": 12
+  },
+  "Atreides_DoorWide_Placeable": {
+   "Plastone": 12
+  },
+  "Atreides_Outpost_Door_Placeable": {
+   "Plastone": 12
+  },
+  "Atreides_PrudenceDoor_S_Placeable": {
+   "AluminiumBar": 20
+  },
+  "Atreides_TableSide_01_Placeable": {
+   "Stone": 50
+  },
+  "Atreides_TableSide_02_Placeable": {
+   "Stone": 50
+  },
+  "Atreides_Table_01_Placeable": {
+   "Stone": 50
+  },
+  "Atreides_Table_Big_01_Placeable": {
+   "Stone": 50
+  },
+  "Atreides_TrapDoor_Placeable": {
+   "Plastone": 12
+  },
+  "B1C5_MTX_ReverendMotherRoom_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "B1C5_MTX_ReverendMotherRoom_Carpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "B1C5_MTX_ReverendMotherRoom_Chair_01_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_ReverendMotherRoom_Chair_02_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_ReverendMotherRoom_TableRound_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_ReverendMotherRoom_Table_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "B1C5_MTX_Sardaukar_Bed_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Books_01_Placeable": {
+   "Stone": 25
+  },
+  "B1C5_MTX_Sardaukar_Books_02_Placeable": {
+   "Stone": 25
+  },
+  "B1C5_MTX_Sardaukar_Books_03_Placeable": {
+   "Stone": 25
+  },
+  "B1C5_MTX_Sardaukar_Carpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "B1C5_MTX_Sardaukar_Chair_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Chandelier_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "B1C5_MTX_Sardaukar_Couch_Corner_In_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Couch_Corner_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Couch_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_DiningTable_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "B1C5_MTX_Sardaukar_LightTable_Placeable": {
+   "ScrapMetal": 25
+  },
+  "B1C5_MTX_Sardaukar_Shelves_01_Placeable": {
+   "Stone": 50
+  },
+  "B1C5_MTX_Sardaukar_Trophy_Placeable": {
+   "Stone": 25
+  },
+  "B1C5_MTX_Sardaukar_WallLamp_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Banner_Atreides_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Banner_Harkonnen_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Banner_Smuggler_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Beta_Plaque_Placeable": {
+   "Stone": 50
+  },
+  "BloodWaterExtractionAdvanced_Placeable": {
+   "IronBar": 50,
+   "Silicone": 16,
+   "T2MachineComponent": 20
+  },
+  "BloodWaterExtractor_Placeable": {
+   "ScrapMetal": 70
+  },
+  "CamouflagedStilltent_Placeable": {
+   "CamouflagedStilltent": 1
+  },
+  "CeilingGlowGlobe_Player": {
+   "ScrapMetal": 25
+  },
+  "Chair_1_Placeable": {
+   "Stone": 50
+  },
+  "Chair_2_Placeable": {
+   "Stone": 50
+  },
+  "Chair_3_Placeable": {
+   "Stone": 50
+  },
+  "ChoamOutpostCeilingLamp_1_Placeable": {
+   "ScrapMetal": 25
+  },
+  "ChoamOutpostFloorLamp_1_Placeable": {
+   "ScrapMetal": 25
+  },
+  "ChoamOutpostWallLamp_1_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Choam_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Choam_Bed_Placeable": {
+   "Stone": 50
+  },
+  "Choam_Carpet_01_Placeable": {
+   "PlantFiber": 50
+  },
+  "Choam_Carpet_02_Placeable": {
+   "PlantFiber": 50
+  },
+  "Choam_Chair_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_CouchBlend_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_CouchBlend_2_Placeable": {
+   "Stone": 50
+  },
+  "Choam_CouchCorner_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_CouchCorner_In_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_Couch_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_Deco_Books_01_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Books_02_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Books_03_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Bowl_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Carafe_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Cup_01_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Cup_02_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Hologram_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Plate_01_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Plate_02_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_SpiceJar_Placeable": {
+   "Plastone": 25
+  },
+  "Choam_Deco_Trophy_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Vase_01A_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Vase_01B_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Vase_02A_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Vase_02B_Placeable": {
+   "Stone": 25
+  },
+  "Choam_Deco_Vase_03_Placeable": {
+   "Stone": 25
+  },
+  "Choam_DiningTable_Placeable": {
+   "Stone": 50
+  },
+  "Choam_Door_S_SquishUp_Placeable": {
+   "Stone": 8
+  },
+  "Choam_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Choam_Level2_Door_Placeable": {
+   "Stone": 10
+  },
+  "Choam_Level2_Garage_Door_Placeable": {
+   "Stone": 10
+  },
+  "Choam_Level2_TrapDoor_Placeable": {
+   "Stone": 10
+  },
+  "Choam_LightCeiling_01_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "Choam_LightCeiling_02_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "Choam_LightFloor_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Choam_LightWall_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Choam_OfficeTable_Placeable": {
+   "Stone": 50
+  },
+  "Choam_PentashieldSurfaceHorizontalPlacementCorner_Placeable": {
+   "CobaltBar": 20,
+   "SteelBar": 2,
+   "T3MiningGalleryComponent1": 6
+  },
+  "Choam_PentashieldSurfaceHorizontal_Placeable": {
+   "CobaltBar": 20,
+   "SteelBar": 2,
+   "T3MiningGalleryComponent1": 6
+  },
+  "Choam_PentashieldSurfaceVerticalPlacementCorner_Placeable": {
+   "CobaltBar": 20,
+   "SteelBar": 2,
+   "T3MiningGalleryComponent1": 6
+  },
+  "Choam_PentashieldSurfaceVertical_Placeable": {
+   "CobaltBar": 20,
+   "SteelBar": 2,
+   "T3MiningGalleryComponent1": 6
+  },
+  "Choam_PrudenceDoor_S_Placeable": {
+   "IronBar": 20
+  },
+  "Choam_Shelter_DoorWide_Placeable": {
+   "Stone": 8
+  },
+  "Choam_Shelter_Door_Placeable": {
+   "Stone": 8
+  },
+  "Choam_Shelter_TrapDoor_Placeable": {
+   "Stone": 7
+  },
+  "Choam_Shelves_01_Placeable": {
+   "Stone": 50
+  },
+  "Choam_SideTable_Placeable": {
+   "Stone": 50
+  },
+  "Choam_SmallStorageDrawer_Placeable": {
+   "Stone": 50
+  },
+  "Choam_StandingLight_01_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Choam_StandingLight_02_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Choam_TrapDoor_S_Placeable": {
+   "Stone": 7
+  },
+  "Choam_WallArt_01_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Choam_WallArt_02_Placeable": {
+   "Stone": 50
+  },
+  "Choam_WallPartition_Placeable": {
+   "Stone": 50
+  },
+  "Choam_WallShelf_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_WallShelf_Bottom_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_WallShelf_Top_1_Placeable": {
+   "Stone": 50
+  },
+  "Choam_Wardrobe_Placeable": {
+   "Stone": 50
+  },
+  "Choam_level2_DoorWide_Placeable": {
+   "Stone": 10
+  },
+  "CompactSeismicProbe_Placeable": {
+   "CompactSeismicProbe": 1
+  },
+  "CompactThumper_Placeable": {
+   "CompactThumper": 1
+  },
+  "ConstructionFabricator_Placeable": {
+   "IronBar": 10
+  },
+  "DeathstilOldl_Placeable": {
+   "DuraluminumRod": 180,
+   "Silicone": 130,
+   "T2MachineComponent": 50
+  },
+  "Deathstill_Placeable": {
+   "DuraluminumRod": 180,
+   "Silicone": 130,
+   "T2MachineComponent": 50
+  },
+  "Developer_StorageContainer_Placeable": {
+   "IronBar": 20
+  },
+  "Door_S_SquishUp_Placeable": {
+   "Stone": 8
+  },
+  "Fabricator_Placeable": {
+   "ScrapMetal": 75
+  },
+  "Fremen_Deathstill_Placeable": {
+   "Silicone": 28,
+   "SteelBar": 60,
+   "T2MachineComponent": 32
+  },
+  "Gate_M_SquishUp_Placeable": {
+   "Stone": 8
+  },
+  "Generator_Placeable": {
+   "ScrapMetal": 45
+  },
+  "GenericContainer_Placeable": {
+   "IronBar": 20
+  },
+  "GlowGlobe": {
+   "ScrapMetal": 25
+  },
+  "GlowGlobe_Player": {
+   "ScrapMetal": 25
+  },
+  "Hark_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Hark_Bed_Placeable": {
+   "Stone": 50
+  },
+  "Hark_Carpet_01_Placeable": {
+   "PlantFiber": 50
+  },
+  "Hark_Carpet_02_Placeable": {
+   "PlantFiber": 50
+  },
+  "Hark_CeilingGlowGlobe_1_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Hark_Chair_1_Placeable": {
+   "Stone": 50
+  },
+  "Hark_Chair_2_Placeable": {
+   "Stone": 50
+  },
+  "Hark_Deco_Books_01_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Books_02_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Books_03_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Bowl_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Carafe_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Cup_01_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Cup_02_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Hologram_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Plate_01_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Plate_02_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_SpiceJar_Placeable": {
+   "Plastone": 25
+  },
+  "Hark_Deco_Totem_01_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Totem_02_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Trophy_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Urn_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Vase_01_Placeable": {
+   "Stone": 25
+  },
+  "Hark_Deco_Vase_02_Placeable": {
+   "Stone": 25
+  },
+  "Hark_DiningTable_Placeable": {
+   "Stone": 50
+  },
+  "Hark_Emperor_Painting_Placeable": {
+   "Stone": 50
+  },
+  "Hark_FloorGlowGlobe_1_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Hark_Garage_Door_Placeable": {
+   "Stone": 10
+  },
+  "Hark_LightCeiling_01_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "Hark_LightCeiling_02_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "Hark_LightWall_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Hark_OfficeTable_Placeable": {
+   "Stone": 50
+  },
+  "Hark_Shelves_01_Placeable": {
+   "Stone": 50
+  },
+  "Hark_SideTable_Placeable": {
+   "Stone": 50
+  },
+  "Hark_SmallStorageDrawer_Placeable": {
+   "Stone": 50
+  },
+  "Hark_StandingLight_01_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Hark_StandingLight_02_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Hark_WallArt_01_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "Hark_WallArt_02_Placeable": {
+   "Stone": 50
+  },
+  "Hark_WallGlowGlobe_1_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Hark_WallPartition_Placeable": {
+   "Stone": 50
+  },
+  "Hark_Wardrobe_Placeable": {
+   "Stone": 50
+  },
+  "HarkonnenOutpostWallLamp_1_Placeable": {
+   "ScrapMetal": 25
+  },
+  "HarkonnenOutpostWallLamp_2_Placeable": {
+   "ScrapMetal": 25
+  },
+  "HarkonnenOutpostWallLamp_3_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Harkonnen_Bench_L_Placeable": {
+   "Stone": 50
+  },
+  "Harkonnen_Bench_R_Placeable": {
+   "Stone": 50
+  },
+  "Harkonnen_DoorTall_Placeable": {
+   "Plastone": 12
+  },
+  "Harkonnen_DoorWide_Placeable": {
+   "Plastone": 12
+  },
+  "Harkonnen_Outpost_Door_Placeable": {
+   "Plastone": 12
+  },
+  "Harkonnen_PrudenceDoor_S_Placeable": {
+   "AluminiumBar": 20
+  },
+  "Harkonnen_TrapDoor_Placeable": {
+   "Plastone": 12
+  },
+  "LargeOreRefinery_Placeable": {
+   "CobaltBar": 550,
+   "MelangeSpice": 315,
+   "Silicone": 450,
+   "T2MachineComponent": 160,
+   "T6Machinery": 40,
+   "T6RefinedResourceA": 300
+  },
+  "LargeSpiceRefinery_Placeable": {
+   "CobaltBar": 825,
+   "MelangeSpice": 840,
+   "Silicone": 900,
+   "T2MachineComponent": 280,
+   "T6Machinery": 55,
+   "T6RefinedResourceA": 750
+  },
+  "LargeWaterCistern_Placeable": {
+   "DuraluminumRod": 115,
+   "Silicone": 120,
+   "T4HarkSpiceSiloComponent1": 20
+  },
+  "LargeWindtrap_Placeable": {
+   "DuraluminumRod": 180,
+   "MelangeSpice": 4,
+   "Silicone": 195,
+   "T3MiningGalleryComponent1": 40
+  },
+  "LongDurationThumper_Placeable": {
+   "LongDurationThumper": 1
+  },
+  "LongRangeSeismicProbe_Placeable": {
+   "LongRangeSeismicProbe": 1
+  },
+  "MTX_ArakeenAlleyway_Carpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "MTX_Atre_Flagpole_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Flagship_Relief_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Hologram_CaladanEmblem_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_LetosSeal_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_Bench_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_Bonsai_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_BullStatue_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_Cabinet_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_CaladanCastle_Hologram_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_Chair_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_DecorativeBox_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_DecorativePlate_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_DecorativeWineBottle_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_Dresser_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_FoodPlatter_01_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_Glass_01_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_Glass_02_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_LargeCarpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "MTX_Atre_Movie_LargeDesk_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_Painting_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_PlateCutlery_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_SmallCarpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "MTX_Atre_Movie_Table_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Movie_Vase_01_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_WaterPitcher_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Movie_WindChimes_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_RadiationCrate_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_Sculpture_01_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Atre_Sculpture_02_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Atre_TeaHouse_WallRelief_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_Baliset_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_Chair_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_LowerBar_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_Sofa_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_Table_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_TeaService_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Atre_TeaSet_UpperBar_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_TeaSet_WallRelief_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Atre_Troopship_Relief_Placeable": {
+   "Stone": 50
+  },
+  "MTX_B1C5_BeastRabban_Projector_Placeable": {
+   "Stone": 25
+  },
+  "MTX_B1C5_DukeLeto_Projector_Placeable": {
+   "Stone": 25
+  },
+  "MTX_B1C5_WaterFatManor_Projector_Placeable": {
+   "Stone": 25
+  },
+  "MTX_B1C5_WormMouthMural_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Caladan_Movie_Bed_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Caladan_Movie_Cushion_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Caladan_Movie_Mural_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Choam_KirabTurret_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Choam_Sculpture_01_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Choam_Sculpture_02_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Choam_TwitchReward_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Choam_TwitchReward_Hatch_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_DestroyedZanovar_Hologram_Placeable": {
+   "Stone": 25
+  },
+  "MTX_DualBladesDeco_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Env_Prop_MovieTeaser_Throne_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Frem_FremKit_BoardGame_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Frem_FremKit_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_Frem_FremKit_Stove_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Hark_FleshTube_01_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Hark_FleshTube_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Hark_FleshTube_03_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Hark_Sculpture_01_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Hark_Sculpture_02_Placeable": {
+   "Stone": 100
+  },
+  "MTX_IxianTotem_Placeable": {
+   "Stone": 100
+  },
+  "MTX_MaasKharet_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_MinotaurMaskWall_Placeable": {
+   "Stone": 50
+  },
+  "MTX_MovieTeaser_FirePlace_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Neut_ChristmasTree_Hologram_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Neut_Crucifixion_01_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Neut_DesertMechanicSet_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_Neut_DesertMechanicSet_Projector_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Neut_DesertMechanicSet_SandbikePainting_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_DesertMechanicSet_Sign_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_DesertMechanicSet_Toolbox_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_DesertMechanic_DismantledSandbike_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_DesertMechanic_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Neut_DesertMechanic_Prudence_Door_Placeable": {
+   "IronBar": 20
+  },
+  "MTX_Neut_DesertMechanic_SpareWheel_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_DesertMechanic_StorageContainer_Placeable": {
+   "Stone": 100
+  },
+  "MTX_Neut_HarvesterCaptainChair_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_JailSet_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Neut_LightPole_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_Neut_MeltedCorpse_01_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_MeltedCorpse_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_MeltedCorpse_03_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_MuadDibCage_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_MuralPainting_01_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_MuralPainting_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_MuralPainting_03_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_Raider_Makeshift_Lampost_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_Skeleton_01_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_Skeleton_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Neut_Skeleton_03_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Neut_Statue_Bat_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Neut_StrategyRoomCarpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "MTX_Neut_TeleporterDevice_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Neut_VacuumBodies_Placeable": {
+   "Stone": 50
+  },
+  "MTX_PhaedraPortrait_Placeable": {
+   "Stone": 50
+  },
+  "MTX_RevMotherFloatingChair_Placeable": {
+   "Stone": 50
+  },
+  "MTX_SardaukarFightingDummy_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Sardaukar_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Sardaukar_Door_Placeable_L": {
+   "Stone": 10
+  },
+  "MTX_Sardaukar_GarageDoor_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Sardaukar_PrudenceDoor_Placeable": {
+   "IronBar": 20
+  },
+  "MTX_Sardaukar_PrudenceDoor_Placeable_L": {
+   "IronBar": 20
+  },
+  "MTX_Sardaukar_TallDoor_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Sardaukar_TallDoor_Placeable_L": {
+   "Stone": 10
+  },
+  "MTX_Smug_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "MTX_Smug_Bed_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_Books_01_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Smug_Books_02_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Smug_Books_03_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Smug_Carpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "MTX_Smug_Chair_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_Chandelier_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "MTX_Smug_Couch_Corner_In_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_Couch_Corner_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_Couch_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_DiningTable_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Smug_Garage_Door_Big_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Smug_Garage_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Smug_Hatch_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Smug_LightWall_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_Smug_Light_Ceiling_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "MTX_Smug_Prudence_Door_Placeable": {
+   "IronBar": 20
+  },
+  "MTX_Smug_Shelves_01_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_Shelves_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_Smug_TableLamp_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_Smug_Trophy_Placeable": {
+   "Stone": 25
+  },
+  "MTX_TheGluttonRedLight_Glowglobe_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_WaterS_Banner_Placeable": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "MTX_WaterS_Banner_Placeable_2": {
+   "Plastone": 50,
+   "SaguaroResourceRaw": 15
+  },
+  "MTX_WaterS_Bed_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_Books_01_Placeable": {
+   "Stone": 25
+  },
+  "MTX_WaterS_Books_02_Placeable": {
+   "Stone": 25
+  },
+  "MTX_WaterS_Books_03_Placeable": {
+   "Stone": 25
+  },
+  "MTX_WaterS_Carpet_Placeable": {
+   "PlantFiber": 50
+  },
+  "MTX_WaterS_Chair_01_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_Chair_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_Couch_Corner_In_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_Couch_Corner_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_Couch_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_DiningTable_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_LightWall_01_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_WaterS_LightWall_02_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_WaterS_Light_Ceiling_Placeable": {
+   "SaguaroResourceRaw": 5,
+   "ScrapMetal": 25
+  },
+  "MTX_WaterS_Shelves_02_Placeable": {
+   "Stone": 50
+  },
+  "MTX_WaterS_TableLamp_Placeable": {
+   "ScrapMetal": 25
+  },
+  "MTX_WaterS_Trophy_Placeable": {
+   "Stone": 25
+  },
+  "MTX_Watershippers_Door_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Watershippers_Garage_Door_Big_Placeable": {
+   "Stone": 10
+  },
+  "MTX_Watershippers_Prudence_Door_Placeable": {
+   "IronBar": 20
+  },
+  "MediumChemicalRefinery_Placeable": {
+   "DuraluminumRod": 150,
+   "Silicone": 75,
+   "T2MachineComponent": 40
+  },
+  "MediumInsulatedCistern_Placeable": {
+   "AluminiumBar": 70,
+   "JasmiumDust": 30,
+   "MelangeSpice": 60,
+   "Silicone": 80
+  },
+  "MediumOreRefinery_Placeable": {
+   "CobaltBar": 45,
+   "SteelBar": 125,
+   "T2MachineComponent": 35
+  },
+  "MediumSpiceRefinery_Placeable": {
+   "CobaltBar": 140,
+   "MelangeSpice": 105,
+   "Silicone": 190,
+   "T2MachineComponent": 80,
+   "T6RefinedResourceA": 225
+  },
+  "MediumStorageContainer_Placeable": {
+   "MelangeSpice": 4,
+   "Silicone": 12,
+   "T6RefinedResourceA": 55
+  },
+  "MediumWaterCistern_Placeable": {
+   "Silicone": 30,
+   "SteelBar": 60
+  },
+  "ModdingStation_Placeable": {
+   "CobaltBar": 55,
+   "Silicone": 75,
+   "T2MachineComponent": 40,
+   "T6Machinery": 10,
+   "T6RefinedResourceA": 60
+  },
+  "Neut_Bowl_Small_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Bowl_Small_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Bowl_Small_C_Placeable": {
+   "Stone": 25
+  },
+  "Neut_CakeStandRound_Placeable": {
+   "Stone": 25
+  },
+  "Neut_CeilingLamp_1_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_CeilingLamp_2_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_CeilingLamp_3_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_CeilingLamp_4_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_CeilingLamp_5_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_CeilingLamp_6_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_CeilingLamp_7_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_Desert_Mechanic_Garage_Door_Placeable": {
+   "Stone": 10
+  },
+  "Neut_Diffuser_Small_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Diffuser_Small_B_2_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Diffuser_Small_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_FloorLamp_1_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_FloorLamp_2_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_FloorLamp_3_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_FloorLamp_4_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_FloorLamp_5_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_FloorLamp_6_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_FloorLamp_7_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_Gunner_DismantledScattergun_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Gunner_GunStorage_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Gunner_WorkingTable_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Hookah_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_IncenseHolder_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_IncenseHolder_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_JailSet_Bed_Placeable": {
+   "Stone": 50
+  },
+  "Neut_JailSet_WaterPoint_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Kaitain_BirdHouse_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Kaitain_Bush_Corner_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitain_Bush_Straight_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitain_Flowerbed_Corner_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitain_Flowerbed_Straight_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitain_LargeFountain_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitain_SmallFountain_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Kaitain_Tree_Corner_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitain_Tree_Straight_Placeable": {
+   "Stone": 100
+  },
+  "Neut_Kaitan_Cheops_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_AtreidesTroops_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_FremenTroops_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_HarkonnenTroops_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_Harvester_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_Ornithopter_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_Sandbike_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_SpiceField_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_StrategyFlag_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_Tank_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_Transport_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Miniature_Worm_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Rug_01_Placeable": {
+   "PlantFiber": 50
+  },
+  "Neut_Rug_02_Placeable": {
+   "PlantFiber": 50
+  },
+  "Neut_Rug_03_Placeable": {
+   "PlantFiber": 50
+  },
+  "Neut_Shelves_1_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Shelves_2_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Shelves_3_A_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Shelves_3_B_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Statue_DesertMouse_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Statue_KulonDonkey_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Statue_LargeSandworm_Placeable": {
+   "Stone": 100
+  },
+  "Neut_StrategyTable_Placeable": {
+   "Stone": 50
+  },
+  "Neut_Strategy_RoomSign_Placeable": {
+   "Stone": 25
+  },
+  "Neut_TrayRound_Small_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_TrayRound_Small_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Big_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Big_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Big_C_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Big_D_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Small_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Small_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Small_C_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Small_D_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseOctogonal_Small_E_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseRound_Big_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseRound_Big_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseRound_Big_C_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseRound_Big_D_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseRound_Small_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_VaseRound_Small_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Head_Small_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Head_Small_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Head_Small_C_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Small_1_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Small_1_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Small_1_C_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Small_2_A_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Small_2_B_Placeable": {
+   "Stone": 25
+  },
+  "Neut_Vase_Small_3_Placeable": {
+   "Stone": 25
+  },
+  "Neut_WallLamp_1_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_WallLamp_2_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_WallLamp_3_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_WallLamp_4_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_WallLamp_5_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_WallLamp_6_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Neut_WallLamp_7_Player_Placeable": {
+   "ScrapMetal": 25
+  },
+  "OutpostBunkBed_Placeable": {
+   "Stone": 50
+  },
+  "OutpostChair_1_Placeable": {
+   "Stone": 50
+  },
+  "OutpostTable_1_Placeable": {
+   "Stone": 50
+  },
+  "OutpostTable_2_Placeable": {
+   "Stone": 50
+  },
+  "OutpostTable_3_Placeable": {
+   "Stone": 50
+  },
+  "PlantPot_M_Placeable": {
+   "Stone": 25
+  },
+  "PlantPot_S_Placeable": {
+   "Stone": 25
+  },
+  "PortableFabricator_Placeable": {
+   "PortableFabricator": 1
+  },
+  "ProtectiveStilltent_Placeable": {
+   "ProtectiveStilltent": 1
+  },
+  "Recycler_Placeable": {
+   "CopperBar": 30
+  },
+  "RepairStation_Placeable": {
+   "IronBar": 40
+  },
+  "RespawnBeacon_Placeable": {
+   "RespawnBeacon": 1
+  },
+  "SeismicProbe_Placeable": {
+   "SeismicProbe": 1
+  },
+  "SmallChemicalRefinery_Placeable": {
+   "CopperBar": 45
+  },
+  "SmallInsulatedCistern_Placeable": {
+   "CopperBar": 10,
+   "ScrapElectronics": 50,
+   "Silicone": 15
+  },
+  "SmallOreRefinery_Placeable": {
+   "ScrapMetal": 90
+  },
+  "SpiceCoffeeSet_Placeable": {
+   "Stone": 50
+  },
+  "SpiceGenerator_Placeable": {
+   "CobaltBar": 220,
+   "MelangeSpice": 210,
+   "Silicone": 150,
+   "T2MachineComponent": 80,
+   "T6Machinery": 40,
+   "T6RefinedResourceA": 340
+  },
+  "SpiceRefinery_Placeable": {
+   "CobaltBar": 60,
+   "DuraluminumRod": 120,
+   "Silicone": 100,
+   "T2MachineComponent": 50
+  },
+  "SpiceSilo_Placeable": {
+   "ScrapMetal": 35
+  },
+  "StakingUnitVertical_Placeable": {
+   "StakingUnitVertical": 1
+  },
+  "StakingUnit_Placeable": {
+   "StakingUnit": 1
+  },
+  "Stilltent_Placeable": {
+   "Stilltent": 1
+  },
+  "Stilltent_Placeable_Unique_01": {
+   "Stilltent_Unique_01": 1
+  },
+  "StorageContainer_Placeable": {
+   "AluminiumBar": 35,
+   "Silicone": 5
+  },
+  "SurvivalFabricator_Placeable": {
+   "SteelBar": 40,
+   "T2MachineComponent": 30
+  },
+  "Table": {
+   "Stone": 50
+  },
+  "Thumper_Placeable": {
+   "Thumper": 1
+  },
+  "TotemTemporary_Placeable": {
+   "ScrapMetal": 40
+  },
+  "Totem_Placeable": {
+   "ScrapMetal": 40
+  },
+  "Totem_Small_Placeable": {
+   "ScrapMetal": 25
+  },
+  "Turret_Placeable": {
+   "Turret": 1
+  },
+  "UniqueThumper_Placeable": {
+   "UniqueThumper": 1
+  },
+  "UniqueThumper_Placeable_02": {
+   "UniqueThumper_02": 1
+  },
+  "UniqueThumper_Placeable_03": {
+   "UniqueThumper_03": 1
+  },
+  "VehiclesFabricator_Placeable": {
+   "SteelBar": 40,
+   "T2MachineComponent": 30
+  },
+  "WallGlowGlobe_Player": {
+   "ScrapMetal": 25
+  },
+  "WaterCistern_Placeable": {
+   "CopperBar": 25
+  },
+  "WeaponsFabricator_Placeable": {
+   "SteelBar": 40,
+   "T2MachineComponent": 30
+  },
+  "WearablesFabricator_Placeable": {
+   "SteelBar": 40,
+   "T2MachineComponent": 30
+  },
+  "WindTurbineDirectional_Placeable": {
+   "CobaltBar": 120,
+   "DuraluminumRod": 90,
+   "MelangeSpice": 3,
+   "T3MiningGalleryComponent1": 40
+  },
+  "WindTurbineOmnidirectional_Placeable": {
+   "CobaltBar": 65,
+   "SteelBar": 45,
+   "T3MiningGalleryComponent1": 20
+  },
+  "Windtrap_Placeable": {
+   "Silicone": 30,
+   "SteelBar": 90,
+   "T3MiningGalleryComponent1": 20
+  }
+ }
+}

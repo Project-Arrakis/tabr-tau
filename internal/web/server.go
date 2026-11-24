@@ -808,6 +808,16 @@ func (s *Server) routes() {
 		}
 		return o.BackUpAndRemoveBase(id, a.Str("fingerprint"))
 	})
+	// Recycle one standing base and return everything to the character's Reserve (#1176). The preview reads and changes nothing (it is the edit, rolled back); the write is the
+	// ordinary edit (written after a backup, or queued while a game process exists) and must be sent the fingerprint the preview gave.
+	s.get("/api/bases/recycle-preview", func(r *http.Request) (any, error) { return o.PreviewBaseRecycle(int64(qint(r, "base", 0))) })
+	s.post("/api/bases/recycle", func(a ops.Args) (any, error) {
+		id, err := a.Int("base_id")
+		if err != nil {
+			return nil, err
+		}
+		return o.RecycleBase(id, a.Str("fingerprint"))
+	})
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
 	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
 	s.get("/api/bases/list", func(r *http.Request) (any, error) { return o.BaseList() })

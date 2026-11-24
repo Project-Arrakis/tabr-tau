@@ -107,15 +107,20 @@ func (w *jsonWatch) finish() (logged int64, err error) {
 	if _, err := w.tx.Exec(`drop table temp.tabr_json_edits`); err != nil {
 		return logged, err
 	}
-	if len(problems) > 0 {
-		more := ""
-		if len(problems) > 5 {
-			more = fmt.Sprintf(" and %d more", len(problems)-5)
-			problems = problems[:5]
-		}
-		return logged, fmt.Errorf("this edit would leave stored JSON the game may not be able to read (%s%s); nothing was changed", strings.Join(problems, "; "), more)
+	return logged, jsonProblemsError(problems)
+}
+
+// jsonProblemsError is the refusal of an edit that wrote JSON cells the check does not accept, or nil.
+func jsonProblemsError(problems []string) error {
+	if len(problems) == 0 {
+		return nil
 	}
-	return logged, nil
+	more := ""
+	if len(problems) > 5 {
+		more = fmt.Sprintf(" and %d more", len(problems)-5)
+		problems = problems[:5]
+	}
+	return fmt.Errorf("this edit would leave stored JSON the game may not be able to read (%s%s); nothing was changed", strings.Join(problems, "; "), more)
 }
 
 // reasons are the words for the reason codes the check query returns.
