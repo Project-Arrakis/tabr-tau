@@ -238,7 +238,7 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 	if !ok {
 		return nil, apierr.New(apierr.ErrBadArgument, "The totem of this base has no entity, so its pieces cannot be told from those of another base. Nothing was changed.")
 	}
-	p := &recyclePlan{Totem: totem, Ctl: pl.Controller, Pawn: pl.Pawn, Ent: ent, Rows: map[string]int64{}}
+	p := &recyclePlan{Totem: totem, Ctl: pl.Controller, Pawn: pl.Pawn, Ent: ent, Rows: map[string]int64{}, Refund: []RefundLine{}} // an empty refund is a list, not null, for the page
 	p.RawName, _ = head["name"].(string)
 	totemType, _ := head["totem_type"].(string)
 	p.Map, _ = head["map"].(string)

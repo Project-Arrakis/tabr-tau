@@ -83,6 +83,15 @@ test('while the save cannot be written the question says the recycle is queued, 
   ui.dom.window.close();
 });
 
+test('a preview with no refund list at all still asks, and says the refund is nothing', async () => {
+  const ui = await boots({}, { ...PREVIEW, refund: null, refundStacks: 0 });
+  await openBases(ui);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
+  assert.ok(items[2].includes('0 new stacks') && items[2].endsWith(': nothing'), items[2]);
+  ui.dom.window.close();
+});
+
 test('OK writes once, with the base and the fingerprint the question showed, and the toast says what happened', async () => {
   const ui = await boots({ '/api/bases/recycle': { ...PREVIEW, dryRun: false, outcome: 'written' } });
   await openBases(ui);
