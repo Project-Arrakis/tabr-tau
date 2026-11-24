@@ -167,7 +167,7 @@ those the game wrote for a base of its own.
 ### Which bases
 
 Only your own bases that stand. The totem must hold the owner rank (1) for your character and for nobody else, the same check as Back up and remove. Any map, the Deep Desert
-included. One base at a time (the layout roll can recycle several bases in a row, one recycle each, and then waits for the Reserve to be emptied: see [Recycling the Deep Desert bases](help/deep-desert-layout-roll.md#recycling-the-deep-desert-bases---recycle-bases-off-unless-you-give-it)). Refused, with nothing changed:
+included. One base at a time (the layout roll can recycle several bases in a row, one recycle each, moving the Reserve into the boxes DD-1 and DD-2 between them: see [Recycling the Deep Desert bases](help/deep-desert-layout-roll.md#recycling-the-deep-desert-bases---recycle-bases-off-unless-you-give-it)). Refused, with nothing changed:
 
 - a base of another player, a base you are only a member of, a base nobody holds the owner rank over;
 - a base the game already picked up (a base backup), and a base or an actor of it that is not in the normal state;
@@ -372,8 +372,8 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 - **A Solido is optional, and its numbering is not the game's.** See [Make a Solido first](#make-a-solido-of-the-base-first-option). The editor never reads or places a Solido,
   and it does not check that one exists before a recycle without the box.
 - **Storage boxes as the destination are a separate step.** A recycle puts everything into the Reserve; [Move the Reserve into storage](#move-the-reserve-into-two-storage-boxes) empties it into two
-  named boxes afterwards (#1191). Doing both in one run, base after base, is not built here.
-  The weekly layout roll (`layout-roll --recycle-bases`, #1167) recycles the Deep Desert bases of the character one at a time, each with its Solido, and needs the Reserve to be empty before each base, so it does one base per run until the move is called from the roll itself.
+  named boxes afterwards (#1191). The recycle button itself does one base and leaves the Reserve full; only the layout roll does both in one run, base after base (next item).
+  The weekly layout roll (`layout-roll --recycle-bases`, #1167) recycles the Deep Desert bases of the character one at a time, each with its Solido, and needs the Reserve to be empty before each base: it empties the Reserve into the boxes named `DD-1` and `DD-2` between the bases (and after the last one), on the same working copy and with the same move, so several bases go in one run when the boxes have room. When a box is missing or full it recycles the bases that fit and stops before the roll; a re-run continues.
 - **The game's own recycle returns about half.** The editor returns everything, by the operator's choice. A base recycled here gives more than the same base recycled in the
   game. An "as the game does" mode is not built: the game's rate and rounding are known from one base only.
 - **Deep Desert rounding.** Half of an odd cost is rounded up per unit. What the game charges for such a piece there has not been measured.

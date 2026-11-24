@@ -59,9 +59,11 @@ func ddBases(n int) []string {
 
 const rcReserveItem = `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (8000,12,7,1,'CopperOre',0,1790000000,'{}',0,null);`
 
-// rcEnv is an env whose save holds the world, with the recycle switched on.
+// rcEnv is an env whose save holds the world, with the recycle switched on and WITHOUT the move of the Reserve into the two boxes (the hook is nil): the tests that use it show the
+// loop of the bases on its own, where the Reserve stays full and the next base is held back. mvEnv (recyclemove_test.go) has the real move.
 func rcEnv(t *testing.T, world string) (*env, Options) {
 	t.Helper()
+	swapVar(t, &emptyReserveInto, nil)
 	e := newEnv(t, iniWith("11"))
 	e.save = testsave.PlayerWithSQL(t, world).Path
 	o := e.opts()
@@ -142,12 +144,13 @@ func mustContain(t *testing.T, text string, parts ...string) {
 	}
 }
 
-// withoutReserveRule shows the backpack and loadout room logic on its own: with the rule off, several bases fit one run.
+// withoutReserveRule shows the backpack and loadout room logic on its own: with the rule off (and no move of the Reserve into boxes), several bases fit one run.
 func withoutReserveRule(t *testing.T) {
 	t.Helper()
 	old := enforceEmptyReserve
 	enforceEmptyReserve = false
 	t.Cleanup(func() { enforceEmptyReserve = old })
+	swapVar(t, &emptyReserveInto, nil)
 }
 
 func swapVar[T any](t *testing.T, p *T, v T) {

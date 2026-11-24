@@ -118,7 +118,7 @@ func TestF1FileLeftAloneJudgesWhatItCannotSeeAsChanged(t *testing.T) {
 func TestF2TheStateIsWrittenRightAfterTheWriteBeforeTheReadBack(t *testing.T) {
 	e, o := rcEnv(t, rcWorld(ddBases(1)...))
 	var seen state
-	swapVar(t, &verifyBasesWritten, func(string, []recycledRecord, []ops.HoldBase, ops.RecycleRoom) error {
+	swapVar(t, &verifyBasesWritten, func(string, []recycledRecord, []ops.HoldBase, writtenExpect) error {
 		seen = readState(t, e.state)
 		return errors.New("stop here")
 	})
@@ -202,7 +202,7 @@ func TestF3AReserveThatDoesNotMatchTheRecycleStopsTheRun(t *testing.T) {
 // F3, the guard: a base that still stands after everything was written and read back stops the roll. The read-back is made to pass, so only the second look can find it.
 func TestF3ABaseLeftStandingAfterTheRecycleStopsTheRoll(t *testing.T) {
 	e, o := rcEnv(t, rcWorld(ddBases(1)...))
-	swapVar(t, &verifyBasesWritten, func(string, []recycledRecord, []ops.HoldBase, ops.RecycleRoom) error { return nil })
+	swapVar(t, &verifyBasesWritten, func(string, []recycledRecord, []ops.HoldBase, writtenExpect) error { return nil })
 	swapVar(t, &recycleOne, func(s *save.Save, id int64, fp string) (map[string]any, error) {
 		out, err := (&ops.Ops{S: s}).RecycleBaseWith(id, fp, ops.RecycleOptions{Solido: true})
 		if err != nil {
