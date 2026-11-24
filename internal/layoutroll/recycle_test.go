@@ -131,9 +131,6 @@ func standingIDs(t *testing.T, path string) []int64 {
 	return out
 }
 
-func totemsLeft(t *testing.T, path string) int64 {
-	return count(t, path, `select count(*) n from totems`)
-}
 
 func lines(r Result) string { return strings.Join(r.Lines, "\n") }
 
