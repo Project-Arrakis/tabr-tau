@@ -208,7 +208,12 @@ func Roll(o Options) (Result, error) {
 	r.say("Changed Game.ini from layout %d to layout %d (%s) and read it back to check it.", cur, next, describe(present, existed))
 	r.say("Restart the game for it to apply. A base stands on different terrain on each layout.")
 	if err := saveRoll(o.StatePath, st, now, cur, next); err != nil {
-		r.say("Note: the record of this roll could not be saved (%v); the roll itself is done.", err)
+		if c := st.LastCheck; c != nil && c.written {
+			// bases were recycled and written in this run: the state file is where the way back is kept, so a failure to write it is said loudly
+			r.say("WARNING: the record of this roll and of the recycled bases could not be saved (%v); the roll itself is done. %s", err, c.recycledNote())
+		} else {
+			r.say("Note: the record of this roll could not be saved (%v); the roll itself is done.", err)
+		}
 	}
 	return r, nil
 }
@@ -368,6 +373,10 @@ type recycleHistoryEntry struct {
 	SaveFile       string    `json:"saveFile,omitempty"`
 	Bases          []int64   `json:"bases"`
 	SolidoItems    []int64   `json:"solidoItems,omitempty"` // the ids of the Solido devices that hold the new Solidos
+
+	// Unconfirmed is set on the entry written BEFORE the save is written (the bases are the ones about to be recycled): the entry is replaced when the write is confirmed and removed when
+	// the save was not written, so one that stays says the run ended without recording how the write went.
+	Unconfirmed bool `json:"unconfirmed,omitempty"`
 }
 
 // line is the entry as one plain sentence.
@@ -379,15 +388,22 @@ func (e recycleHistoryEntry) line() string {
 		}
 		return strings.Join(p, ", ")
 	}
+	if e.Unconfirmed {
+		return fmt.Sprintf("%s (run of %s; base(s) %s were about to be recycled; the run did not record whether the save was written: look at the save)", e.Checkpoint, e.At.Format("2006-01-02 15:04"), ids(e.Bases))
+	}
 	return fmt.Sprintf("%s (run of %s; base(s) %s; Solido device id(s) %s)", e.Checkpoint, e.At.Format("2006-01-02 15:04"), ids(e.Bases), ids(e.SolidoItems))
 }
 
-// recordRecycleRun adds or replaces (same run time) the history entry of the run that recycled the bases of rec.
+// recordRecycleRun adds or replaces (same run time) the history entry of the run that recycled the bases of rec, or, while the save has not been written yet, the entry for the bases
+// the run is about to recycle (its Intent).
 func (s *state) recordRecycleRun(rec *checkRecord) {
 	e := recycleHistoryEntry{At: rec.At, Checkpoint: rec.Checkpoint, CheckpointPath: rec.CheckpointPath, SaveFile: rec.SaveFile}
 	for _, b := range rec.Recycled {
 		e.Bases = append(e.Bases, b.ID)
 		e.SolidoItems = append(e.SolidoItems, b.SolidoItem)
+	}
+	if rec.Intent != nil && len(rec.Recycled) == 0 {
+		e.Bases, e.Unconfirmed = rec.Intent.Bases, true
 	}
 	for i := range s.RecycleHistory {
 		if s.RecycleHistory[i].At.Equal(rec.At) {
@@ -402,12 +418,29 @@ func (s *state) recordRecycleRun(rec *checkRecord) {
 }
 
 // historyLines is the history, oldest first, one sentence each.
-func (s *state) historyLines() []string {
+func (s *state) historyLines() []string { return s.historyLinesExcept(time.Time{}) }
+
+// historyLinesExcept is the history without the entry of the run that began at the given time (a run's own checkpoint is not one of the EARLIER runs'). The zero time leaves nothing out.
+func (s *state) historyLinesExcept(at time.Time) []string {
 	var l []string
 	for _, e := range s.RecycleHistory {
+		if !at.IsZero() && e.At.Equal(at) {
+			continue
+		}
 		l = append(l, e.line())
 	}
 	return l
+}
+
+// dropRecycleRun removes the entry of the run that began at the given time.
+func (s *state) dropRecycleRun(at time.Time) {
+	var keep []recycleHistoryEntry
+	for _, e := range s.RecycleHistory {
+		if !e.At.Equal(at) {
+			keep = append(keep, e)
+		}
+	}
+	s.RecycleHistory = keep
 }
 
 const maxState = 64 << 10
@@ -454,13 +487,21 @@ func writeState(path string, s state) error {
 func saveRoll(path string, s state, now time.Time, from, to int) error {
 	s.LastRoll = &rollRecord{At: now, From: from, To: to}
 	s.LastRun = &runRecord{At: now, Outcome: fmt.Sprintf("rolled layout %d -> %d", from, to)}
-	return writeState(path, s)
+	return writeStateFile(path, s)
 }
 
 // saveRun records a run that changed nothing, so the person can see on the next look why. A failure to write it is ignored: it is a note, not a guard.
 func saveRun(path string, s state, now time.Time, outcome string) {
+	_ = saveRunErr(path, s, now, outcome)
+}
+
+// writeStateFile is writeState as a variable only so that a test can make the write of the state file fail; nothing else changes it.
+var writeStateFile = writeState
+
+// saveRunErr is saveRun that says whether the state file was written. It is used where the state file matters (after a save was written, or before one is).
+func saveRunErr(path string, s state, now time.Time, outcome string) error {
 	s.LastRun = &runRecord{At: now, Outcome: outcome}
-	_ = writeState(path, s)
+	return writeStateFile(path, s)
 }
 
 // Rand is the random source of a real roll.

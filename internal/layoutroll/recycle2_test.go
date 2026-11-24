@@ -222,7 +222,7 @@ func TestABaseThatDoesNotVerifyStopsBeforeTheNextOne(t *testing.T) {
 // A file that does not read back after the write: the message says the save WAS changed, names the checkpoint and gives the command to go back; the roll does not run.
 func TestAWrittenSaveThatDoesNotReadBackIsReportedWithTheWayBack(t *testing.T) {
 	e, o := rcEnv(t, rcWorld(ddBases(1)...))
-	swapVar(t, &verifyBasesWritten, func(string, []recycledRecord, []ops.HoldBase, ops.RecycleRoom) error {
+	swapVar(t, &verifyBasesWritten, func(string, []recycledRecord, []ops.HoldBase, writtenExpect) error {
 		return errors.New("a row is missing")
 	})
 	r, err := Roll(o)
@@ -420,19 +420,31 @@ func TestABaseThatTheRecycleSaysIsOnAnotherMapIsNeverRecycled(t *testing.T) {
 	mustContain(t, err.Error(), "not the Deep Desert")
 }
 
+// A fake of the move into storage (a test of the loop itself): it deletes the rows of the Reserve and says how many there were. The real move is tested in recyclemove_test.go.
+func fakeMove(s *save.Save, _ []int64, previewOnly bool) (movedReserve, error) {
+	r, err := s.One(`select count(*) n from items where inventory_id=12`)
+	if err != nil {
+		return movedReserve{}, err
+	}
+	n := intOf(r, "n")
+	if previewOnly {
+		return movedReserve{Stacks: n}, nil
+	}
+	if _, err := s.Mutate("test move", func(m *save.Mut) error {
+		_, err := m.Exec(`delete from items where inventory_id=12`)
+		return err
+	}); err != nil {
+		return movedReserve{}, err
+	}
+	return movedReserve{Stacks: n}, nil
+}
+
 // The call point of the move into storage (#1191): with it set, every base is followed by an emptied Reserve, so all the bases are recycled in one run and the roll goes on. A move
 // that fails, or leaves something in the Reserve, stops the run with the save untouched.
 func TestTheStorageCallPointLetsSeveralBasesGoInOneRun(t *testing.T) {
-	move := func(s *save.Save) error {
-		_, err := s.Mutate("test move", func(m *save.Mut) error {
-			_, err := m.Exec(`delete from items where inventory_id=12`)
-			return err
-		})
-		return err
-	}
 	t.Run("emptied", func(t *testing.T) {
 		e, o := rcEnv(t, rcWorld(ddBases(3)...))
-		swapVar(t, &emptyReserveInto, move)
+		swapVar(t, &emptyReserveInto, fakeMove)
 		r, err := Roll(o)
 		if err != nil || !r.Wrote || e.ini() == iniWith("11") || len(standingIDs(t, e.save)) != 0 {
 			t.Fatalf("%v\n%s", err, lines(r))
@@ -443,7 +455,9 @@ func TestTheStorageCallPointLetsSeveralBasesGoInOneRun(t *testing.T) {
 	})
 	t.Run("the move fails", func(t *testing.T) {
 		e, o := rcEnv(t, rcWorld(ddBases(2)...))
-		swapVar(t, &emptyReserveInto, func(*save.Save) error { return errors.New("no storage box") })
+		swapVar(t, &emptyReserveInto, func(*save.Save, []int64, bool) (movedReserve, error) {
+			return movedReserve{}, errors.New("no storage box")
+		})
 		before := sha(t, e.save)
 		_, err := Roll(o)
 		if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
@@ -453,7 +467,13 @@ func TestTheStorageCallPointLetsSeveralBasesGoInOneRun(t *testing.T) {
 	})
 	t.Run("the Reserve is not empty afterwards", func(t *testing.T) {
 		e, o := rcEnv(t, rcWorld(ddBases(2)...))
-		swapVar(t, &emptyReserveInto, func(*save.Save) error { return nil })
+		swapVar(t, &emptyReserveInto, func(s *save.Save, _ []int64, previewOnly bool) (movedReserve, error) {
+			r, err := s.One(`select count(*) n from items where inventory_id=12`)
+			if err != nil {
+				return movedReserve{}, err
+			}
+			return movedReserve{Stacks: intOf(r, "n")}, nil
+		})
 		before := sha(t, e.save)
 		_, err := Roll(o)
 		if err == nil || sha(t, e.save) != before {

@@ -142,12 +142,13 @@ func mustContain(t *testing.T, text string, parts ...string) {
 	}
 }
 
-// withoutReserveRule shows the backpack and loadout room logic on its own: with the rule off, several bases fit one run.
+// withoutReserveRule shows the backpack and loadout room logic on its own: with the rule off (and no move of the Reserve into boxes), several bases fit one run.
 func withoutReserveRule(t *testing.T) {
 	t.Helper()
 	old := enforceEmptyReserve
 	enforceEmptyReserve = false
 	t.Cleanup(func() { enforceEmptyReserve = old })
+	swapVar(t, &emptyReserveInto, nil)
 }
 
 func swapVar[T any](t *testing.T, p *T, v T) {
