@@ -153,6 +153,32 @@ func TestPiecesOfTheBuildingActorThatTheBaseDoesNotOwnAreCountedAsNotInTheSolido
 	}
 }
 
+// A fingerprint made for one choice of the Solido option, sent with the other, is refused with words about the option, and a changed base still says the base changed.
+func TestAFingerprintForTheOtherSolidoChoiceSaysTheOptionChanged(t *testing.T) {
+	o := solidoOps(t, blankDevice)
+	with, err := o.PreviewBaseRecycleWith(601, RecycleOptions{Solido: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	without, err := o.PreviewBaseRecycle(601)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fpWith, fpWithout := with.(map[string]any)["fingerprint"].(string), without.(map[string]any)["fingerprint"].(string)
+	_, err = o.RecycleBase(601, fpWith)
+	refusedWith(t, err, apierr.ErrConflict, "The Solido option changed since the question")
+	_, err = o.RecycleBaseWith(601, fpWithout, RecycleOptions{Solido: true})
+	refusedWith(t, err, apierr.ErrConflict, "The Solido option changed since the question")
+	_, err = o.RecycleBaseWith(601, fpWith[:len(fpWith)-1]+"0", RecycleOptions{Solido: true})
+	refusedWith(t, err, apierr.ErrConflict, "This base has changed since the question")
+	if strings.Contains(err.Error(), "Solido option") {
+		t.Fatal("a changed base is not an option change")
+	}
+	if len(o.S.Ops()) != 0 || rmCount(t, o, `actors where id=601`) != 1 {
+		t.Fatal("nothing was written")
+	}
+}
+
 func TestRecycleWithoutASolidoIsWhatItWasAndLeavesTheDeviceAlone(t *testing.T) {
 	o := solidoOps(t, blankDevice)
 	plain, perr := o.PreviewBaseRecycle(601)

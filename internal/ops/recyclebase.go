@@ -152,6 +152,9 @@ type recyclePlan struct {
 
 func (p *recyclePlan) all() []int64 { return append(append([]int64{}, p.Actors...), p.Buildings...) }
 
+// solidoFingerprintPrefix starts the fingerprint of a recycle that makes a Solido first, so that a write sent with the other choice can be told from a base that changed.
+const solidoFingerprintPrefix = "solido-"
+
 func (p *recyclePlan) fingerprint() string {
 	h := sha256.New()
 	fmt.Fprintf(h, "recycle|%d|%d|%d|%d|%s|%s|%d|%v|%v|%s|%v|%d|%d|%d|%d|", p.Totem, p.Ctl, p.Pawn, p.Ent, p.RawName, p.Map, p.Percent, p.Actors, p.Buildings, p.Types, p.Inventories,
@@ -172,6 +175,9 @@ func (p *recyclePlan) fingerprint() string {
 	}
 	if s := p.Solido; s != nil { // only when a Solido is made, so that the fingerprint of a recycle without one is what it was
 		fmt.Fprintf(h, "|solido|%d|%d|%d|%d|%d|%d|%s", s.Item, s.ItemInv, len(s.Rows.Instances), len(s.Rows.Placeables), len(s.Rows.Pentas), s.Rows.SkippedPieces+s.Rows.SkippedDoors, s.Digest)
+	}
+	if p.Solido != nil {
+		return solidoFingerprintPrefix + hex.EncodeToString(h.Sum(nil))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -567,6 +573,9 @@ func (o *Ops) recycleBase(totem int64, want string, dry bool, opt RecycleOptions
 			return err
 		}
 		if want != "" && want != plan.fingerprint() {
+			if strings.HasPrefix(want, solidoFingerprintPrefix) != (plan.Solido != nil) {
+				return apierr.New(apierr.ErrConflict, "The Solido option changed since the question was shown. Nothing was changed. Ask again.")
+			}
 			return apierr.New(apierr.ErrConflict, "This base has changed since the question was shown. Nothing was changed. Ask again.")
 		}
 		r, err := applyBaseRecycle(m, msql, plan)
