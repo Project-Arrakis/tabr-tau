@@ -131,7 +131,6 @@ func standingIDs(t *testing.T, path string) []int64 {
 	return out
 }
 
-
 func lines(r Result) string { return strings.Join(r.Lines, "\n") }
 
 func mustContain(t *testing.T, text string, parts ...string) {
