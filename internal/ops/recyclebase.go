@@ -495,7 +495,10 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 }
 
 // PreviewBaseRecycle says what recycling this base would do: what is deleted, how many item stacks move to the Reserve, the refund per item, what is dropped, and the
-// fingerprint the write must be sent. It does the whole edit and rolls it back, so a base the edit cannot be written for is refused here, and nothing in the save changes.
+// fingerprint the write must be sent. It does the whole edit, reads it back, runs the save layer's own reference check on it (CheckReferences: the check a write gets when its
+// function has returned, which a rolled back edit would otherwise never reach) and rolls it back. So a base the plan refuses, a base whose read back differs and a base whose
+// edit would leave a dangling reference are all refused here, and nothing in the save changes. What a preview cannot see: the check of the JSON cells an edit wrote (this edit
+// writes none), and anything that changes in the save between the question and the answer (that is what the fingerprint is for).
 func (o *Ops) PreviewBaseRecycle(totem int64) (any, error) { return o.recycleBase(totem, "", true) }
 
 // RecycleBase recycles the standing base with this totem: the base is deleted, what it stored and what it cost go to the character's Reserve. fingerprint is the one the
@@ -533,6 +536,11 @@ func (o *Ops) recycleBase(totem int64, want string, dry bool) (any, error) {
 		m.Desc = fmt.Sprintf("Recycle base \"%s\": %d pieces, %d placeables, %d item stacks and the refund to the Reserve", importLabel(plan.Name), plan.Pieces, plan.Placeables, plan.ItemRows)
 		res["dryRun"] = dry
 		if dry {
+			// The save layer checks the references of an edit when the edit's function has returned without an error. A preview ends with an error (to be rolled back), so
+			// it would never get there: the same check is run here, and a base the write would be refused for is refused when the question is asked.
+			if err := m.CheckReferences(); err != nil {
+				return apierr.Newf(apierr.ErrConflict, "This base cannot be recycled by this version: %v. Report this so the case can be covered.", err)
+			}
 			return errRecycleDry
 		}
 		return nil

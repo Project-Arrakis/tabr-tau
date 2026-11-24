@@ -504,6 +504,27 @@ func TestAReadBackThatDiffersFromThePlanFailsTheWholeEdit(t *testing.T) {
 	}
 }
 
+// The preview runs the save layer's reference check before it rolls back: an edit the write would be refused for is refused when the question is asked, not after the answer.
+func TestThePreviewRefusesAnEditThatWouldLeaveADanglingReference(t *testing.T) {
+	o := recycleOps(t, "")
+	before := everything(t, o)
+	// something the plan does not know about: a row that points at the totem appears while the edit runs
+	recycleBeforeReadBack = func(m *save.Mut) {
+		if _, err := m.Exec(`insert into game_events(actor_id,universe_time,map,partition_id,event_type,x,y,z) values (601,1,'HaggaBasin',0,3,0,0,0)`); err != nil {
+			t.Errorf("tamper: %v", err)
+		}
+	}
+	defer func() { recycleBeforeReadBack = nil }()
+	_, err := o.PreviewBaseRecycle(601)
+	refusedWith(t, err, apierr.ErrConflict, "would leave dangling references")
+	if !strings.Contains(err.Error(), "game_events") || !strings.Contains(err.Error(), "This base cannot be recycled by this version") {
+		t.Fatalf("the refusal names the table: %v", err)
+	}
+	if everything(t, o) != before || len(o.S.Ops()) != 0 || rmCount(t, o, `game_events`) != 0 {
+		t.Fatal("a refused preview must change nothing")
+	}
+}
+
 func TestRecycleIsOneQueuedEditAndARefusedBaseQueuesNothing(t *testing.T) {
 	o := recycleOps(t, "")
 	recycle(t, o, 601)

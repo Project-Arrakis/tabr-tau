@@ -24,7 +24,8 @@ project's operator, not a copy of the game.
 
 1. Close the game, or leave it at the main menu. While a game process exists the edit is queued and written when the game has closed, like every other edit.
 2. Let every crafting queue in the base finish, or cancel it in the game. A base with a running queue is refused.
-3. Press **Recycle base** on the base. The editor works out the whole edit and asks first. Nothing has been written at this point. The question lists:
+3. Press **Recycle base** on the base. The editor works out the whole edit and asks first: it does the edit, reads it back, runs the save's reference check on it and undoes
+   it, so a base that cannot be recycled is refused here, before any question. Nothing has been written at this point. The question lists:
    - how many building pieces and placeables are deleted;
    - how many item stacks (and items) move to the Reserve;
    - the refund, item by item, and how many new stacks it is;
@@ -173,7 +174,8 @@ Placeables of the base that have no buildable support belong to the totem as wel
 **Read back.** Before the edit is accepted, the editor reads back what it wrote, inside the same edit: the number of rows deleted from every table, that no row of the base is
 left, that every stored stack is in the Reserve with its size, that every refund item has the planned amount in the planned number of stacks, and that no two stacks of the
 Reserve share a position. Any difference fails the whole edit and nothing is changed. The save layer then checks the database's own references and refuses an edit that leaves
-a dangling one.
+a dangling one. The preview runs that same reference check before it undoes its edit, so this refusal comes when you ask, not after you confirmed. What the preview cannot
+know is what changes in the save after the question was shown; the fingerprint catches that, and the write is then refused.
 
 ## Check it
 

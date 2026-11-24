@@ -329,13 +329,8 @@ func (s *Save) mutateLocked(desc string, cascade bool, fn func(m *Mut) error) (i
 		if fk, err = fkCounts(tx); err != nil {
 			return 0, err
 		}
-		if bad := worse(s.fkBase, fk); len(bad) > 0 {
-			more := ""
-			if len(bad) > 5 {
-				more = fmt.Sprintf(" and %d more", len(bad)-5)
-				bad = bad[:5]
-			}
-			return 0, fmt.Errorf("this edit would leave dangling references (%s%s); nothing was changed", strings.Join(bad, "; "), more)
+		if err := danglingError(s.fkBase, fk); err != nil {
+			return 0, err
 		}
 	}
 	finished = true
