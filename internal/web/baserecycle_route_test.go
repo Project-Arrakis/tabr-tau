@@ -122,3 +122,53 @@ func TestRecycleWhileAGameProcessExistsIsQueuedAsOneEditAndWritesNothing(t *test
 		t.Fatalf("asking again while queued: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// The Solido option (#1187) is part of the question: the preview is asked for it with solido=1, the write is sent the same choice with the fingerprint, and a fingerprint made for
+// one choice is refused for the other. The world gets the character's loadout inventory too; a new Solido device goes in the backpack.
+func TestRecycleWithASolidoOnTheRoutes(t *testing.T) {
+	s := backupServer(t, recycleRouteWorld+`insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (15,2,15,8,0.0);
+update building_instances set location_x=5000,location_y=6000,location_z=7,rotation_x=0,rotation_y=0,rotation_z=0,rotation_w=1 where building_id=602;`)
+	s.KeepPendingEdits(t.TempDir())
+	plain := decodeBody(t, kitGet(t, s, "/api/bases/recycle-preview?base=601"))
+	if plain["solido"] != nil {
+		t.Fatalf("no Solido was asked for: %v", plain["solido"])
+	}
+	w := kitGet(t, s, "/api/bases/recycle-preview?base=601&solido=1")
+	pv := decodeBody(t, w)
+	sol, _ := pv["solido"].(map[string]any)
+	if w.Code != 200 || sol == nil || sol["pieces"] != float64(1) || sol["placeables"] != float64(1) || sol["itemCreated"] != true || pv["fingerprint"] == plain["fingerprint"] {
+		t.Fatalf("preview with a Solido: %d %s", w.Code, w.Body.String())
+	}
+	if w := postEdit(t, s, "/api/bases/recycle", `{"base_id":601,"fingerprint":"`+pv["fingerprint"].(string)+`"}`); w.Code != 409 {
+		t.Fatalf("a fingerprint made with a Solido, sent without: %d %s", w.Code, w.Body.String())
+	}
+	if w := postEdit(t, s, "/api/bases/recycle", `{"base_id":601,"solido":true,"fingerprint":"`+plain["fingerprint"].(string)+`"}`); w.Code != 409 {
+		t.Fatalf("a fingerprint made without a Solido, sent with: %d %s", w.Code, w.Body.String())
+	}
+	ok := postEdit(t, s, "/api/bases/recycle", `{"base_id":601,"solido":true,"fingerprint":"`+pv["fingerprint"].(string)+`"}`)
+	m := decodeBody(t, ok)
+	if ok.Code != 200 || m["outcome"] != "written" || m["solido"] == nil {
+		t.Fatalf("write: %d %s", ok.Code, ok.Body.String())
+	}
+	chk, err := save.Open(s.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer chk.Close()
+	r, _ := chk.One(`select (select count(*) from building_blueprints) bp, (select count(*) from building_blueprint_instances) inst, (select count(*) from building_blueprint_placeables) plc,
+		(select count(*) from items where inventory_id=1 and template_id='BuildingBlueprint_CopyDevice' and stats like '%!!bbp#1"%') dev, (select count(*) from actors where id in (601,602,701)) actors`)
+	if r["bp"] != int64(1) || r["inst"] != int64(1) || r["plc"] != int64(1) || r["dev"] != int64(1) || r["actors"] != int64(0) {
+		t.Fatalf("written rows: %v", r)
+	}
+	// a character with neither a backpack nor a loadout inventory and no blank device: the Solido is refused by name and nothing is queued or written
+	s2 := backupServer(t, recycleRouteWorld+`delete from inventories where inventory_type in (0,15);`)
+	s2.KeepPendingEdits(t.TempDir())
+	before, _ := os.ReadFile(s2.Save.Path)
+	if w := kitGet(t, s2, "/api/bases/recycle-preview?base=601&solido=1"); w.Code != 409 || !strings.Contains(w.Body.String(), "Solido") {
+		t.Fatalf("no loadout: %d %s", w.Code, w.Body.String())
+	}
+	after, _ := os.ReadFile(s2.Save.Path)
+	if string(before) != string(after) || len(s2.Save.Pending()) != 0 {
+		t.Fatal("a refusal wrote or queued something")
+	}
+}

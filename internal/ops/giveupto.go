@@ -58,7 +58,7 @@ func (g giveOutcome) reason(what string) string {
 }
 
 // freeSlotsInTx is the number of stacks the inventory can still take: -1 when it has no limit (max_item_count 0 or unset). The slots in use are the distinct positions of its items.
-func freeSlotsInTx(m *save.Mut, inventoryID int64) (int64, error) {
+func freeSlotsInTx(m baseQ, inventoryID int64) (int64, error) {
 	rows, err := m.Query(`select coalesce(max_item_count,0) cap from inventories where id=?`, inventoryID)
 	if err != nil {
 		return 0, err
@@ -80,7 +80,7 @@ func freeSlotsInTx(m *save.Mut, inventoryID int64) (int64, error) {
 
 // volumeLeftInTx works out how many units of template the volume limit of the inventory still leaves room for. fit is -1 when the volume limit is not part of this give
 // (checked false, and note says why), and otherwise the whole number of units that fit (0 when it is full). note is also set when the check was made with a caveat.
-func volumeLeftInTx(m *save.Mut, inventoryID int64, template string) (fit int64, checked bool, note string, err error) {
+func volumeLeftInTx(m baseQ, inventoryID int64, template string) (fit int64, checked bool, note string, err error) {
 	unit, known := catalog.Volume(template)
 	if !known {
 		return -1, false, "Volume was not checked: the editor has no volume for this item.", nil
