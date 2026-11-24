@@ -555,37 +555,124 @@ func TestMoveReserveSaysWhenAnItemHasNoKnownVolume(t *testing.T) {
 	}
 }
 
-// Units whose volume is not known cannot be kept under a volume limit: the move is refused when a box has a limit, naming the items, and changes nothing. A box with no limit takes them.
-func TestMoveReserveRefusesUnknownVolumeUnderAVolumeLimit(t *testing.T) {
+// Units whose volume is not known (cosmetics, uniques, placeables: no entry in the game's item table, no volume of their own) are accepted into a box with a volume limit, as Give
+// item accepts them: they count as none by volume, take one slot per stack, and the answer says how many units that was.
+func TestMoveReserveAcceptsUnknownVolumeUnderAVolumeLimitAndCountsItAsNone(t *testing.T) {
 	stone, _ := catalog.Volume("Stone")
 	unknown := `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8006,12,10000,7,'Knife',0,1,'{}',0);`
-	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 40*stone+0.5, 0.5)+unknown)}
-	before := itemsSnapshot(t, o)
-	_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
-	refusedWith(t, err, apierr.ErrConflict, "have no known volume")
-	for _, w := range []string{"10,000 units", "Knife (10,000 units)", "Nothing was changed", `"Box A"`} {
-		if !strings.Contains(err.Error(), w) {
-			t.Errorf("the refusal lacks %q: %v", w, err)
-		}
+	reserve := moveReserveVolume()
+	// Box A has a volume limit that holds the known stacks exactly, Box B a tiny one: 10,000 units would not fit if they counted, the stack still goes in
+	o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 40*stone+reserve, 0.5)+unknown)}
+	r := moveApply(t, o, boxAB, MoveReserveOptions{})
+	if r["changed"] != true || r["stacks"] != 6 || rmCount(t, o, `items where inventory_id=12`) != 0 {
+		t.Fatalf("%v", r)
 	}
-	if IsMoveNoRoom(err) {
-		t.Error("an unknown volume is not a lack of room")
+	if w := fmt.Sprint(r["warnings"]); !strings.Contains(w, "10,000 units in the Reserve have no known volume and were counted as none") {
+		t.Fatalf("the answer must say how many units had no known volume: %v", r["warnings"])
 	}
-	if _, err := o.MoveReserve(boxAB, "x", MoveReserveOptions{}); err == nil {
-		t.Fatal("the write must refuse too")
+	// the volume the answer reports is the known volume only
+	if v, _ := r["volume"].(float64); v < reserve-1e-6 || v > reserve+1e-6 {
+		t.Fatalf("volume %v, want %v", v, reserve)
 	}
-	if itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
-		t.Fatal("a refusal changed the save")
-	}
-	// only one of the boxes has a limit: still refused (the units could go to either)
+	// a limit on one box only behaves the same
 	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 0, 0.5)+unknown)}
-	if _, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{}); err == nil {
-		t.Fatal("a limit on one box is enough to refuse")
-	}
-	// no volume limit on either box: accepted
-	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 0, 0)+unknown)}
 	if r := moveApply(t, o, boxAB, MoveReserveOptions{}); r["changed"] != true || rmCount(t, o, `items where inventory_id=12`) != 0 {
 		t.Fatalf("%v", r)
+	}
+	// the slot limit still holds for them, one slot per stack: Box A has 1 slot free (2 slots, one stack in it) and Box B has 1, so two stacks fit and three do not
+	two := `delete from items where inventory_id=12;
+		insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8101,12,50,0,'Knife',0,1,'{}',0),(8102,12,60,1,'Knife',0,1,'{}',0);`
+	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(2, 1, 1, 1)+two)}
+	if r := moveApply(t, o, boxAB, MoveReserveOptions{}); r["stacks"] != 2 {
+		t.Fatalf("%v", r)
+	}
+	three := two + `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8103,12,1,2,'Knife',0,1,'{}',0);`
+	o = &Ops{S: testsave.PlayerWithSQL(t, moveWorld(2, 1, 1, 1)+three)}
+	before := itemsSnapshot(t, o)
+	_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+	refusedWith(t, err, apierr.ErrNoRoom, "Short by 1 stacks")
+	if !IsMoveNoRoom(err) || itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
+		t.Fatalf("a lack of slots is the no-room kind and changes nothing: %v", err)
+	}
+}
+
+// moveReserveVolume is the volume of the Reserve of moveWorld: the unit volumes of the game's item table, and 2.5 per unit for the row that has one of its own.
+func moveReserveVolume() float64 {
+	ore, _ := catalog.Volume("ScrapMetal")
+	stone, _ := catalog.Volume("Stone")
+	bar, _ := catalog.Volume("CopperBar")
+	return 300*ore + bar + 500*stone + 250*stone + 7*2.5
+}
+
+// The move and Give item agree. For the same box (its slots, its volume limit, what is already in it) and the same item, the move accepts K whole stacks exactly when a give of K full
+// stacks of that item is given in full: the give is run on an identical fixture through the give's own code (giveUpToInTx), for every K from 1 to 14, with limits by slots, by volume,
+// both, and none, with an item that has no known volume, and with a box that already holds a row with a volume of its own.
+func TestMoveReserveAgreesWithGiveItemOnWhatFits(t *testing.T) {
+	ore, _ := catalog.Volume("ScrapMetal")
+	stone, _ := catalog.Volume("Stone")
+	stack, _ := catalog.MaxStack("ScrapMetal")
+	if stack != 500 || ore <= 0 {
+		t.Fatalf("the test needs ScrapMetal with stack 500 and a volume: %d %v", stack, ore)
+	}
+	per := float64(stack) * ore // the volume of one full stack
+	cases := []struct {
+		name     string
+		cap      int
+		vol      float64 // Box A's volume limit (0 = none)
+		template string
+		extra    string // sql run on the world
+	}{
+		{"slots only", 5, 0, "ScrapMetal", ""}, // Box A holds 40 Stone in one slot: 4 free
+		{"volume only", 1000, 40*stone + 3.5*per, "ScrapMetal", ""},
+		{"volume exactly", 1000, 40*stone + 3*per, "ScrapMetal", ""},
+		{"volume a hair short", 1000, 40*stone + 3*per - 0.05, "ScrapMetal", ""},
+		{"slots tighter than volume", 3, 40*stone + 9*per, "ScrapMetal", ""},
+		{"volume tighter than slots", 12, 40*stone + 2.2*per, "ScrapMetal", ""},
+		{"no limits", 1000, 0, "ScrapMetal", ""},
+		{"unknown volume: slots decide", 5, 40*stone + 0.1, "Knife", ""},
+		{"a row of its own volume already there", 1000, 40*2.5 + 4.5*per, "ScrapMetal", `update items set volume_override=2.5 where id=9001;`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			for k := 1; k <= 14; k++ {
+				var rows []string
+				for i := 0; i < k; i++ {
+					rows = append(rows, fmt.Sprintf("(%d,12,%d,%d,'%s',0,1,'{}',0,null)", 8200+i, stack, i, c.template))
+				}
+				world := moveWorld(c.cap, 10, c.vol, bigVol) + c.extra + `delete from items where inventory_id=12; insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values ` + strings.Join(rows, ",") + `;`
+
+				// the move: only Box A is named, so everything must fit in it
+				o := &Ops{S: testsave.PlayerWithSQL(t, world)}
+				_, mvErr := o.PreviewMoveReserve([]string{"Box A"}, MoveReserveOptions{})
+				if mvErr != nil && !IsMoveNoRoom(mvErr) {
+					t.Fatalf("K=%d: the move was refused for another reason: %v", k, mvErr)
+				}
+
+				// the give: the same units of the same item into the same box (inventory 7003)
+				g := &Ops{S: testsave.PlayerWithSQL(t, world)}
+				var out giveOutcome
+				if _, err := g.S.Mutate("give", func(m *save.Mut) error {
+					var err error
+					out, err = giveUpToInTx(m, 7003, c.template, int64(k)*stack, 0)
+					return err
+				}); err != nil {
+					t.Fatalf("K=%d: give: %v", k, err)
+				}
+				if c.template == "Knife" {
+					// an item the give does not know goes in as one row, so the comparison is the slots both count: free slots by the give's count against one slot per stack
+					if out.Given != out.Requested || out.VolumeChecked {
+						t.Fatalf("K=%d: an item with no known volume is not checked by volume in a give: %+v", k, out)
+					}
+					if fits := int64(k) <= out.FreeSlots; fits != (mvErr == nil) {
+						t.Fatalf("K=%d: the give counts %d free slots but the move said %v", k, out.FreeSlots, mvErr)
+					}
+					continue
+				}
+				if whole := out.Given == out.Requested; whole != (mvErr == nil) {
+					t.Fatalf("K=%d: the give placed %d of %d units (stopped by %q) but the move said %v", k, out.Given, out.Requested, out.Limit, mvErr)
+				}
+			}
+		})
 	}
 }
 
