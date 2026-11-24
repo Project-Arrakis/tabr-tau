@@ -486,13 +486,19 @@ func applySolido(m *save.Mut, p *recyclePlan) (map[string]any, int64, error) {
 			return nil, 0, err
 		}
 	}
-	res, err := m.Exec(`insert into building_blueprints(item_id, player_id, building_blueprint_map) values (?, null, '')`, item)
+	// The blueprint's number is read through the guarded reader (hashed, so a queued copy of this edit is put back only onto a file where the next number is the same) and
+	// written as given: the table's own counter and its highest row, whichever is higher, plus one.
+	nx, err := m.One(`select max(coalesce((select max(id) from building_blueprints),0), coalesce((select seq from sqlite_sequence where name='building_blueprints'),0)) n`)
 	if err != nil {
 		return nil, 0, err
 	}
-	bp, err := res.LastInsertId()
-	if err != nil || bp <= 0 {
-		return nil, 0, errors.New("the new blueprint has no number")
+	last, ok := toInt(nx["n"])
+	if !ok || last < 0 {
+		return nil, 0, errors.New("the next blueprint number could not be read")
+	}
+	bp := last + 1
+	if _, err := m.Exec(`insert into building_blueprints(id, item_id, player_id, building_blueprint_map) values (?, ?, null, '')`, bp, item); err != nil {
+		return nil, 0, err
 	}
 	for _, i := range sp.Rows.Instances {
 		if _, err := m.Exec(`insert into building_blueprint_instances(building_blueprint_id, instance_id, building_type, transform_x, transform_y, transform_z, transform_yaw, provides_stability, health, hologram)

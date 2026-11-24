@@ -3,6 +3,7 @@ package ops
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -443,5 +444,90 @@ func TestTheBlueprintRecordIsAddedAfterTheItemsOwnKeys(t *testing.T) {
 		if _, err := withBlueprintStats(bad, 3); err == nil {
 			t.Errorf("%q has no place for a record", bad)
 		}
+	}
+}
+
+// A Solido that is queued while the game runs is put back onto the file the game saved meanwhile only when the next blueprint number is still the one the edit worked out
+// (the number is read through the guarded reader and written as given). The game made a Solido of its own in between: the queued one is dropped, and nothing is written.
+func TestAQueuedSolidoIsDroppedWhenTheGameMadeABlueprintMeanwhile(t *testing.T) {
+	gameDoes := func(o *Ops, sql string) {
+		t.Helper()
+		other, err := save.Open(o.S.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer other.Close()
+		if _, err := other.Mutate("the game", func(m *save.Mut) error {
+			_, err := m.Exec(sql)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := other.CommitForTests(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	queue := func() *Ops {
+		o := solidoOps(t, blankDevice)
+		o.S.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
+		recycleWithSolido(t, o)
+		if !o.S.Dirty() || rmCount(t, o, `building_blueprints where id=1`) != 1 {
+			t.Fatal("the edit is queued, with the blueprint number 1")
+		}
+		return o
+	}
+	onDisk := func(o *Ops, q string) int64 {
+		chk, err := save.Open(o.S.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer chk.Close()
+		r, err := chk.One(`select count(*) n from ` + q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r["n"].(int64)
+	}
+	untouched := func(o *Ops, blueprints int64) {
+		t.Helper()
+		if onDisk(o, `building_blueprints`) != blueprints || onDisk(o, `building_blueprints where item_id=8800`) != 0 || onDisk(o, `building_blueprint_instances`) != 0 || onDisk(o, `actors where id in (601,602,701)`) != 3 ||
+			onDisk(o, `items where id=8800 and stats like '%FBuildingBlueprintItemStats%'`) != 0 {
+			t.Fatal("nothing of the queued Solido or the recycle is in the file")
+		}
+	}
+	dropped := func(o *Ops) {
+		t.Helper()
+		r, err := o.S.Rebase()
+		if err != nil || r == nil || r.Applied != 0 || len(r.Conflicts) != 1 {
+			t.Fatalf("the edit is reported, not forced: %+v %v", r, err)
+		}
+		if f := o.S.Flush(); f.Saved && o.S.Dirty() {
+			t.Fatalf("%+v", f)
+		}
+	}
+
+	// the game made a blueprint (its own number 1) for an unrelated item: the queued Solido would have been number 1 too
+	o := queue()
+	gameDoes(o, `insert into building_blueprints(id,item_id,player_id,building_blueprint_map) values (1,10,null,'')`)
+	dropped(o)
+	untouched(o, 1)
+
+	// the game made a blueprint and threw it away: no row is left, but the table's counter has moved on, so the next number is not 1
+	o = queue()
+	gameDoes(o, `insert into building_blueprints(id,item_id,player_id,building_blueprint_map) values (5,10,null,''); delete from building_blueprints where id=5`)
+	dropped(o)
+	untouched(o, 0)
+
+	// a game save that changed nothing the edit read puts it back, with the number it worked out
+	o = queue()
+	gameDoes(o, `update actors set location_x=location_x+1 where id=99`)
+	if r, err := o.S.Rebase(); err != nil || r == nil || r.Applied != 1 || len(r.Conflicts) != 0 {
+		t.Fatalf("an unrelated change: %+v %v", r, err)
+	}
+	if f := o.S.Flush(); !f.Saved {
+		t.Fatalf("%+v", f)
+	}
+	if onDisk(o, `building_blueprints where id=1 and item_id=8800`) != 1 || onDisk(o, `actors where id in (601,602,701)`) != 0 {
+		t.Fatal("the Solido and the recycle are in the file")
 	}
 }
