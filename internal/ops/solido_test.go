@@ -45,7 +45,7 @@ func solidoState(t *testing.T, o *Ops) string {
 	var b strings.Builder
 	for _, q := range []string{
 		`select * from building_blueprints order by id`, `select * from building_blueprint_instances order by 1,2`, `select * from building_blueprint_placeables order by 1,2`,
-		`select * from building_blueprint_pentashields order by 1,2`, `select id, inventory_id, position_index, template_id, stats from items where inventory_id=15 order by id`,
+		`select * from building_blueprint_pentashields order by 1,2`, `select id, inventory_id, position_index, template_id, stats from items where inventory_id in (1,15) order by id`,
 	} {
 		rows, err := o.S.Query(q)
 		if err != nil {
@@ -172,6 +172,13 @@ insert into building_blueprints(id,item_id,player_id,building_blueprint_map) val
 	blank := func(id, pos, inv int) string {
 		return fmt.Sprintf(`insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (%d,%d,1,%d,'BuildingBlueprint_CopyDevice',0,1790000010,'%s',0);`, id, inv, pos, devBlank)
 	}
+	fill := func(inv, n, first int) string {
+		var b strings.Builder
+		for i := 0; i < n; i++ {
+			fmt.Fprintf(&b, `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (%d,%d,1,%d,'CopperOre',0,1790000010,'{}',0);`, first+i, inv, i)
+		}
+		return b.String()
+	}
 	stats := func(o *Ops, id any) string {
 		r, err := o.S.One(`select stats from items where id=?`, id)
 		if err != nil || r == nil {
@@ -185,7 +192,7 @@ insert into building_blueprints(id,item_id,player_id,building_blueprint_map) val
 		r := recycleWithSolido(t, o)
 		s := r["solido"].(map[string]any)
 		id := s["item"].(int64)
-		if s["itemCreated"] != true || id == 8700 || !strings.Contains(r["summary"].([]string)[0], "a new Solido device in your loadout inventory") {
+		if s["itemCreated"] != true || id == 8700 || !strings.Contains(r["summary"].([]string)[0], "a new Solido device in your backpack") {
 			t.Fatalf("%v", s)
 		}
 		after, _ := o.S.One(`select id, inventory_id, position_index, stack_size, stats from items where id=8700`)
@@ -196,7 +203,7 @@ insert into building_blueprints(id,item_id,player_id,building_blueprint_map) val
 			t.Fatal("the filled Solido's blueprint changed")
 		}
 		n, _ := o.S.One(`select inventory_id inv, position_index pos, stack_size n, quality_level q, template_id t from items where id=?`, id)
-		if fmt.Sprint(n) != "map[inv:15 n:1 pos:1 q:0 t:BuildingBlueprint_CopyDevice]" {
+		if fmt.Sprint(n) != "map[inv:1 n:1 pos:2 q:0 t:BuildingBlueprint_CopyDevice]" {
 			t.Fatalf("the new item: %v", n)
 		}
 		want := `{"FItemStackAndDurabilityStats":[[],{"DecayedMaxDurability":0.0}],"FCustomizationStats":[[],{}],"FBuildingBlueprintItemStats":[[],{"PlayerBlueprintId":"!!bbp#` + fmt.Sprint(s["blueprint"]) + `","PlayerBaseBackupId":{}}]}`
@@ -224,10 +231,39 @@ insert into building_blueprints(id,item_id,player_id,building_blueprint_map) val
 			t.Fatalf("%v", s)
 		}
 	})
-	t.Run("none at all: a new one in the loadout", func(t *testing.T) {
+	t.Run("none at all: a new one in the backpack, not in the loadout", func(t *testing.T) {
 		o := solidoOps(t, "")
 		s := recycleWithSolido(t, o)["solido"].(map[string]any)
-		if s["itemCreated"] != true || rmCount(t, o, `items where inventory_id=15 and template_id='BuildingBlueprint_CopyDevice' and stats like '%!!bbp#1"%'`) != 1 {
+		if s["itemCreated"] != true || s["itemWhere"] != "backpack" || rmCount(t, o, `items where inventory_id=1 and template_id='BuildingBlueprint_CopyDevice' and stats like '%!!bbp#1"%'`) != 1 ||
+			rmCount(t, o, `items where inventory_id=15`) != 0 {
+			t.Fatalf("%v", s)
+		}
+	})
+	t.Run("a second Solido: the loadout is full and the first device is in the backpack, a new one is made in the backpack", func(t *testing.T) {
+		o := solidoOps(t, fill(15, 8, 8700)+filled(8600, 0)+`update items set inventory_id=1 where id=8600;`)
+		s := recycleWithSolido(t, o)["solido"].(map[string]any)
+		if s["itemCreated"] != true || s["itemWhere"] != "backpack" || rmCount(t, o, `items where inventory_id=1 and template_id='BuildingBlueprint_CopyDevice'`) != 2 || stats(o, 8600) != devFilled {
+			t.Fatalf("%v", s)
+		}
+	})
+	t.Run("the backpack is full and the loadout is free: the new one goes in the loadout", func(t *testing.T) {
+		o := solidoOps(t, fill(1, 5, 8700))
+		r := recycleWithSolido(t, o)
+		s := r["solido"].(map[string]any)
+		if s["itemCreated"] != true || s["itemWhere"] != "loadout" || !strings.Contains(r["summary"].([]string)[0], "a new Solido device in your loadout") ||
+			rmCount(t, o, `items where inventory_id=15 and template_id='BuildingBlueprint_CopyDevice'`) != 1 || rmCount(t, o, `items where inventory_id=1 and template_id='BuildingBlueprint_CopyDevice'`) != 0 {
+			t.Fatalf("%v", s)
+		}
+	})
+	t.Run("the backpack has room for slots but not for the volume: the loadout", func(t *testing.T) {
+		o := solidoOps(t, `update inventories set max_item_volume=0.1 where id=1;`)
+		if s := recycleWithSolido(t, o)["solido"].(map[string]any); s["itemWhere"] != "loadout" {
+			t.Fatalf("%v", s)
+		}
+	})
+	t.Run("no backpack at all: the loadout", func(t *testing.T) {
+		o := solidoOps(t, `delete from inventories where id=1;`)
+		if s := recycleWithSolido(t, o)["solido"].(map[string]any); s["itemWhere"] != "loadout" {
 			t.Fatalf("%v", s)
 		}
 	})
@@ -245,17 +281,19 @@ insert into building_blueprints(id,item_id,player_id,building_blueprint_map) val
 	})
 }
 
-func TestNoFreeSlotForANewDeviceRefusesTheSolidoByNameAndChangesNothing(t *testing.T) {
+func TestNoRoomForANewDeviceRefusesTheSolidoByNameAndChangesNothing(t *testing.T) {
 	var full strings.Builder
-	for i := 0; i < 8; i++ {
-		fmt.Fprintf(&full, `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (%d,15,1,%d,'CopperOre',0,1790000010,'{}',0);`, 8700+i, i)
+	for inv, n := range map[int]int{15: 8, 1: 5} { // the loadout and the backpack both full
+		for i := 0; i < n; i++ {
+			fmt.Fprintf(&full, `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (%d,%d,1,%d,'CopperOre',0,1790000010,'{}',0);`, 8700+inv*10+i, inv, i)
+		}
 	}
 	o := solidoOps(t, full.String())
 	before, all := solidoState(t, o), everything(t, o)
 	_, err := o.PreviewBaseRecycleWith(601, RecycleOptions{Solido: true})
 	refusedWith(t, err, apierr.ErrConflict, "no free slot")
-	if !strings.Contains(err.Error(), "Solido") || !strings.Contains(err.Error(), "Nothing was changed") || !strings.Contains(err.Error(), "loadout inventory") {
-		t.Fatalf("the refusal names the Solido and the loadout: %v", err)
+	if !strings.Contains(err.Error(), "Solido") || !strings.Contains(err.Error(), "Nothing was changed") || !strings.Contains(err.Error(), "the backpack has no free slot") || !strings.Contains(err.Error(), "the loadout has no free slot") {
+		t.Fatalf("the refusal names the Solido, the backpack and the loadout: %v", err)
 	}
 	if solidoState(t, o) != before || everything(t, o) != all || len(o.S.Ops()) != 0 {
 		t.Fatal("nothing changes")
@@ -264,10 +302,10 @@ func TestNoFreeSlotForANewDeviceRefusesTheSolidoByNameAndChangesNothing(t *testi
 	if r := recycle(t, o, 601); r["solido"] != nil {
 		t.Fatal("no Solido")
 	}
-	// no loadout inventory at all
-	o = recycleOps(t, solidoWorld("")+`delete from inventories where id=15;`)
+	// neither inventory at all
+	o = recycleOps(t, solidoWorld("")+`delete from inventories where id in (1,15);`)
 	_, err = o.PreviewBaseRecycleWith(601, RecycleOptions{Solido: true})
-	refusedWith(t, err, apierr.ErrConflict, "no loadout inventory")
+	refusedWith(t, err, apierr.ErrConflict, "there is no backpack")
 }
 
 func TestASolidoThatDoesNotReadBackFailsTheWholeEdit(t *testing.T) {

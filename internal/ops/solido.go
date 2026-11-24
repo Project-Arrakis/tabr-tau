@@ -38,7 +38,8 @@ import (
 const (
 	solidoDevice          = "BuildingBlueprint_CopyDevice"
 	solidoStatsKey        = "FBuildingBlueprintItemStats"
-	solidoInventoryType   = 15 // the character's loadout: where the game's own device lived in the measured save
+	solidoBackpackType    = 0  // the character's backpack: where a new device goes first, as the console and the editor's give put one
+	solidoLoadoutType     = 15 // the character's loadout (the 8-slot hotbar): where a new device goes only when the backpack has no room
 	solidoBlankStats      = `{"FItemStackAndDurabilityStats":[[],{"DecayedMaxDurability":0.0}],"FCustomizationStats":[[],{}]}`
 	solidoSkipFlag        = 4 // building_flags bit of a piece the game leaves out
 	solidoStabilityFlag   = 1
@@ -361,9 +362,10 @@ func loadSolidoSource(q baseQ, totem, ent int64, actors, buildings []int64) (sol
 type solidoPlan struct {
 	Rows    *solidoRows
 	Digest  string
-	Item    int64 // the blank device that is used; 0 when a new one is made
-	ItemInv int64 // where the new device goes (the character's loadout), 0 when Item is used
-	Pieces  int64 // the base's pieces and placeables, for the answer
+	Item    int64  // the blank device that is used; 0 when a new one is made
+	ItemInv int64  // where the new device goes, 0 when Item is used
+	Where   string // "backpack" or "loadout": the kind of inventory ItemInv is
+	Pieces  int64  // the base's pieces and placeables, for the answer
 	Plcs    int64
 }
 
@@ -396,22 +398,52 @@ func planSolido(q baseQ, p *recyclePlan) (*solidoPlan, error) {
 		sp.Item, _ = toInt(devs[0]["id"])
 		return sp, nil
 	}
-	// None: a new device, in the character's loadout inventory, where the game's own lived in the measured save.
-	invs, err := q.Query(`select v.id id, coalesce(v.max_item_count,0) cap, (select count(*) from items where inventory_id=v.id) used from inventories v
-		where v.actor_id=? and v.inventory_type=? and v.item_id is null order by v.id limit 1`, p.Pawn, solidoInventoryType)
+	// None: a new device, in the character's backpack (as the console and the editor's give do), or in the loadout when the backpack has no room. Only when both are full is it refused.
+	var why []string
+	for _, c := range []struct {
+		where string
+		typ   int
+	}{{"backpack", solidoBackpackType}, {"loadout", solidoLoadoutType}} {
+		invs, err := q.Query(`select v.id id from inventories v where v.actor_id=? and v.inventory_type=? and v.item_id is null order by v.id limit 1`, p.Pawn, c.typ)
+		if err != nil {
+			return nil, err
+		}
+		if len(invs) == 0 {
+			why = append(why, "there is no "+c.where)
+			continue
+		}
+		inv, _ := toInt(invs[0]["id"])
+		room, err := solidoRoom(q, inv)
+		if err != nil {
+			return nil, err
+		}
+		if room != "" {
+			why = append(why, "the "+c.where+" "+room)
+			continue
+		}
+		sp.ItemInv, sp.Where = inv, c.where
+		return sp, nil
+	}
+	return nil, solidoRefusal("The character has no blank Solido device, and a new one has no room: " + strings.Join(why, ", and ") + ". Free a slot in the game.")
+}
+
+// solidoRoom says why a new device does not fit into the inventory ("" when it does): the slot check and the volume check of the editor's own give.
+func solidoRoom(q baseQ, inv int64) (string, error) {
+	free, err := freeSlotsInTx(q, inv)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	if len(invs) == 0 {
-		return nil, solidoRefusal("The character has no blank Solido device and no loadout inventory to put a new one in.")
+	if free == 0 {
+		return "has no free slot", nil
 	}
-	capN, _ := toInt(invs[0]["cap"])
-	used, _ := toInt(invs[0]["used"])
-	if capN > 0 && used >= capN {
-		return nil, solidoRefusal(fmt.Sprintf("The character has no blank Solido device, and the loadout inventory, where a new one would go, has no free slot (%d of %d are used). Free a slot in the game.", used, capN))
+	fit, checked, _, err := volumeLeftInTx(q, inv, solidoDevice)
+	if err != nil {
+		return "", err
 	}
-	sp.ItemInv, _ = toInt(invs[0]["id"])
-	return sp, nil
+	if checked && fit == 0 {
+		return "has no room by volume", nil
+	}
+	return "", nil
 }
 
 // withBlueprintStats adds the blueprint record to an item's stats, after the keys that are there, as the game writes it. The stats must be an object that has no record yet.
@@ -444,7 +476,7 @@ func applySolido(m *save.Mut, p *recyclePlan) (map[string]any, int64, error) {
 		ids, err := giveRowsInTx(m, sp.ItemInv, solidoDevice, []int64{1}, 0)
 		switch {
 		case errors.Is(err, errInventoryFull), errors.Is(err, errNotEnoughRoom):
-			return nil, 0, solidoRefusal("The character has no blank Solido device, and the loadout inventory, where a new one would go, has no free slot. Free a slot in the game.")
+			return nil, 0, solidoRefusal("The character has no blank Solido device, and the " + sp.Where + ", where a new one would go, has no free slot. Free a slot in the game.")
 		case err != nil:
 			return nil, 0, err
 		}
@@ -501,7 +533,7 @@ func applySolido(m *save.Mut, p *recyclePlan) (map[string]any, int64, error) {
 		return nil, 0, recycleMismatch("the Solido device", n, 1)
 	}
 	return map[string]any{
-		"made": true, "blueprint": bp, "item": item, "itemCreated": created,
+		"made": true, "blueprint": bp, "item": item, "itemCreated": created, "itemWhere": sp.Where,
 		"pieces": int64(len(sp.Rows.Instances)), "placeables": int64(len(sp.Rows.Placeables)), "pentashields": int64(len(sp.Rows.Pentas)),
 		"piecesLeftOut": sp.Rows.SkippedPieces, "doorsLeftOut": sp.Rows.SkippedDoors,
 	}, bp, nil
@@ -614,7 +646,7 @@ func readBackSolido(m *save.Mut, p *recyclePlan, bp, item int64) error {
 func solidoWords(s map[string]any) string {
 	where := "a blank Solido device that was already in your inventory"
 	if s["itemCreated"] == true {
-		where = "a new Solido device in your loadout inventory"
+		where = "a new Solido device in your " + fmt.Sprint(s["itemWhere"])
 	}
 	w := fmt.Sprintf("Solido: made first from the base, in %s (item %v): %s building pieces, %s placeables (%s pentashields).",
 		where, s["item"], commas(s["pieces"].(int64)), commas(s["placeables"].(int64)), commas(s["pentashields"].(int64)))

@@ -161,17 +161,34 @@ test('with the box ticked the preview is asked for a Solido, the question says i
   ui.click('#aok'); await ui.settle();
   assert.deepEqual(ui.posted.filter((x) => x.path === '/api/bases/recycle').map((x) => x.body), [{ base_id: 7, fingerprint: 'abc123', solido: true }]);
   const t = ui.doc.querySelector('#toast').textContent;
-  assert.ok(t.includes('Recycled "Home"') && t.includes('A Solido of it (2,133 pieces, 251 placeables) is in item 61428455'), t);
+  assert.ok(t.includes('Recycled "Home"') && t.includes('A Solido of it (2,133 pieces, 251 placeables) is in the blank device you already had (item 61428455)'), t);
   ui.dom.window.close();
 });
 
-test('a new device is named as a new device in the loadout, and a Solido refused by the preview is the message of the page', async () => {
+test('the toast says where a new device is: the backpack, or the loadout when the backpack was full', async () => {
+  for (const where of ['backpack', 'loadout']) {
+    const sol = { ...SOLIDO, itemCreated: true, itemWhere: where, item: 99 };
+    const ui = await boots({ '/api/bases/recycle': { ...PREVIEW, dryRun: false, outcome: 'written', solido: sol } }, { ...PREVIEW, solido: sol });
+    await openBases(ui);
+    tick(ui, true);
+    ui.click('[data-act="baseRecycle"]'); await ui.settle();
+    const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
+    assert.ok(items[0].includes(`a new Solido device (BuildingBlueprint_CopyDevice) in your ${where}`), items[0]);
+    await ui.wait(450);
+    ui.click('#aok'); await ui.settle();
+    const t = ui.doc.querySelector('#toast').textContent;
+    assert.ok(t.includes(`is in a new device in your ${where} (item 99)`), t);
+    ui.dom.window.close();
+  }
+});
+
+test('a new device is named as a new device in the backpack, and a Solido refused by the preview is the message of the page', async () => {
   const ui = await boots({}, { ...PREVIEW, solido: { ...SOLIDO, itemCreated: true, doorsLeftOut: 0, piecesLeftOut: 0 } });
   await openBases(ui);
   tick(ui, true);
   ui.click('[data-act="baseRecycle"]'); await ui.settle();
   const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
-  assert.ok(items[0].includes('a new Solido device (BuildingBlueprint_CopyDevice) in your loadout inventory') && items[0].endsWith('the claim totem'), items[0]);
+  assert.ok(items[0].includes('a new Solido device (BuildingBlueprint_CopyDevice) in your backpack') && items[0].endsWith('the claim totem'), items[0]);
   ui.click('[data-act="askNo"]'); await ui.settle();
   assert.equal(ui.posted.filter((x) => x.path === '/api/bases/recycle').length, 0);
   ui.dom.window.close();

@@ -52,8 +52,10 @@ is refused and nothing changes. Without the box the recycle is exactly what it w
 
 **Which item.** A Solido is a `BuildingBlueprint_CopyDevice` item. The editor uses the **lowest-numbered blank device the character holds** (in the backpack, the worn gear or the
 loadout; no blueprint record in its stats and no row of `building_blueprints` pointing at it). A Solido that is already filled is never changed or reused. When the character holds
-no blank device, a **new** device is made in the character's loadout inventory (the inventory where the game's own device was in the save that was measured), in its first free
-slot. When that inventory has no free slot, the Solido is refused by name and nothing changes: free a slot in the game, or recycle without the Solido.
+no blank device, a **new** device is made in the character's **backpack** (inventory type 0), the way the dedicated server's console and the editor's own give put an item there,
+with the same slot and volume check, in its first free slot. Only when the backpack has no room is the device made in the **loadout** (inventory type 15, the 8-slot hotbar, which is
+usually full). When neither has room, the Solido is refused by name (it says which of the two is full) and nothing changes: free a slot in the game, or recycle without the Solido.
+The answer and the question say where the device is.
 
 **What is in it.** The conversion was measured on a pair of saves from the game, taken before and after a Solido of a Hagga base was made (2,141 pieces and 254 placeables went in,
 2,133 and 251 came out), and the editor's test makes the Solido of that base again from the save before and compares every row with the game's, to within 0.01:

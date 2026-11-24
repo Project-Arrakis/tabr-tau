@@ -124,7 +124,7 @@ func TestRecycleWhileAGameProcessExistsIsQueuedAsOneEditAndWritesNothing(t *test
 }
 
 // The Solido option (#1187) is part of the question: the preview is asked for it with solido=1, the write is sent the same choice with the fingerprint, and a fingerprint made for
-// one choice is refused for the other. The world gets the character's loadout inventory, where a new Solido device goes when none is blank.
+// one choice is refused for the other. The world gets the character's loadout inventory too; a new Solido device goes in the backpack.
 func TestRecycleWithASolidoOnTheRoutes(t *testing.T) {
 	s := backupServer(t, recycleRouteWorld+`insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (15,2,15,8,0.0);
 update building_instances set location_x=5000,location_y=6000,location_z=7,rotation_x=0,rotation_y=0,rotation_z=0,rotation_w=1 where building_id=602;`)
@@ -156,12 +156,13 @@ update building_instances set location_x=5000,location_y=6000,location_z=7,rotat
 	}
 	defer chk.Close()
 	r, _ := chk.One(`select (select count(*) from building_blueprints) bp, (select count(*) from building_blueprint_instances) inst, (select count(*) from building_blueprint_placeables) plc,
-		(select count(*) from items where inventory_id=15 and template_id='BuildingBlueprint_CopyDevice' and stats like '%!!bbp#1"%') dev, (select count(*) from actors where id in (601,602,701)) actors`)
+		(select count(*) from items where inventory_id=1 and template_id='BuildingBlueprint_CopyDevice' and stats like '%!!bbp#1"%') dev, (select count(*) from actors where id in (601,602,701)) actors`)
 	if r["bp"] != int64(1) || r["inst"] != int64(1) || r["plc"] != int64(1) || r["dev"] != int64(1) || r["actors"] != int64(0) {
 		t.Fatalf("written rows: %v", r)
 	}
-	// a character with no loadout inventory and no blank device: the Solido is refused by name and nothing is queued or written
-	s2 := recycleServer(t)
+	// a character with neither a backpack nor a loadout inventory and no blank device: the Solido is refused by name and nothing is queued or written
+	s2 := backupServer(t, recycleRouteWorld+`delete from inventories where inventory_type in (0,15);`)
+	s2.KeepPendingEdits(t.TempDir())
 	before, _ := os.ReadFile(s2.Save.Path)
 	if w := kitGet(t, s2, "/api/bases/recycle-preview?base=601&solido=1"); w.Code != 409 || !strings.Contains(w.Body.String(), "Solido") {
 		t.Fatalf("no loadout: %d %s", w.Code, w.Body.String())
