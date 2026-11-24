@@ -67,3 +67,18 @@ test('a refusal of the preview is the message of the page and no question opens'
   assert.equal(ui.posted.length, 0);
   ui.dom.window.close();
 });
+
+test('a base in the Deep Desert has a disabled Back up and remove that says why, and clicking it writes and asks nothing (#1177)', async () => {
+  const DD = { ...HOME, base_id: 9, name: 'Far', map: 'DeepDesert_1' };
+  const ui = await boot({ get: { '/api/bases/list': [HOME, DD], '/api/bases/backups': [], '/api/bases/remove-preview': PREVIEW } });
+  const main = await openBases(ui);
+  const live = [...main.querySelectorAll('[data-act="baseRemove"]')];
+  assert.deepEqual(live.map((b) => b.dataset.id), ['7'], 'only the Hagga Basin base can start the removal');
+  const off = [...main.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'Back up and remove' && b.disabled);
+  assert.equal(off.length, 1);
+  assert.equal(off[0].dataset.id, '9');
+  const tipBox = main.querySelector('#' + off[0].getAttribute('aria-describedby'));
+  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('Deep Desert') && tipBox.textContent.includes('does not back up bases there'), tipBox && tipBox.textContent);
+  assert.equal(ui.posted.length, 0);
+  ui.dom.window.close();
+});
