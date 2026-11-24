@@ -4,6 +4,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/Project-Arrakis/tabr-tau/kit/ddgrid"
 	"github.com/Project-Arrakis/tabr-tau/kit/gamedata/regions"
 )
 
@@ -73,10 +74,28 @@ func (f *regionFinder) name(mapName string, x, y any) string {
 	return regions.Name(mapName, best)
 }
 
-// label puts the region on a row that has map, x and y (the keys are given because the lists name them differently).
+// deepDesertPlace is the place text of a position in the Deep Desert (#1175): "Deep Desert" and the square of the game's lettered grid the position is in ("Deep Desert, G5", from
+// kit/ddgrid: the letter is the row from the north, the number the column from the west). A position the grid does not hold (outside it, or not a number) is still in the Deep Desert,
+// so the text is "Deep Desert" alone.
+func deepDesertPlace(x, y any) string {
+	px, ok1 := toFloat(x)
+	py, ok2 := toFloat(y)
+	if ok1 && ok2 {
+		if c := ddgrid.Cell(px, py); c != "" {
+			return "Deep Desert, " + c
+		}
+	}
+	return "Deep Desert"
+}
+
+// label puts the region on a row that has map, x and y (the keys are given because the lists name them differently). A row on the Deep Desert has no region name; it gets "place"
+// instead (#1175), which the page shows in place of "near <region>".
 func (f *regionFinder) label(row map[string]any, mapName string, xk, yk string) {
 	if n := f.name(mapName, row[xk], row[yk]); n != "" {
 		row["region"] = n
+	}
+	if isDeepDesertMap(mapName) {
+		row["place"] = deepDesertPlace(row[xk], row[yk])
 	}
 }
 
