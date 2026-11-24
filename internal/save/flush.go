@@ -41,6 +41,14 @@ type Flush struct {
 	Restored *Restored `json:"restored,omitempty"`
 }
 
+// Marks counts what has happened to the queue of pending edits: Writes is how many writes have put edits into the game's file, Drops how many times a queue was thrown away
+// (a discard, a reload, a held queue read again). Two readings of it, one before and one after a step, tell what happened in between: a queue that is no longer there after a
+// step with Writes up and Drops unchanged was written, and one with Drops up may have been thrown away. It takes no lock, so it can be read while a write is running.
+type Marks struct{ Writes, Drops uint64 }
+
+// Marks reads the counters (see Marks).
+func (s *Save) Marks() Marks { return Marks{Writes: s.writes.Load(), Drops: s.drops.Load()} }
+
 // LastFlush is the result of the last attempt that had edits to write, or nil when there has been none.
 func (s *Save) LastFlush() *Flush {
 	s.mu.Lock()
