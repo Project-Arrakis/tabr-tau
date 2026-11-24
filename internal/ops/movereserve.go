@@ -82,7 +82,7 @@ type moveBox struct {
 	Used     map[int64]bool
 	UsedVol  float64 // the volume already in the box (inventoryVolumeUsedInTx, the give's count)
 	Unknown  int64   // units already there with no known volume
-	Before   int64 // stacks in the box before the move
+	Before   int64   // stacks in the box before the move
 	// planned
 	nextPos        int64
 	Stacks, Units  int64
