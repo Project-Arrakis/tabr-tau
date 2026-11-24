@@ -108,7 +108,7 @@ func TestRecycleOnARealSaveMatchesThePatternOfTheGamesOwnRecycle(t *testing.T) {
 	// (a) rows go from the tables the game's own recycle deleted from, and from no other
 	gamePattern := map[string]bool{"actor_fgl_entities": true, "actor_inventories": true, "actors": true, "building_instances": true, "buildings": true, "fgl_entities": true, "inventories": true,
 		"permission_actor": true, "placeables": true, "totem_fuel_update_times": true, "totems": true}
-	standingOnly := map[string]bool{"permission_actor_rank": true, "landclaim_segments": true, "player_markers": true} // the measured base was already picked up: these rows had gone with the pick-up
+	standingOnly := map[string]bool{"permission_actor_rank": true, "landclaim_segments": true, "player_markers": true, "player_respawn_locations": true} // the measured base was already picked up: these rows had gone with the pick-up, or it had none
 	deleted := r["deleted"].(map[string]int64)
 	var changed []string
 	for name, n := range before {

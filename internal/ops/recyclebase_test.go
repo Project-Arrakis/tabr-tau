@@ -13,7 +13,8 @@ import (
 // Recycle a base and return everything to the Reserve (#1176). The world: the character's Reserve (inventory 12, type 33, with one stack in it), a standing base of the
 // character's (totem 601; a building actor with a foundation, two walls and a door frame; a silo with two stacks; the frame's door; a Developer storage container with one
 // stack; a hologram; a fabricator with an idle queue and a stack in a slot; a cistern with water; a map marker; land claim segments; fuel times), a base of another player, a
-// base the character is only a member of, a base the game already picked up, and a vehicle of the character's with a stack in its inventory.
+// base the character is only a member of, a base the game already picked up, a vehicle of the character's with a stack in its inventory, and four respawn points (at the
+// character's base, at the other player's base, at the vehicle, and one that is at no actor).
 //
 // The building costs are the game's own (internal/catalog/buildcosts.json): Sardaukar_Foundation Stone 15, Sardaukar_Wall_01 Stone 10, Sardaukar_Door_Frame_Tall_L Stone 7,
 // MTX_Sardaukar_TallDoor_Placeable_L Stone 10, Totem_Placeable ScrapMetal 40, SpiceSilo_Placeable ScrapMetal 35, Fabricator_Placeable ScrapMetal 75,
@@ -80,6 +81,8 @@ insert into totems(id,landclaim_vertical_level,last_backup_timestamp,landclaim_o
 insert into totem_fuel_update_times(totem_id,last_fuel_update_farm_uptime,last_fuel_update_universe_time) values (601,5,6),(801,5,6);
 insert into landclaim_segments(totem_id,grid_location_x,grid_location_y) values (601,0,0),(601,1,0),(801,7,7);
 insert into vehicles(id) values (950);
+insert into player_respawn_locations(id,character_id,"group",locator_actor_id,map,dimension) values
+  (x'01',1,'BaseTotem',601,'HaggaBasin',0),(x'02',1,'BaseTotem',801,'HaggaBasin',0),(x'03',1,'Vehicle',950,'HaggaBasin',0),(x'04',1,'Checkpoint',null,'HaggaBasin',0);
 insert into base_backups(id,player_id,base_backup_name,last_edited_by_player_id) values (3,1,'##Totem_Placeable',1);
 insert into base_backup_linked_actors(id,actor_id) values (3,901),(3,902);
 insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) values
@@ -129,6 +132,7 @@ func everything(t *testing.T, o *Ops) string {
 		`select id from totems order by 1`, `select totem_id from totem_fuel_update_times order by 1`, `select totem_id, grid_location_x from landclaim_segments order by 1,2`,
 		`select actor_id from permission_actor order by 1`, `select permission_actor_id, player_id, rank from permission_actor_rank order by 1,2`,
 		`select marker_hash_id from ` + o.S.PlayerMarkersTable() + ` pm order by 1`, `select id from base_backups order by 1`, `select id from vehicles order by 1`,
+		`select hex(id) id, locator_actor_id from player_respawn_locations order by 1`, `select id, hex(pending_respawn_location_id) p from player_state order by 1`,
 	} {
 		rows, err := o.S.Query(q)
 		if err != nil {
@@ -164,7 +168,7 @@ func TestRecycleDeletesTheBaseAndReturnsEverythingToTheReserve(t *testing.T) {
 		r := recycle(t, o, 601)
 		// the structure of the deletions: the pattern of the game's own recycle (and the land claim segments a standing base still has)
 		want := map[string]int64{"actors": 8, "actor_fgl_entities": 7, "fgl_entities": 7, "inventories": 5, "actor_inventories": 5, "building_instances": 4, "buildings": 1, "placeables": 7,
-			"totems": 1, "totem_fuel_update_times": 1, "landclaim_segments": 2, "permission_actor": 3, "permission_actor_rank": 2, "player_markers": 1}
+			"totems": 1, "totem_fuel_update_times": 1, "landclaim_segments": 2, "permission_actor": 3, "permission_actor_rank": 2, "player_markers": 1, "player_respawn_locations": 1}
 		if got := r["deleted"].(map[string]int64); fmt.Sprint(got) != fmt.Sprint(want) {
 			t.Fatalf("deleted rows: %v, want %v", got, want)
 		}
@@ -178,6 +182,11 @@ func TestRecycleDeletesTheBaseAndReturnsEverythingToTheReserve(t *testing.T) {
 			if n := rmCount(t, o, q); n != 0 {
 				t.Fatalf("%d rows left in %s", n, q)
 			}
+		}
+		// the respawn point at the base goes with it (the save's own layout deletes it with the totem's actor); the points at another base, at the vehicle and at no actor stay
+		rp, _ := o.S.Query(`select hex(id) id from player_respawn_locations order by 1`)
+		if fmt.Sprint(rp) != "[map[id:02] map[id:03] map[id:04]]" || r["respawnPoints"] != int64(1) {
+			t.Fatalf("respawn points: %v (the answer says %v)", rp, r["respawnPoints"])
 		}
 		// no base backup is written, and the one that was there stays
 		if rmCount(t, o, `base_backups`) != 1 || rmCount(t, o, `base_backup_linked_actors`) != 2 {
@@ -218,7 +227,7 @@ func TestRecycleDeletesTheBaseAndReturnsEverythingToTheReserve(t *testing.T) {
 		// the answer says it in words
 		words := strings.Join(r["summary"].([]string), "\n")
 		for _, w := range []string{`Deleted: the base "My base" with 4 building pieces, its totem and 6 placeables (8 actors`, "Moved: 4 item stacks (352 items)", "Refund (100% of the building cost, as 6 new stacks)",
-			"52 Granite Stone", "150 Salvaged Metal", "10 Iron Ingot", "1 holograms give nothing back", "1 Developer storage containers give 10 Iron Ingot each", "Dropped: 500 water stored in 1 devices",
+			"52 Granite Stone", "150 Salvaged Metal", "10 Iron Ingot", "Deleted with the base: 1 respawn points at it", "1 holograms give nothing back", "1 Developer storage containers give 10 Iron Ingot each", "Dropped: 500 water stored in 1 devices",
 			"Everything returned is in the character's Reserve", "No base backup was written", "vehicles were not touched"} {
 			if !strings.Contains(words, w) {
 				t.Fatalf("the answer does not say %q:\n%s", w, words)
@@ -364,6 +373,78 @@ func TestOnlyTheCharactersOwnStandingBasesCanBeRecycled(t *testing.T) {
 	o8 := recycleOps(t, `insert into building_instances(building_id,instance_id,building_type,owner_entity_id,health) values (602,9,'Sardaukar_Wall_01',5764607523034235001,1.0);`)
 	_, err = o8.PreviewBaseRecycle(601)
 	refusedWith(t, err, apierr.ErrConflict, "also holds 1 pieces of another base")
+}
+
+// Every reference the save's layout declares to a row the recycle deletes is either handled by it or a refusal that names the table: nothing is left dangling, and nothing is
+// found out only when the save layer refuses the finished edit.
+func TestARowOfAnotherTableThatPointsAtTheBaseIsARefusalThatNamesIt(t *testing.T) {
+	for name, c := range map[string]struct{ sql, want string }{
+		"a game event of a placeable": {`insert into game_events(actor_id,universe_time,map,partition_id,event_type,x,y,z) values (701,1,'HaggaBasin',0,3,0,0,0),(701,2,'HaggaBasin',0,3,0,0,0);`, "game_events.actor_id (2 rows)"},
+		"a spawner's actor":           {`insert into actor_spawners(id,map,name,dimension_index) values (5,'HaggaBasin','s',0); insert into actor_spawner_actors(spawner_id,actor_id) values (5,705);`, "actor_spawner_actors.actor_id (1 rows)"},
+		"a travelling actor":          {`insert into travel_actor_parent(id,parent_id,is_instigator) values (950,601,0);`, "travel_actor_parent.parent_id (1 rows)"},
+		"an actor that travels":       {`insert into travel_actor_parent(id,parent_id,is_instigator) values (702,2,0);`, "travel_actor_parent.id (1 rows)"},
+		"a rank held by an actor":     {`insert into permission_actor_rank(permission_actor_id,player_id,rank) values (801,704,3);`, "permission_actor_rank.player_id (1 rows)"},
+		"a vehicle module inventory":  {`insert into vehicle_module_inventories(inventory_id,vehicle_module_inventory_type) values (7003,1);`, "vehicle_module_inventories.inventory_id (1 rows)"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			o := recycleOps(t, c.sql)
+			before := everything(t, o)
+			_, err := o.PreviewBaseRecycle(601)
+			refusedWith(t, err, apierr.ErrConflict, "Rows of other tables of the save point at this base")
+			if !strings.Contains(err.Error(), c.want) || !strings.Contains(err.Error(), "Nothing was changed") {
+				t.Fatalf("the refusal names the table and the rows (%s): %v", c.want, err)
+			}
+			_, err = o.RecycleBase(601, "anything")
+			refusedWith(t, err, apierr.ErrConflict, c.want)
+			if everything(t, o) != before || len(o.S.Ops()) != 0 {
+				t.Fatal("a refusal must change nothing")
+			}
+		})
+	}
+	// the same rows at another base, or at the vehicle, are no reason to refuse
+	o := recycleOps(t, `insert into game_events(actor_id,universe_time,map,partition_id,event_type,x,y,z) values (801,1,'HaggaBasin',0,3,0,0,0),(950,1,'HaggaBasin',0,3,0,0,0);`)
+	if r := recycle(t, o, 601); r["respawnPoints"] != int64(1) || rmCount(t, o, `game_events`) != 2 {
+		t.Fatalf("%v", r)
+	}
+}
+
+// Every reference to actors, inventories and entities that the real layout declares is either one the recycle handles or one the plan looks up: the list of handled ones names
+// only references that exist, so a column the game renames is noticed here.
+func TestTheHandledReferencesAreReferencesOfTheSavesLayout(t *testing.T) {
+	inEachLayout(t, recycleWorld, func(t *testing.T, o *Ops) {
+		fks, err := o.S.Query(`select m.name tbl, f."from" col, f."table" ref from sqlite_master m join pragma_foreign_key_list(m.name) f where m.type='table'`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		declared := map[string]bool{}
+		for _, f := range fks {
+			declared[fmt.Sprintf("%v.%v>%v", f["tbl"], f["col"], f["ref"])] = true
+		}
+		for k := range recycleHandledRefs {
+			if !declared[k] {
+				t.Errorf("%s is handled by the recycle and is not a reference of the save's layout", k)
+			}
+		}
+		if !declared["player_respawn_locations.locator_actor_id>actors"] || !declared["game_events.actor_id>actors"] || len(declared) < 60 {
+			t.Fatalf("the layout's references were not read: %d", len(declared))
+		}
+	})
+}
+
+func TestABaseACharacterIsWaitingToRespawnAtIsRefused(t *testing.T) {
+	o := recycleOps(t, `update player_state set pending_respawn_location_id=x'01' where id=1;`)
+	before := everything(t, o)
+	_, err := o.PreviewBaseRecycle(601)
+	refusedWith(t, err, apierr.ErrConflict, "A character is waiting to respawn at this base")
+	if everything(t, o) != before {
+		t.Fatal("a refusal must change nothing")
+	}
+	// waiting to respawn somewhere else is no reason to refuse, and that pointer is not touched
+	o2 := recycleOps(t, `update player_state set pending_respawn_location_id=x'04' where id=1;`)
+	recycle(t, o2, 601)
+	if rmCount(t, o2, `player_state where id=1 and hex(pending_respawn_location_id)='04'`) != 1 {
+		t.Fatal("the pending respawn point of the character was changed")
+	}
 }
 
 func TestTheRecycleIsRefusedWhenTheBaseChangedSinceTheQuestion(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,7 +24,8 @@ import (
 //   - deleted: the base's actors (the totem, every placeable the totem owns, the building actors that hold its pieces) with their entity links and entities, their inventories
 //     and inventory links, every building piece, the buildings rows, the placeables rows, the totem row, the totem's fuel times, the permission records of the base's actors with
 //     their ranks, and the base's own map marker of the character. A standing base also has land claim segments (the measured base, already picked up, had none left): they hang
-//     from the totem's actor in the save's own layout and go with it;
+//     from the totem's actor in the save's own layout and go with it. So do the respawn points that are at the base (player_respawn_locations rows whose locator is one of the
+//     base's actors, the "BaseTotem" row of a base the character respawns at): the save's own layout deletes them with the actor;
 //   - moved: every item row of every inventory of those actors (chests, the totem's own slots, windtrap filters, generator fuel, refinery and fabricator slots) goes to the
 //     Reserve unchanged. Only inventory_id and position_index of a row change, as in the game's own recycle;
 //   - added: the refund, as new stacks in the Reserve. Every piece and placeable gives back 100% of what the game's building tables say it costs to place (times the map's cost
@@ -35,9 +37,13 @@ import (
 // The game's own recycle returned about half of the table cost in the measured case; returning everything is this editor's rule, by the operator's decision.
 //
 // Refused: a base that is not the character's own (the owner rank, as Back up and remove checks it), a base the game already picked up or that is not in the normal state, a base
-// with a crafting queue that is running, a base an actor of which is a vehicle or part of a base backup, and a save in which the character has no Reserve. Vehicles are never
-// touched. The same code is the preview (rolled back) and the write; the write must be sent the preview's fingerprint, and it fails whole, changing nothing, when what it reads
+// with a crafting queue that is running, a base an actor of which is a vehicle or part of a base backup, a base a character is waiting to respawn at, a base that a row of any
+// other table of the save points at (every reference the save's layout declares to an actor, an inventory or an entity is looked up, see recycleHandledRefs), and a save in
+// which the character has no Reserve. Vehicles are never touched. The same code is the preview (rolled back) and the write; the write must be sent the preview's fingerprint, and it fails whole, changing nothing, when what it reads
 // back after writing is not what was planned.
+
+// sqlNameRe is a table or column name that can be written into a statement between double quotes.
+var sqlNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 // errRecycleDry ends a preview's edit so that it is rolled back.
 var errRecycleDry = errors.New("base recycle dry run")
@@ -54,6 +60,56 @@ const (
 	// recycleMaxRefundStacks bounds the rows one recycle adds. The largest base seen needs about 170.
 	recycleMaxRefundStacks = 5000
 )
+
+// recycleHandledRefs are the references to a row of the base that the recycle itself takes care of: the child rows are deleted with the base, or (items) moved to the Reserve.
+// The key is the child table and column, a dot, and the table referred to. Every other reference the save's layout declares to an actor, an inventory, an entity or a permission
+// record is looked up in the plan, and a base that such a row points at is refused with the table named: what the game does with that row on a recycle is not known, and an
+// edit that left it would leave a dangling reference.
+var recycleHandledRefs = map[string]bool{
+	"actor_fgl_entities.actor_id>actors": true, "buildings.id>actors": true, "building_instances.building_id>actors": true, "placeables.id>actors": true, "totems.id>actors": true,
+	"landclaim_segments.totem_id>actors": true, "totem_fuel_update_times.totem_id>actors": true, "inventories.actor_id>actors": true, "permission_actor.actor_id>actors": true,
+	"player_respawn_locations.locator_actor_id>actors":           true,
+	"permission_actor_rank.permission_actor_id>permission_actor": true,
+	"actor_inventories.inventory_id>inventories":                 true, "items.inventory_id>inventories": true,
+	"actor_fgl_entities.entity_id>fgl_entities": true, "building_instances.owner_entity_id>fgl_entities": true, "placeables.owner_entity_id>fgl_entities": true,
+}
+
+// recycleOtherRefs looks up every reference the save's own layout declares to the rows a recycle deletes, leaves out those the recycle handles, and returns the others that
+// have rows, as "table.column (n rows)".
+func recycleOtherRefs(q baseQ, actors, inventories string) ([]string, error) {
+	fks, err := q.Query(`select m.name tbl, f."from" col, f."table" ref from sqlite_master m join pragma_foreign_key_list(m.name) f
+		where m.type='table' and f."table" in ('actors','totems','placeables','buildings','permission_actor','inventories','fgl_entities') order by 1,2,3`)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, f := range fks {
+		tbl, _ := f["tbl"].(string)
+		col, _ := f["col"].(string)
+		ref, _ := f["ref"].(string)
+		if recycleHandledRefs[tbl+"."+col+">"+ref] || !sqlNameRe.MatchString(tbl) || !sqlNameRe.MatchString(col) {
+			if !recycleHandledRefs[tbl+"."+col+">"+ref] {
+				return nil, apierr.Newf(apierr.ErrConflict, "The save has a table or column name this version cannot read (%s.%s), so what points at the base cannot be checked. Nothing was changed.", tbl, col)
+			}
+			continue
+		}
+		in := actors
+		switch ref {
+		case "inventories":
+			in = inventories
+		case "fgl_entities":
+			in = `select entity_id from actor_fgl_entities where actor_id in (` + actors + `)`
+		}
+		r, err := q.One(`select count(*) n from "` + tbl + `" where "` + col + `" in (` + in + `)`)
+		if err != nil {
+			return nil, err
+		}
+		if n, _ := toInt(r["n"]); n > 0 {
+			out = append(out, fmt.Sprintf("%s.%s (%d rows)", tbl, col, n))
+		}
+	}
+	return out, nil
+}
 
 // RefundLine is one item of the refund.
 type RefundLine struct {
@@ -86,6 +142,7 @@ type recyclePlan struct {
 	RefundStacks   int64
 	Water          int64
 	WaterDevices   int64
+	RespawnPoints  int64            // respawn points at the base: deleted with it
 	Types          string           // every type and its count, for the fingerprint
 	Rows           map[string]int64 // rows to delete, by table
 	Marker         *baseMarker
@@ -363,13 +420,29 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 		(select count(*) from landclaim_segments where totem_id=` + strconv.FormatInt(totem, 10) + `) landclaim_segments,
 		(select count(*) from totem_fuel_update_times where totem_id=` + strconv.FormatInt(totem, 10) + `) totem_fuel_update_times,
 		(select count(*) from permission_actor_rank where permission_actor_id in (` + all + `)) permission_actor_rank,
-		(select count(*) from permission_actor where actor_id in (` + all + `)) permission_actor`)
+		(select count(*) from permission_actor where actor_id in (` + all + `)) permission_actor,
+		(select count(*) from player_respawn_locations where locator_actor_id in (` + all + `)) player_respawn_locations,
+		(select count(*) from player_state where pending_respawn_location_id is not null and pending_respawn_location_id in (select id from player_respawn_locations where locator_actor_id in (` + all + `))) pending_respawn`)
 	if err != nil {
 		return nil, err
 	}
 	p.ItemRows, p.ItemUnits = num(c, "item_rows"), num(c, "item_units")
 	p.Placeables, p.NoSupport, p.Unowned = num(c, "placeables"), num(c, "no_support"), num(c, "unowned")
-	for _, t := range []string{"actor_fgl_entities", "fgl_entities", "actor_inventories", "buildings", "totems", "landclaim_segments", "totem_fuel_update_times", "permission_actor_rank", "permission_actor"} {
+	// A character that is waiting to respawn at this base (player_state.pending_respawn_location_id names its respawn point) would be left pointing at a row that is gone. The
+	// save's layout declares no reference there, so nothing would catch it: the base is refused.
+	if n := num(c, "pending_respawn"); n > 0 {
+		return nil, apierr.New(apierr.ErrConflict, "A character is waiting to respawn at this base (player_state.pending_respawn_location_id names its respawn point). Respawn in the game first, then ask again. Nothing was changed.")
+	}
+	// Rows of other tables that point at the base: refused by name (see recycleHandledRefs).
+	otherRefs, err := recycleOtherRefs(q, all, il)
+	if err != nil {
+		return nil, err
+	}
+	if len(otherRefs) > 0 {
+		return nil, apierr.Newf(apierr.ErrConflict, "Rows of other tables of the save point at this base, and what the game does with them when a base is recycled is not known to this version: %s. Nothing was changed. Report this so the case can be covered.", strings.Join(otherRefs, ", "))
+	}
+	p.RespawnPoints = num(c, "player_respawn_locations")
+	for _, t := range []string{"actor_fgl_entities", "fgl_entities", "actor_inventories", "buildings", "totems", "landclaim_segments", "totem_fuel_update_times", "permission_actor_rank", "permission_actor", "player_respawn_locations"} {
 		p.Rows[t] = num(c, t)
 	}
 	p.Rows["placeables"] = num(c, "placeables_rows")
@@ -591,6 +664,7 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		{"landclaim_segments", `delete from landclaim_segments where totem_id=` + tid},
 		{"totem_fuel_update_times", `delete from totem_fuel_update_times where totem_id=` + tid},
 		{"totems", `delete from totems where id=` + tid},
+		{"player_respawn_locations", `delete from player_respawn_locations where locator_actor_id in (` + all + `)`},
 		{"permission_actor_rank", `delete from permission_actor_rank where permission_actor_id in (` + all + `)`},
 		{"permission_actor", `delete from permission_actor where actor_id in (` + all + `)`},
 		{"actors", `delete from actors where id in (` + all + `)`},
@@ -634,6 +708,7 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		(select count(*) from buildings where id in (` + bl + `)) + (select count(*) from placeables where id in (` + all + `)) + (select count(*) from totems where id=` + tid + `) +
 		(select count(*) from landclaim_segments where totem_id=` + tid + `) + (select count(*) from totem_fuel_update_times where totem_id=` + tid + `) +
 		(select count(*) from permission_actor where actor_id in (` + all + `)) + (select count(*) from permission_actor_rank where permission_actor_id in (` + all + `)) +
+		(select count(*) from player_respawn_locations where locator_actor_id in (` + all + `)) +
 		(select count(*) from building_instances where owner_entity_id=` + strconv.FormatInt(p.Ent, 10) + `) + (select count(*) from placeables where owner_entity_id=` + strconv.FormatInt(p.Ent, 10) + `) n`)
 	if err != nil {
 		return nil, err
@@ -716,6 +791,9 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 	} else {
 		summary = append(summary, "Refund: nothing (the base holds nothing that has a building cost).")
 	}
+	if p.RespawnPoints > 0 {
+		summary = append(summary, fmt.Sprintf("Deleted with the base: %d respawn points at it. You can no longer respawn there.", p.RespawnPoints))
+	}
 	if p.Holograms > 0 {
 		summary = append(summary, fmt.Sprintf("%d holograms give nothing back: they were not paid for.", p.Holograms))
 	}
@@ -734,7 +812,7 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		"pieces": p.Pieces, "placeables": p.Placeables, "holograms": p.Holograms, "devStorage": p.DevStorage, "actors": p.Rows["actors"],
 		"deleted": deleted, "itemStacksMoved": p.ItemRows, "itemsMoved": p.ItemUnits,
 		"refund": p.Refund, "refundStacks": p.RefundStacks, "waterDropped": p.Water, "waterDevices": p.WaterDevices,
-		"reserveInventory": p.Reserve, "destination": "Reserve", "markerRemoved": markerRemoved,
+		"respawnPoints": p.RespawnPoints, "reserveInventory": p.Reserve, "destination": "Reserve", "markerRemoved": markerRemoved,
 		"summary": summary, "warnings": warns, "fingerprint": p.fingerprint(),
 	}, nil
 }

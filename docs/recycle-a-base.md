@@ -13,7 +13,7 @@ project's operator, not a copy of the game.
 
 | | |
 |---|---|
-| Deleted | The base: its totem, every placeable that belongs to the totem, every building piece, its land claim, its fuel times, its permission records, its marker on the map |
+| Deleted | The base: its totem, every placeable that belongs to the totem, every building piece, its land claim, its fuel times, its permission records, its marker on the map, and the respawn point at it |
 | Moved to the Reserve | Every item stored in the base, unchanged: chests, the totem's own slots, windtrap filters, generator fuel and lubricant, refinery and fabricator slots |
 | Added to the Reserve | The refund: what every piece and placeable cost to build, as new stacks |
 | Dropped | Water in cisterns and windtraps; a unit of fuel that is already burning |
@@ -47,6 +47,9 @@ included. One base at a time. Refused, with nothing changed:
 - a base with a crafting queue that is running, or whose queue cannot be read;
 - a base that holds a building piece or placeable type whose cost is not in the cost table (the message names the type);
 - a base an actor of which is a vehicle, or is part of a base backup, or shares an entity with something outside the base;
+- a base a character is waiting to respawn at (the save names its respawn point as the pending one): respawn in the game first;
+- a base that a row of any other table of the save points at (for example a game event, a spawner's actor, a travelling actor): the message names the table and the number
+  of rows. Every reference the save's own layout declares to an actor, an inventory or an entity is looked up, so nothing is left pointing at a row that is gone;
 - a building actor that also holds pieces of another base;
 - a save in which the character does not have exactly one Reserve.
 
@@ -144,7 +147,7 @@ The game's 37 Salvaged Metal is exactly half of 75, rounded down. Its 125 Granit
 
 One edit, all or nothing.
 
-**Deleted rows** (the tables the game's own recycle deleted from in the measured pair, and three more that a standing base still has rows in):
+**Deleted rows** (the tables the game's own recycle deleted from in the measured pair, and four more that a standing base can still have rows in):
 
 | Table | Rows |
 |---|---|
@@ -155,6 +158,7 @@ One edit, all or nothing.
 | `placeables`, `totems`, `totem_fuel_update_times` | the placeables rows, the totem row, its fuel times |
 | `permission_actor`, `permission_actor_rank` | the permission records of those actors (the totem's and each container's or door's) and their ranks |
 | `landclaim_segments` | the claim's cells. The measured base had none left (it was already picked up); they hang from the totem in the save's own layout and go with it |
+| `player_respawn_locations` | the respawn points whose locator is an actor of the base (the `BaseTotem` row of a base you can respawn at). The save's own layout deletes them with the actor; the measured base had none. Respawn points elsewhere, and those of vehicles, are not touched |
 | `player_markers` | your own HomeBase marker at the totem's position. A marker that is not clearly this base's is left, and the answer says so. The `markers` table itself is not changed |
 
 Placeables of the base that have no buildable support belong to the totem as well and go with it (Back up and remove leaves them standing; a recycle leaves nothing).
