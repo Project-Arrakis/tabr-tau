@@ -78,8 +78,12 @@ func TestANonEmptyReserveStopsTheRunWithNothingChanged(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 	mustContain(t, err.Error(), "0 of 1 base(s) can be recycled now", "the Reserve is not empty (it holds 1 stack(s))", "empty the Reserve in the game", "#1191")
-	if len(readState(t, e.state).LastCheck.ExportFiles) != 1 {
-		t.Fatal("the base was not exported first")
+	// F8: the room is checked before the export, so a refused run leaves no export folder behind (the checkpoint stays: it is taken before anything is read)
+	if len(readState(t, e.state).LastCheck.ExportFiles) != 0 {
+		t.Fatal("a refused run exported a base")
+	}
+	if m, _ := filepath.Glob(filepath.Join(filepath.Dir(e.state), exportFolderPrefix+"*")); len(m) != 0 {
+		t.Fatalf("a refused run left an export folder: %v", m)
 	}
 }
 
@@ -149,7 +153,7 @@ func TestABaseWithNoMapIsNotRecycled(t *testing.T) {
 	if err == nil || sha(t, e.save) != before {
 		t.Fatalf("%v", err)
 	}
-	mustContain(t, err.Error(), "map the save does not name")
+	mustContain(t, err.Error(), "not exactly the Deep Desert")
 }
 
 // All or nothing at the question: one base that the recycle refuses for any reason other than room means that no base is recycled.

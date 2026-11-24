@@ -2,6 +2,8 @@ package layoutroll
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -65,11 +67,42 @@ type checkRecord struct {
 	Recycled       []recycledRecord `json:"recycled,omitempty"`
 	RecycleSpace   []string         `json:"recycleSpace,omitempty"`
 	written        bool             // the save file was written by the recycle step of this run
+	history        []string         // the checkpoints of the earlier runs that recycled bases (oldest first), for the way back; not part of this record (the state file keeps them)
 }
 
 // recycledNote is said with every stop after the bases were written: what was done and the way back.
 func (c *checkRecord) recycledNote() string {
-	return fmt.Sprintf("NOTE: %d base(s) WERE recycled and written to the save earlier in this run. The checkpoint %s holds the save as it was before this run; to go back, close the game and restore it in Database > Save backups, or in PowerShell: Copy-Item -Force \"%s\" \"%s\"", len(c.Recycled), c.Checkpoint, c.CheckpointPath, c.SaveFile)
+	n := fmt.Sprintf("NOTE: %d base(s) WERE recycled and written to the save earlier in this run. The checkpoint %s holds the save as it was before this run; to go back, close the game and restore it in Database > Save backups, or in PowerShell: Copy-Item -Force \"%s\" \"%s\"", len(c.Recycled), c.Checkpoint, c.CheckpointPath, c.SaveFile)
+	if len(c.history) > 0 {
+		n += fmt.Sprintf(". Checkpoints of the earlier runs that recycled bases, oldest first (the oldest is the save from before the first recycle): %s", strings.Join(c.history, "; "))
+	}
+	return n
+}
+
+// fileSHA is the SHA-256 of the file as it is now.
+func fileSHA(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
+}
+
+// fileLeftAlone says whether the file is still exactly what it was (before is its SHA-256 from before the write), and when it is not, why in words. A file that cannot be read now, or
+// whose state before was not known, counts as changed: the write is not reported as saved, but the file may have been replaced (the editor could not read it back in time).
+func fileLeftAlone(path, before string) (bool, string) {
+	if before == "" {
+		return false, "the save file could not be compared with how it was before the write, so it may have been changed"
+	}
+	now, err := fileSHA(path)
+	if err != nil {
+		return false, fmt.Sprintf("the save file cannot be read now (%v), so it may have been changed", err)
+	}
+	if now != before {
+		return false, "the save file is different from before the write"
+	}
+	return true, ""
 }
 
 // exportFolderOf is the dated folder, beside the state file, for the base files of this run.
@@ -140,9 +173,24 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 	// 3a (#1167, only with --recycle-bases). The bases of the player in the Deep Desert are recycled, one at a time, when nothing else blocks the roll (recycle.go). A run that stops
 	// there ends the guard; one that recycled every base goes on, and the save is looked at again: no base may be left.
 	if o.RecycleBases {
-		out, err := recycleStep(o, r, &rec, s, h, stop)
+		// the state file is written at once after the save has been written (the run could die after that): the history of the earlier runs stays, this run's entry is added
+		rec.history = st.historyLines()
+		persist := func(outcome string) {
+			if o.DryRun {
+				return
+			}
+			st.recordRecycleRun(&rec)
+			rec.history = st.historyLines()
+			st.LastCheck = &rec
+			saveRun(o.StatePath, *st, now, outcome)
+		}
+		out, err := recycleStep(o, r, &rec, s, h, stop, persist, rec.history)
 		if out.done {
 			return true, err
+		}
+		if rec.written {
+			// recycled and read back; the way back is listed again with the result, whatever comes next
+			r.say("Checkpoints of the runs that recycled bases, oldest first (any of them restores the save to how it was before that run): %s.", strings.Join(st.historyLines(), "; "))
 		}
 		switch {
 		case out.planned:
@@ -267,18 +315,24 @@ func clearVehicles(o Options, r *Result, rec *checkRecord, s *save.Save, stop fu
 	if len(plan) == 0 {
 		return fail("not changed: the vehicles could not be taken out of the Deep Desert", "the check found vehicles of yours in the Deep Desert but the plan for them is empty (a bug); the save was not changed")
 	}
+	// a write that is not reported as saved may still have replaced the file (it could not be read back in time): the file is compared with how it was before the write
+	before, _ := fileSHA(s.Path)
 	f := flushSave(s)
-	if !f.Saved {
-		s.Discard() // the edit stays out of the file; throw it away so nothing is left queued
-		return fail("not changed: the vehicles could not be written", "the vehicles were planned but the save could not be written (%s); the save was not changed", f.Why)
-	}
-	// from here the save file HAS been changed
 	changed := func(outcome, why string) (bool, error) {
 		msg := fmt.Sprintf("the save WAS changed (%d vehicle(s) taken out of the Deep Desert) but %s. The checkpoint %s holds the save as it was before; Database > Save backups restores it. Look at it before the game starts", len(plan), why, rec.Checkpoint)
 		rec.Blockers = []string{msg}
 		r.say("Stopped: %s.", msg)
 		return stop(outcome, errors.New("stopped: "+msg))
 	}
+	if !f.Saved {
+		same, why := fileLeftAlone(s.Path, before)
+		if !same {
+			return changed("stopped: the write was not confirmed and the save file changed", "the write was not reported as saved ("+f.Why+") and "+why)
+		}
+		s.Discard() // the edit stays out of the file; throw it away so nothing is left queued
+		return fail("not changed: the vehicles could not be written", "the vehicles were planned but the save could not be written (%s); the save was not changed", f.Why)
+	}
+	// from here the save file HAS been changed
 	if f.Warning != "" {
 		return changed("stopped: the written save needs a look", "the write reported: "+f.Warning)
 	}

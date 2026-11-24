@@ -167,3 +167,40 @@ func IsRoomRefusal(err error) bool {
 	m := err.Error()
 	return strings.Contains(m, "a new one has no room") || strings.Contains(m, "has no free slot") || strings.Contains(m, "The Reserve of this save has room for")
 }
+
+// BaseActorsOffDeepDesert lists, in words, the actors of the base with this totem that are not on the map exactly named DeepDesert (in any case): the totem, the placeables it owns and
+// the building actors that hold its pieces, found as the recycle finds them. A recycle that follows the totem's map alone could take a base whose pieces stand elsewhere, so the layout
+// roll refuses a base for which this is not empty. It only reads the save.
+func (o *Ops) BaseActorsOffDeepDesert(totem int64) ([]string, error) {
+	ent, err := o.S.One(`select entity_id e from actor_fgl_entities where actor_id=? and slot_name='Actor' order by entity_id limit 1`, totem)
+	if err != nil {
+		return nil, err
+	}
+	e, ok := toInt(ent["e"])
+	if !ok {
+		return nil, errors.New("the totem has no entity, so the actors of the base cannot be told")
+	}
+	rows, err := o.S.Query(`select a.id id, coalesce(a.map,'') m from actors a where a.id=? or a.id in (select id from placeables where owner_entity_id=?)
+		or a.id in (select building_id from building_instances where owner_entity_id=?) order by a.id`, totem, e, e)
+	if err != nil {
+		return nil, err
+	}
+	var off []string
+	found := false
+	for _, r := range rows {
+		id, _ := toInt(r["id"])
+		if id == totem {
+			found = true
+		}
+		if m, _ := r["m"].(string); !strings.EqualFold(strings.TrimSpace(m), "DeepDesert") {
+			if m == "" {
+				m = "no map recorded"
+			}
+			off = append(off, fmt.Sprintf("actor %d is on %s", id, m))
+		}
+	}
+	if !found {
+		return nil, errors.New("the totem is not in the save's actors")
+	}
+	return off, nil
+}

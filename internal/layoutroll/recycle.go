@@ -47,6 +47,7 @@ var (
 	emptyReserveInto func(s *save.Save) error
 
 	otherBases     = func(s *save.Save) ([]ops.HoldBase, error) { return (&ops.Ops{S: s}).OtherDeepDesertBases() }
+	baseActorMaps  = func(s *save.Save, id int64) ([]string, error) { return (&ops.Ops{S: s}).BaseActorsOffDeepDesert(id) }
 	roomOf         = func(s *save.Save) (ops.RecycleRoom, error) { return (&ops.Ops{S: s}).RecycleRoom() }
 	previewRecycle = func(s *save.Save, id int64) (map[string]any, error) {
 		v, err := (&ops.Ops{S: s}).PreviewBaseRecycleWith(id, ops.RecycleOptions{Solido: true})
@@ -138,6 +139,9 @@ type recycledRecord struct {
 	SolidoBlueprint int64        `json:"solidoBlueprint"` // its blueprint number
 	SolidoNew       bool         `json:"solidoNew"`       // a new device was made (false: the character's own blank one was used)
 	SolidoWhere     string       `json:"solidoWhere,omitempty"`
+
+	// what the recycle itself said about the base (its summary and warnings), for the run's output; not kept in the state file
+	summary, warnings []string
 }
 
 func reserveNeed(done []recycledRecord) int64 { return storedTotal(done) + refundStacksTotal(done) }
@@ -152,9 +156,9 @@ func intOf(m map[string]any, k string) int64 {
 	return 0
 }
 
-func isDeepDesert(m string) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(m)), "deepdesert")
-}
+// isDeepDesert says whether a map is exactly the Deep Desert (the save writes DeepDesert). The recycle deletes, so it asks for more than the roll's check does (which also counts a
+// travel map and a map that is not recorded as the Deep Desert, so as to block): a base on any other name is not recycled.
+func isDeepDesert(m string) bool { return strings.EqualFold(strings.TrimSpace(m), "DeepDesert") }
 
 // recordOf takes what a recycle (or its question) answered and checks that it holds what this step relies on: the base, its Deep Desert map and a made Solido.
 func recordOf(b ops.HoldBase, res map[string]any) (recycledRecord, error) {
@@ -162,6 +166,8 @@ func recordOf(b ops.HoldBase, res map[string]any) (recycledRecord, error) {
 	d.ID = intOf(res, "base")
 	d.Map, _ = res["map"].(string)
 	d.Name, _ = res["name"].(string)
+	d.summary, _ = res["summary"].([]string)
+	d.warnings, _ = res["warnings"].([]string)
 	if d.ID != b.ID {
 		return d, fmt.Errorf("the answer is for base %d, not %d", d.ID, b.ID)
 	}
@@ -198,8 +204,9 @@ type recycleOutcome struct {
 
 const reserveRule = "The Reserve must be empty before each base is recycled: a recycle sends everything (what the base stored and its refund) to the Reserve, and no further recycle can happen until the Reserve is empty. Moving the Reserve to storage is not part of this run (it is #1191), so with the Reserve in this state a run recycles only the bases that fit one after the other."
 
-// recycleStep is steps 2 to 5 of the list above.
-func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.DeepDesertHolds, stop func(string, error) (bool, error)) (recycleOutcome, error) {
+// recycleStep is steps 2 to 5 of the list above. persist writes the state file at once (the guard's own record of the run), which the step calls as soon as the save has been written, before
+// anything is read back: a process that dies after that point still leaves the checkpoint and the bases that were recycled on record.
+func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.DeepDesertHolds, stop func(string, error) (bool, error), persist func(string), history []string) (recycleOutcome, error) {
 	halt := func(outcome string, format string, a ...any) (recycleOutcome, error) {
 		msg := fmt.Sprintf(format, a...)
 		rec.Blockers = append(rec.Blockers, msg)
@@ -231,10 +238,74 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	sort.Slice(bases, func(i, j int) bool { return bases[i].ID < bases[j].ID })
 	for _, b := range bases {
 		if !isDeepDesert(b.Map) {
-			return halt("not changed: a base's map is not known", "%s is on a map the save does not name, so it cannot be told to be in the Deep Desert; nothing was recycled", baseLabel(b))
+			return halt("not changed: a base is not exactly on the Deep Desert", "%s is on the map %q, which is not exactly the Deep Desert (or the save does not name it), so it is not recycled; nothing was recycled", baseLabel(b), b.Map)
+		}
+		// the map of the totem alone is not enough: every actor of the base must be on the Deep Desert too
+		off, err := baseActorMaps(s, b.ID)
+		if err != nil {
+			return halt("not changed: the actors of a base could not be checked", "the actors of %s could not be checked (%v); nothing was recycled", baseLabel(b), err)
+		}
+		if len(off) > 0 {
+			return halt("not changed: a base has actors off the Deep Desert", "%s has actors that are not on the Deep Desert (%s), so it is not recycled; nothing was recycled", baseLabel(b), strings.Join(off, "; "))
 		}
 	}
 	r.say("--recycle-bases: %d base(s) of yours stand in the Deep Desert, to be recycled one at a time in the order of their numbers: %s.", len(bases), labels(bases))
+	if len(history) > 0 {
+		r.say("Earlier runs that recycled bases kept their checkpoints (the earliest one is the way back to before the first of them): %s.", strings.Join(history, "; "))
+	}
+
+	// the vehicles are planned now (they are moved after the bases): a plan that cannot be made stops the run before a base is touched
+	if len(h.Vehicles) > 0 {
+		if _, err := planVehicles(s); err != nil {
+			return halt("not changed: the vehicles could not be placed", "the vehicles of yours in the Deep Desert cannot be taken out (%v), so no base was recycled", err)
+		}
+	}
+
+	room0, err := roomOf(s)
+	if err != nil {
+		return halt("not changed: the room could not be read", "the room in the Reserve, the backpack and the loadout could not be read (%v)", err)
+	}
+	r.say("Rule: %s", reserveRule)
+	r.say("Room now: %s", strings.Join(roomLines(room0), "; "))
+
+	// 4a. every base is asked about on the save as it is (nothing is changed by asking); a refusal for any reason other than room refuses the whole run, and all of them are listed
+	// together. The first base must also fit: when not even it does, the run ends here, before anything is exported, so that a refused run leaves no export folder behind.
+	var refused []string
+	var first recycledRecord
+	firstWhy := ""
+	for i, b := range bases {
+		pv, err := previewRecycle(s, b.ID)
+		var d recycledRecord
+		if err == nil {
+			d, err = recordOf(b, pv)
+		}
+		switch {
+		case err == nil:
+			if i == 0 {
+				first = d
+			}
+		case ops.IsRoomRefusal(err):
+			if i == 0 {
+				firstWhy = "there is no room for it: " + err.Error()
+			}
+		default:
+			refused = append(refused, fmt.Sprintf("%s: %v", baseLabel(b), err))
+		}
+	}
+	if len(refused) > 0 {
+		return halt("not changed: a base cannot be recycled", "%d of %d base(s) cannot be recycled, so none was (all or nothing): %s", len(refused), len(bases), strings.Join(refused, " | "))
+	}
+	if firstWhy == "" && enforceEmptyReserve && room0.Reserve.Used > 0 {
+		firstWhy = reserveWhy(0, room0.Reserve.Used)
+	}
+	if firstWhy == "" {
+		if p := spaceProblems(room0, []recycledRecord{first}); len(p) > 0 {
+			firstWhy = "there is not enough room: " + strings.Join(p, "; ")
+		}
+	}
+	if firstWhy != "" {
+		return halt("not changed: no base fits", "0 of %d base(s) can be recycled now: %s cannot be, because %s. Nothing was recycled and nothing was exported. %s", len(bases), baseLabel(bases[0]), firstWhy, makeRoom())
+	}
 
 	// 3. the export, before anything is recycled
 	if o.DryRun {
@@ -252,35 +323,6 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 			_, e := stop("stopped: a base could not be exported", fmt.Errorf("stopped: %v", err))
 			return recycleOutcome{done: true}, e
 		}
-	}
-
-	// the vehicles are planned now (they are moved after the bases): a plan that cannot be made stops the run before a base is touched
-	if len(h.Vehicles) > 0 {
-		if _, err := planVehicles(s); err != nil {
-			return halt("not changed: the vehicles could not be placed", "the vehicles of yours in the Deep Desert cannot be taken out (%v), so no base was recycled", err)
-		}
-	}
-
-	room0, err := roomOf(s)
-	if err != nil {
-		return halt("not changed: the room could not be read", "the room in the Reserve, the backpack and the loadout could not be read (%v)", err)
-	}
-	r.say("Rule: %s", reserveRule)
-	r.say("Room now: %s", strings.Join(roomLines(room0), "; "))
-
-	// 4a. every base is asked about on the save as it is; a refusal for any reason other than room refuses the whole run, and all of them are listed together
-	var refused []string
-	for _, b := range bases {
-		pv, err := previewRecycle(s, b.ID)
-		if err == nil {
-			_, err = recordOf(b, pv)
-		}
-		if err != nil && !ops.IsRoomRefusal(err) {
-			refused = append(refused, fmt.Sprintf("%s: %v", baseLabel(b), err))
-		}
-	}
-	if len(refused) > 0 {
-		return halt("not changed: a base cannot be recycled", "%d of %d base(s) cannot be recycled, so none was (all or nothing): %s", len(refused), len(bases), strings.Join(refused, " | "))
 	}
 
 	// the save is locked against a second editor for the writes (a dry run writes nothing)
@@ -306,7 +348,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 				r.say("  - %s: not tried", baseLabel(b))
 			}
 		}
-		return halt("not changed: a base failed to recycle", "%v. The bases before it were only tried on a working copy and the save file was not written, so NOTHING is changed (the checkpoint %s is there anyway: Database > Save backups)", err, rec.Checkpoint)
+		return halt("not changed: a base failed to recycle", "%v. The bases before it were only tried on a working copy and the save file was not written, so NOTHING is changed (the checkpoint %s is there anyway: Database > Save backups)", err, checkpointWords(o, rec))
 	}
 	done := res.done
 	k, n := len(done), len(bases)
@@ -317,20 +359,25 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	rec.RecycleSpace = table
 	for _, d := range done {
 		r.say("Base %d %q: %s", d.ID, d.Name, describeRecycled(d))
+		for _, l := range d.summary {
+			r.say("    %s", l)
+		}
+		for _, l := range d.warnings {
+			r.say("    Warning: %s", l)
+		}
 	}
 	if k > 0 {
 		r.say("%d of %d base(s) can be recycled in this run: %d Solido device(s), %d stored stacks and %d refund stacks to the Reserve; refund together: %s.", k, n, k, storedTotal(done), refundStacksTotal(done), refundTotal(done))
-		r.say("What the recycle does with what the bases held: stored items and the refund go to the Reserve, a Solido device goes to the backpack (the loadout when the backpack has no room); vehicles are not touched.")
+		r.say("What the recycle does with what the bases held: stored items and the refund go to the Reserve, a Solido device goes to the backpack (the loadout when the backpack has no room). The recycle itself touches no vehicle; the ones of yours in the Deep Desert are taken out afterwards by the vehicle step.")
 	}
 	if k == 0 {
 		s.Discard()
-		return halt("not changed: no base fits", "0 of %d base(s) can be recycled now: base %d %q cannot be, because %s. Nothing was recycled. %s", n, bases[0].ID, bases[0].Name, res.why, makeRoom(rec.Checkpoint))
+		return halt("not changed: no base fits", "0 of %d base(s) can be recycled now: base %d %q cannot be, because %s. Nothing was recycled. %s", n, bases[0].ID, bases[0].Name, res.why, makeRoom())
 	}
 	rest := bases[k:]
 	partial := ""
 	if k < n {
-		partial = fmt.Sprintf("%d of %d base(s) recycled; base %d %q was not, because %s. Not rolled: the roll needs a Deep Desert with no base in it. %s The run continues with the remaining base(s) (%s) when run again; the checkpoint of this run is %s", k, n, rest[0].ID, rest[0].Name, res.why, makeRoom(rec.Checkpoint), labels(rest), rec.Checkpoint)
-
+		partial = fmt.Sprintf("%d of %d base(s) recycled; base %d %q was not, because %s. Not rolled: the roll needs a Deep Desert with no base in it. %s The run continues with the remaining base(s) (%s) when run again; the checkpoint of this run is %s", k, n, rest[0].ID, rest[0].Name, res.why, makeRoom(), labels(rest), checkpointWords(o, rec))
 	}
 	if o.DryRun {
 		s.Discard()
@@ -343,14 +390,11 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		return recycleOutcome{planned: true}, nil
 	}
 
-	// 5. the one write, then a read of the file
+	// 5. the one write, then a read of the file. A write that is not reported as saved may still have replaced the file (it could not be read back in time): the file is compared with what it
+	// was before the write, and a file that differs is a changed save whatever the answer said.
+	before, _ := fileSHA(s.Path)
 	f := flushSave(s)
-	if !f.Saved {
-		s.Discard()
-		return halt("not changed: the bases could not be written", "the bases were recycled on the working copy but the save could not be written (%s); the save was not changed", f.Why)
-	}
-	// from here the save file HAS been changed
-	rec.Recycled, rec.written, rec.SaveFile = done, true, s.Path
+	mark := func() { rec.Recycled, rec.written, rec.SaveFile = done, true, s.Path }
 	changed := func(outcome, why string) (recycleOutcome, error) {
 		msg := fmt.Sprintf("the save WAS changed (%d base(s) recycled) but %s. Look at it before the game starts", len(done), why)
 		rec.Blockers = append(rec.Blockers, msg)
@@ -358,6 +402,19 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		_, e := stop(outcome, errors.New("stopped: "+msg))
 		return recycleOutcome{done: true}, e
 	}
+	if !f.Saved {
+		same, why := fileLeftAlone(s.Path, before)
+		if same {
+			s.Discard()
+			return halt("not changed: the bases could not be written", "the bases were recycled on the working copy but the save could not be written (%s); the save was not changed", f.Why)
+		}
+		mark()
+		persist(fmt.Sprintf("stopped: the save file changed with %d base(s) recycled, the write was not confirmed", len(done)))
+		return changed("stopped: the write was not confirmed and the save file changed", "the write was not reported as saved ("+f.Why+") and "+why)
+	}
+	// from here the save file HAS been changed
+	mark()
+	persist(fmt.Sprintf("in progress: the save was written with %d base(s) recycled, not yet read back", len(done)))
 	if f.Warning != "" {
 		return changed("stopped: the written save needs a look", "the write reported: "+f.Warning)
 	}
@@ -375,7 +432,22 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	return recycleOutcome{}, nil
 }
 
-func makeRoom(checkpoint string) string {
+// checkpointWords names this run's checkpoint; a dry run takes none, and says so.
+func checkpointWords(o Options, rec *checkRecord) string {
+	if o.DryRun || rec.Checkpoint == "" {
+		return "a new one, taken by the run before anything is changed (a dry run takes none)"
+	}
+	return rec.Checkpoint
+}
+
+func reserveWhy(i int, used int64) string {
+	if i == 0 {
+		return fmt.Sprintf("the Reserve is not empty (it holds %d stack(s)) and no recycle can happen until it is empty", used)
+	}
+	return fmt.Sprintf("the Reserve now holds %d stack(s) from the base(s) before it and no further recycle can happen until it is empty", used)
+}
+
+func makeRoom() string {
 	return "Make room: empty the Reserve in the game (move its contents to storage; doing that here is #1191) and free the backpack slots the Solido devices need, then run this again."
 }
 
@@ -398,11 +470,7 @@ func applyEach(s *save.Save, bases []ops.HoldBase, room0 ops.RecycleRoom) (res e
 			return res, i, fmt.Errorf("%s: the character has no Reserve to receive it", baseLabel(b))
 		}
 		if enforceEmptyReserve && now.Reserve.Used > 0 {
-			if i == 0 {
-				res.why = fmt.Sprintf("the Reserve is not empty (it holds %d stack(s)) and no recycle can happen until it is empty", now.Reserve.Used)
-			} else {
-				res.why = fmt.Sprintf("the Reserve now holds %d stack(s) from the base(s) before it and no further recycle can happen until it is empty", now.Reserve.Used)
-			}
+			res.why = reserveWhy(i, now.Reserve.Used)
 			return res, 0, nil
 		}
 		pv, err := previewRecycle(s, b.ID)

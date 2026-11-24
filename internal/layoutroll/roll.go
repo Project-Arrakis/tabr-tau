@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
@@ -351,6 +352,62 @@ type state struct {
 	LastRoll  *rollRecord  `json:"lastRoll,omitempty"`
 	LastRun   *runRecord   `json:"lastRun,omitempty"`
 	LastCheck *checkRecord `json:"lastCheck,omitempty"` // what the last run that looked at the save found: the checkpoint, the reasons for a refusal, the base files exported (#1167)
+
+	// RecycleHistory is one entry per run that wrote recycled bases to the save, oldest first: LastCheck is replaced by the next run, so without this the checkpoint of an earlier run
+	// (the way back to before the first recycle) would be lost from the state file when a later run recycles the next base (#1167).
+	RecycleHistory []recycleHistoryEntry `json:"recycleHistory,omitempty"`
+}
+
+// maxRecycleHistory keeps the state file small; a weekly run adds at most one entry.
+const maxRecycleHistory = 20
+
+type recycleHistoryEntry struct {
+	At             time.Time `json:"at"`
+	Checkpoint     string    `json:"checkpoint"`
+	CheckpointPath string    `json:"checkpointPath,omitempty"`
+	SaveFile       string    `json:"saveFile,omitempty"`
+	Bases          []int64   `json:"bases"`
+	SolidoItems    []int64   `json:"solidoItems,omitempty"` // the ids of the Solido devices that hold the new Solidos
+}
+
+// line is the entry as one plain sentence.
+func (e recycleHistoryEntry) line() string {
+	ids := func(l []int64) string {
+		var p []string
+		for _, v := range l {
+			p = append(p, fmt.Sprintf("%d", v))
+		}
+		return strings.Join(p, ", ")
+	}
+	return fmt.Sprintf("%s (run of %s; base(s) %s; Solido device id(s) %s)", e.Checkpoint, e.At.Format("2006-01-02 15:04"), ids(e.Bases), ids(e.SolidoItems))
+}
+
+// recordRecycleRun adds or replaces (same run time) the history entry of the run that recycled the bases of rec.
+func (s *state) recordRecycleRun(rec *checkRecord) {
+	e := recycleHistoryEntry{At: rec.At, Checkpoint: rec.Checkpoint, CheckpointPath: rec.CheckpointPath, SaveFile: rec.SaveFile}
+	for _, b := range rec.Recycled {
+		e.Bases = append(e.Bases, b.ID)
+		e.SolidoItems = append(e.SolidoItems, b.SolidoItem)
+	}
+	for i := range s.RecycleHistory {
+		if s.RecycleHistory[i].At.Equal(rec.At) {
+			s.RecycleHistory[i] = e
+			return
+		}
+	}
+	s.RecycleHistory = append(s.RecycleHistory, e)
+	if len(s.RecycleHistory) > maxRecycleHistory {
+		s.RecycleHistory = s.RecycleHistory[len(s.RecycleHistory)-maxRecycleHistory:]
+	}
+}
+
+// historyLines is the history, oldest first, one sentence each.
+func (s *state) historyLines() []string {
+	var l []string
+	for _, e := range s.RecycleHistory {
+		l = append(l, e.line())
+	}
+	return l
 }
 
 const maxState = 64 << 10
