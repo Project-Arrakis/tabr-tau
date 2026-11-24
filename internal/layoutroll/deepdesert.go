@@ -86,6 +86,9 @@ type writeIntent struct {
 	SolidoBlueprints []int64 `json:"solidoBlueprints,omitempty"` // and its blueprint number: the next run settles an unconfirmed write with them
 	SaveFile         string  `json:"saveFile"`
 	BeforeSHA256     string  `json:"saveSha256Before"` // the save file as it was before the write
+	// ReadBackFailed is set when the run opened the file after a write that was not reported as saved and it did not read back as planned: the next run must not settle the note by looking at
+	// the same file again and accepting it
+	ReadBackFailed bool `json:"readBackFailed,omitempty"`
 }
 
 // wayBack says where the save from before this run is and how to put it back.

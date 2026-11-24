@@ -380,6 +380,8 @@ type recycleHistoryEntry struct {
 	// BeforeSHA256 is the SHA-256 of the save file as it was before the write, kept on an unconfirmed entry: the next run compares it with the file as it is then (reconcile.go).
 	BeforeSHA256     string  `json:"saveSha256Before,omitempty"`
 	SolidoBlueprints []int64 `json:"solidoBlueprints,omitempty"` // as the Solido items, on an unconfirmed entry: what the next run checks the file for
+	// ReadBackFailed: the run that wrote the note opened the file it had written and it did not read back as planned; the next run stops on the entry and never accepts the file
+	ReadBackFailed bool `json:"readBackFailed,omitempty"`
 }
 
 // line is the entry as one plain sentence.
@@ -408,6 +410,7 @@ func (s *state) recordRecycleRun(rec *checkRecord) {
 	if rec.Intent != nil && len(rec.Recycled) == 0 {
 		e.Bases, e.Unconfirmed, e.BeforeSHA256 = rec.Intent.Bases, true, rec.Intent.BeforeSHA256
 		e.SolidoItems, e.SolidoBlueprints = rec.Intent.SolidoItems, rec.Intent.SolidoBlueprints
+		e.ReadBackFailed = rec.Intent.ReadBackFailed
 	}
 	replaced := false
 	for i := range s.RecycleHistory {
