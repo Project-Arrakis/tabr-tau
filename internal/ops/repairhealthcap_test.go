@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/policy"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -165,16 +166,16 @@ insert into placeables(id,health,building_type,owner_entity_id) values
 
 // The overall caps and the per-type caps agree with the figures they were measured from, and a type name is quoted safely in the statement.
 func TestHealthCapsAreAboveWhatWasMeasured(t *testing.T) {
-	if MaxRepairPieceHealth != 8750 || MaxRepairPlaceableHealth != 25000 {
-		t.Fatalf("the overall caps are %v and %v", MaxRepairPieceHealth, MaxRepairPlaceableHealth)
+	if policy.MaxRepairPieceHealth != 8750 || policy.MaxRepairPlaceableHealth != 25000 {
+		t.Fatalf("the overall caps are %v and %v", policy.MaxRepairPieceHealth, policy.MaxRepairPlaceableHealth)
 	}
-	for ty, seen := range pieceTypeHealthSeen {
-		if seen > pieceHealthSeen || healthCapOf(seen) > MaxRepairPieceHealth || healthCapOf(seen) < seen {
+	for ty, seen := range policy.PieceTypeHealthSeen {
+		if seen > policy.PieceHealthSeen || policy.HealthCapOf(seen) > policy.MaxRepairPieceHealth || policy.HealthCapOf(seen) < seen {
 			t.Errorf("%s: seen %v does not fit the caps of the pieces", ty, seen)
 		}
 	}
-	for ty, seen := range placeableTypeHealthSeen {
-		if seen > placeableHealthSeen || healthCapOf(seen) > MaxRepairPlaceableHealth || healthCapOf(seen) < seen {
+	for ty, seen := range policy.PlaceableTypeHealthSeen {
+		if seen > policy.PlaceableHealthSeen || policy.HealthCapOf(seen) > policy.MaxRepairPlaceableHealth || policy.HealthCapOf(seen) < seen {
 			t.Errorf("%s: seen %v does not fit the caps of the placeables", ty, seen)
 		}
 	}
@@ -183,19 +184,20 @@ func TestHealthCapsAreAboveWhatWasMeasured(t *testing.T) {
 	}
 }
 
-// A real import of a backup whose pieces carry a high (but in-range) health does not raise what Repair buildings writes to the pieces that stand.
+// A real import of a backup whose pieces carry the highest health the file check allows (the overall caps of the two tables) does not raise what Repair buildings writes to the
+// pieces that stand.
 func TestImportedHighHealthBackupDoesNotRaiseTheRepairTarget(t *testing.T) {
 	high := editFile(t, exportedFile(t), func(tb map[string][]map[string]any) {
 		for _, r := range tb["building_instances"] {
-			r["health"] = json.Number("900000")
+			r["health"] = json.Number("8750")
 		}
 		for _, r := range tb["placeables"] {
-			r["health"] = json.Number("900000")
+			r["health"] = json.Number("25000")
 		}
 	})
 	o := capOps(t)
 	mustImport(t, o, high)
-	if cnt(t, o, `select count(*) from building_instances where health=900000`) == 0 {
+	if cnt(t, o, `select count(*) from building_instances where health=8750`) == 0 {
 		t.Fatal("the imported pieces are not in the save")
 	}
 	if _, err := o.RepairBuildings(); err != nil {
