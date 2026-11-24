@@ -40,8 +40,69 @@ project's operator, not a copy of the game.
    - that everything goes to the Reserve, and that it cannot be undone except by restoring a backup of the save.
 4. Press **Recycle base** in the question. It is one edit. The editor takes a backup copy of the save first and then writes (or queues the edit while the game runs; the backup
    is then taken when the edit is written, and the question says that a queued recycle is dropped when the game saves a change to the base in between). The write is sent the fingerprint of what the question showed, and is refused when the base changed in between.
-5. Start the game, load the save and open the Reserve. To put things into storage boxes, move them in the game or with the editor's item move; choosing storage boxes as the
-   destination is not part of this phase.
+5. Start the game, load the save and open the Reserve. To put things into storage boxes, use [Move the Reserve into storage](#move-the-reserve-into-two-storage-boxes) (below), or
+   move them in the game.
+
+## Move the Reserve into two storage boxes
+
+A recycle puts everything into your Reserve. **The Reserve can only be filled by the game** (a recycle); you cannot put anything into it yourself. So it is a one-way inbox, and the way
+to make room for the next recycle is to move what is in it into storage (#1191). **Move the Reserve into storage** does that into **two Developer storage containers you have named in
+the game**, in one edit, whole stacks only.
+
+**What it does.** Every item stack of your character's Reserve moves into the two boxes, **whole and unchanged**: the same item rows, with the same stack size, durability, grade and
+everything else. Only the inventory and the slot of each row change (the same two columns a recycle changes when it moves what a base stored). A stack is never split, merged, topped
+up, recreated or deleted. The stacks go in the order they have in the Reserve (slot, then item number); each goes into the **first box that has both a free slot and room by volume**
+(box 1 until it is full, then box 2), into that box's lowest free slot. Nothing else in the save changes.
+
+**How the boxes are found.** By the **name you gave each box in the game**: the editor reads the name from the box's permission record (`permission_actor.actor_name`, the same name
+Bases > Inventory shows). Each name must match **exactly one** Developer storage container (`Developer_StorageContainer_Placeable`; names are case sensitive, and a box you never renamed
+has no name to be found by: its "name" is the game's placeholder). That one box must also:
+
+- stand in a base of **yours** (your character holds its owner rank, alone), in the normal state, and not be a hologram;
+- **not be in the Deep Desert**;
+- **not be in a base that is being recycled** (the later multi-base run gives the editor those bases; a run by hand has none to give, so be sure yourself);
+- have a slot count above 0 (a box whose count is 0, -1 or empty is refused: the editor does not know what it is).
+
+The two names must be different boxes. A name that matches **no** box, a name that matches **two or more** (the message says how many and where), the same box twice, a Deep Desert box,
+a box of another player, a hologram, a box that is not in the normal state: each **refuses the whole move**, names what was found, and changes nothing.
+
+**Room.** Before anything is changed the editor checks the whole Reserve against both boxes. A box holds `max_item_count` stacks (slots). Volume is checked when the box has a volume
+limit above 0 (`max_item_volume`; 0 or none recorded means no volume check, as a give reads it): each stack counts its unit volume times its size, the unit volume being the row's own
+`volume_override` when it has one and otherwise the game's item table. A stack whose item has no known volume counts as none; the answer says how many units that was. What is already in
+the box counts. If it does not fit, **nothing is changed**, and the message says what was needed, what each box has free (slots and volume), and the shortfall. The fit is worked out stack by
+stack in the order above, so a Reserve that would fit only with a different order is refused too: make room in the boxes or name boxes with more.
+
+**All or nothing.** One edit. Inside it the editor reads back what it wrote: the Reserve is empty, every stack is in the box and slot that was planned, no other column of any moved
+row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count. Any difference fails the whole edit and nothing changes. The save layer
+then runs its reference check and its check of stored JSON, as for a recycle. The write must be sent the **fingerprint** the question showed (the Reserve, the boxes and the plan), and
+is refused when anything changed in between. A backup of the save is taken first, as for every write. While a game process exists the edit is only queued, put back onto the save the
+game wrote last, and **dropped, not written**, when the game saved a change to anything it read (a stack of the Reserve, a box, its contents).
+
+**An empty Reserve** is not an error: the answer says so and nothing is written (the boxes are still checked first, so a wrong name is always said).
+
+### Tonight: a walk-through
+
+1. **In the game, prepare two boxes.** Place two Developer storage containers in a base of yours that is not in the Deep Desert and is not one you are about to recycle. Name them in
+   the game (anything different, for example `Reserve 1` and `Reserve 2`; no commas). Make room: a Developer storage container holds 1,000 stacks in the saves seen, so two mostly empty boxes are plenty. Save and **close the game**.
+2. **Dry run.** In PowerShell:
+
+   ```powershell
+   & "$env:USERPROFILE\Downloads\tabr-tau\tabr-tau.exe" move-reserve --boxes "Reserve 1,Reserve 2" --dry-run
+   ```
+
+   Change the path on that line if you keep `tabr-tau.exe` elsewhere. With more than one save on the machine, add `--save "<path to game.db>"` before the word `move-reserve`. The
+   dry run reads the save and **writes nothing**; it prints how many stacks and items move, into which box, and how much room is left. A name it cannot find, a box it may not use or
+   a Reserve that does not fit is printed as a refusal, and nothing was changed.
+3. **Run it.** The same line without `--dry-run`. It refuses while the game runs, takes a verified backup copy of the save (named in its output), moves the Reserve, writes the save through
+   the editor's own write path, then opens the written file again and checks that the Reserve is empty. It ends with the lines of the move.
+4. **Check in the game.** Start the game, load the save, open the Reserve (it should be empty) and the two boxes (the stacks are in them). If anything looks wrong, close the game and
+   restore the backup copy from **Database > Save backups** (see [Undo](#undo-restore-the-save)).
+
+The editor does the same from **Player > Bases**: type the two names once in the **Box 1** and **Box 2** fields (the editor keeps them in this browser) and press **Move the Reserve into
+storage**. The question lists the same numbers; OK writes it.
+
+**Not checked in the game.** That the game accepts a save in which the Reserve's stacks sit in a Developer storage container, and shows them there with the right slots and weight, has
+not been tried. The edit moves the rows the same way a recycle moves what a base stored, and was run on copies of a real save, not in the game.
 
 ## Make a Solido of the base first (option)
 
@@ -299,7 +360,8 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 
 - **A Solido is optional, and its numbering is not the game's.** See [Make a Solido first](#make-a-solido-of-the-base-first-option). The editor never reads or places a Solido,
   and it does not check that one exists before a recycle without the box.
-- **Storage boxes as the destination are phase 2.** Everything goes to the Reserve. Moving it on into chosen storage boxes, in the same step, is not built.
+- **Storage boxes as the destination are a separate step.** A recycle puts everything into the Reserve; [Move the Reserve into storage](#move-the-reserve-into-two-storage-boxes) empties it into two
+  named boxes afterwards (#1191). Doing both in one run, base after base, is not built here.
 - **The game's own recycle returns about half.** The editor returns everything, by the operator's choice. A base recycled here gives more than the same base recycled in the
   game. An "as the game does" mode is not built: the game's rate and rounding are known from one base only.
 - **Deep Desert rounding.** Half of an odd cost is rounded up per unit. What the game charges for such a piece there has not been measured.
