@@ -3,7 +3,13 @@
   Registers (or removes) the Windows scheduled task that runs "tabr-tau layout-roll" every Tuesday at 05:00 local time (#1141).
 
 .DESCRIPTION
-  Nothing is registered unless you run this script yourself. See docs/help/deep-desert-layout-roll.md.
+  Nothing is registered unless you run this script yourself. See docs/help/deep-desert-layout-roll.md, which has every command with full paths and, under "Going back", where the
+  Game.ini backup and the checkpoint of the save are written and how to restore them.
+
+  The examples below are written for PowerShell opened in the "scripts" folder of the repository. From any other folder, use the full path of this script instead, for example:
+    & "$env:USERPROFILE\tabr-tau\scripts\layout-roll-task.ps1" -ExePath "$env:USERPROFILE\Downloads\tabr-tau.exe" -WhatIf
+  $env:USERPROFILE is your own user folder. Replace "tabr-tau\scripts" with the folder the repository was downloaded to, and "Downloads\tabr-tau.exe" with where tabr-tau.exe is.
+  "C:\path\to\tabr-tau.exe" in the examples below stands for that same full path of tabr-tau.exe.
 
   Install:   .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe"
   Preview:   .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe" -WhatIf
