@@ -136,7 +136,8 @@ test('the Bases card has the Solido box, unticked, with its explanation, and a r
   assert.ok(box && box.type === 'checkbox' && box.checked === false);
   assert.ok(box.closest('label').textContent.includes('Make a Solido of the base first when I recycle it'));
   const tipBox = main.querySelector('#' + box.getAttribute('aria-describedby'));
-  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('blank Solido device') && tipBox.textContent.includes('never changed') && tipBox.textContent.includes('claim totem'), tipBox && tipBox.textContent);
+  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('blank Solido device') && tipBox.textContent.includes('never changed') && tipBox.textContent.includes('claim totem') &&
+    tipBox.textContent.includes('Not yet tried in the game: keep your save backup until you have placed it.'), tipBox && tipBox.textContent);
   ui.click('[data-act="baseRecycle"]'); await ui.settle();
   assert.deepEqual(ui.fetchedUrls.filter((u) => u.startsWith('/api/bases/recycle-preview')), ['/api/bases/recycle-preview?base=7']);
   assert.ok(![...ui.doc.querySelectorAll('#ask li')].some((l) => /Solido/.test(l.textContent)), 'no Solido line');
@@ -153,7 +154,8 @@ test('with the box ticked the preview is asked for a Solido, the question says i
   const q = ui.doc.querySelector('#ask');
   const items = [...q.querySelectorAll('li')].map((l) => l.textContent);
   assert.ok(items[0].includes('A Solido of the base is made first, in the same edit') && items[0].includes('2,133 building pieces') && items[0].includes('251 placeables') && items[0].includes('9 pentashields') &&
-    items[0].includes('the blank Solido device (item 61428455) that is already in your inventory') && items[0].includes('the claim totem, 2 doors, 8 pieces'), items[0]);
+    items[0].includes('the blank Solido device (item 61428455) that is already in your inventory') && items[0].includes('the claim totem, 2 doors, 8 pieces') &&
+    items[0].endsWith('Not yet tried in the game: keep your save backup until you have placed it.'), items[0]);
   assert.ok(items[1].includes('2,141 building pieces') && items[1].includes('No base backup is made'), items[1]);
   assert.ok(q.textContent.includes('A Solido of the base is made first, then the base is deleted'));
   assert.equal(ui.doc.querySelector('#aok').textContent.trim(), 'Make a Solido and recycle base');
@@ -188,7 +190,7 @@ test('a new device is named as a new device in the backpack, and a Solido refuse
   tick(ui, true);
   ui.click('[data-act="baseRecycle"]'); await ui.settle();
   const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
-  assert.ok(items[0].includes('a new Solido device (BuildingBlueprint_CopyDevice) in your backpack') && items[0].endsWith('the claim totem'), items[0]);
+  assert.ok(items[0].includes('a new Solido device (BuildingBlueprint_CopyDevice) in your backpack') && items[0].includes('the claim totem') && items[0].endsWith('Not yet tried in the game: keep your save backup until you have placed it.'), items[0]);
   ui.click('[data-act="askNo"]'); await ui.settle();
   assert.equal(ui.posted.filter((x) => x.path === '/api/bases/recycle').length, 0);
   ui.dom.window.close();

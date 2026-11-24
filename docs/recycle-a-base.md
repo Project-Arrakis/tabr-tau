@@ -78,7 +78,7 @@ own number and placeables by their own, in ascending order, which is also the or
 measured saves stood upright); a Pentashield whose scale cannot be read or is not a whole number of steps; a base with nothing a Solido can hold; a device whose stats are not a JSON
 object. Deep Desert bases work the same way as any other.
 
-**Not checked in the game.** That the game shows this Solido in the backpack and previews the base from it, and that it can be placed, has not been tried: only that the rows are
+**Not checked in the game.** The box's explanation and the question both say so: "Not yet tried in the game: keep your save backup until you have placed it." That the game shows this Solido in the backpack and previews the base from it, and that it can be placed, has not been tried: only that the rows are
 those the game wrote for a base of its own.
 
 ## Every rule
