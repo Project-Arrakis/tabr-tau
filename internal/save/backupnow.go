@@ -29,13 +29,19 @@ var afterManualCopy = func() {}
 // "-manual" so the list can say it was taken by hand. It reads the save file and writes nothing to it: no gate, no queue, no working copy is touched, so it works while the game
 // is running (it copies what the game last wrote). The copy is verified by its size and its SHA-256 against the bytes that were read, and the save file is read once more after the
 // copy: if the game wrote to it in between, the copy may be of neither state, so it is removed and nothing is kept. The pruning never counts or removes a manual backup.
-func (s *Save) BackupNow() (ManualBackup, error) {
+func (s *Save) BackupNow() (ManualBackup, error) { return s.backupTagged(manualTag) }
+
+// BackupCheckpoint is BackupNow for the weekly layout roll (#1167): the same copy, the same checks and the same read-back, tagged "-layoutroll" instead of "-manual" so that the
+// list of backups can tell the checkpoint of a roll from one taken by hand. The pruning never counts or removes it (only "-auto" backups are ever removed).
+func (s *Save) BackupCheckpoint() (ManualBackup, error) { return s.backupTagged(checkpointTag) }
+
+func (s *Save) backupTagged(tag string) (ManualBackup, error) {
 	s.mu.Lock() // an edit being written (commit holds s.mu from the check to the reload) is not copied half way
 	defer s.mu.Unlock()
 	if err := s.requirePlainFile(); err != nil {
 		return ManualBackup{}, err
 	}
-	dest, sum, err := s.backupNamed(manualTag)
+	dest, sum, err := s.backupNamed(tag)
 	if err != nil {
 		return ManualBackup{}, err
 	}

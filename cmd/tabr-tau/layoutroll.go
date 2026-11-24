@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/buildinfo"
 	"github.com/Project-Arrakis/tabr-tau/internal/layoutroll"
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/internal/settings"
@@ -57,7 +58,24 @@ func runLayoutRoll(args []string, cfgDir string, out io.Writer, base layoutroll.
 	return err
 }
 
-// realLayoutRollOptions is what a real run uses: the clock, the random source, the state file and the process list.
-func realLayoutRollOptions() layoutroll.Options {
-	return layoutroll.Options{StatePath: layoutStatePath(), Now: time.Now, Intn: layoutroll.Rand(), GameRunning: gameRunningNow}
+// realLayoutRollOptions is what a real run uses: the clock, the random source, the state file, the process list and the save to check. The save is the one named with --save, else the
+// only one found on this machine; with none or several found the run has no save to check and refuses (it changes nothing), saying why.
+func realLayoutRollOptions(savePath string) layoutroll.Options {
+	path, problem := resolveLayoutSave(savePath, save.Discover)
+	return layoutroll.Options{StatePath: layoutStatePath(), Now: time.Now, Intn: layoutroll.Rand(), GameRunning: gameRunningNow, SavePath: path, SaveProblem: problem, Editor: buildinfo.Get().Version}
+}
+
+// resolveLayoutSave names the save the roll checks: the one given, else the only one found. The second answer is the reason when there is none.
+func resolveLayoutSave(explicit string, discover func() []string) (path, problem string) {
+	if explicit != "" {
+		return explicit, ""
+	}
+	switch found := discover(); len(found) {
+	case 1:
+		return found[0], ""
+	case 0:
+		return "", "no save (game.db) was found on this machine"
+	default:
+		return "", fmt.Sprintf("%d saves were found, so it is not clear which one to check", len(found))
+	}
 }

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// FileName is the game's own config file that holds the setting. It is the only file this package writes besides its backups and its state file.
+	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is only read.
 	FileName = "Game.ini"
 	// KeepBackups is how many timestamped copies of Game.ini are kept beside it.
 	KeepBackups = 10
@@ -36,8 +36,13 @@ type Options struct {
 	DryRun    bool   // say what would be done; write nothing, not even the state file
 	Force     bool   // roll although one already happened in the current week
 	Set       *int   // a chosen layout (0 to 11) instead of a random one; an explicit choice is not held back by the weekly rule
-	Now       func() time.Time
-	Intn      func(n int) int
+	// SavePath is the save to check (game.db or its folder) before Game.ini is touched (#1167); SaveProblem says why it is empty when the caller could not tell which save it is.
+	// The run only ever reads it, apart from the verified checkpoint copied into the save's backup folder. Editor is the version written into the base files that are exported.
+	SavePath    string
+	SaveProblem string
+	Editor      string
+	Now         func() time.Time
+	Intn        func(n int) int
 	// GameRunning says whether the game may be running and, if so, why (the process found, or that the check could not be made: a check that cannot run counts as running).
 	GameRunning func() (bool, string)
 }
@@ -134,6 +139,12 @@ func Roll(o Options) (Result, error) {
 		}
 		saveRun(o.StatePath, st, now, "not changed: the game is running")
 		return r, fmt.Errorf("not changed: %s", why)
+	}
+
+	// guard 3 (#1167): the Deep Desert. A checkpoint of the save, then a read of it; the roll is refused while a base, the character or a vehicle of the player is in the Deep Desert,
+	// and each such base is exported first. --set and --force do not skip it.
+	if done, err := guardDeepDesert(o, &r, &st, now); done {
+		return r, err
 	}
 
 	if o.DryRun {
@@ -328,8 +339,9 @@ type runRecord struct {
 }
 
 type state struct {
-	LastRoll *rollRecord `json:"lastRoll,omitempty"`
-	LastRun  *runRecord  `json:"lastRun,omitempty"`
+	LastRoll  *rollRecord  `json:"lastRoll,omitempty"`
+	LastRun   *runRecord   `json:"lastRun,omitempty"`
+	LastCheck *checkRecord `json:"lastCheck,omitempty"` // what the last run that looked at the save found: the checkpoint, the reasons for a refusal, the base files exported (#1167)
 }
 
 const maxState = 64 << 10
