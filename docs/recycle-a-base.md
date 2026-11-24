@@ -250,6 +250,14 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 - **Not measured in the game for a standing base.** The rows deleted are those of the game's recycle of a base *backup*. What the game does with the totem's own slots, the slots
   of refineries and fabricators, and filters and fuel on a recycle was not in the measured base (its only contents were the four stacks in the silo); the editor moves them all,
   by the operator's rule.
+- **Eleven cost items the editor's catalogs do not know.** Eleven placeable types cost an item that is in neither the stack-size table nor the item catalog, so the editor
+  does not know how the item stacks and will not guess: a base that holds one of them is refused, with the item named. They are `MediumInsulatedCistern_Placeable` (JasmiumDust
+  30), `SmallInsulatedCistern_Placeable` (ScrapElectronics 50), and nine deployables that cost one of themselves: `CamouflagedStilltent_Placeable`, `ProtectiveStilltent_Placeable`,
+  `CompactSeismicProbe_Placeable`, `SeismicProbe_Placeable`, `LongRangeSeismicProbe_Placeable`, `CompactThumper_Placeable`, `LongDurationThumper_Placeable`,
+  `PortableFabricator_Placeable` and `Turret_Placeable`. Nine more deployables (`Stilltent_Placeable`, `Stilltent_Placeable_Unique_01`, `Thumper_Placeable`, the three
+  `UniqueThumper_Placeable` types, `RespawnBeacon_Placeable`, `StakingUnit_Placeable`, `StakingUnitVertical_Placeable`) cost one of themselves, an item the catalog knows and the
+  stack-size table does not list; it comes back as one stack of one for each. `Ladder_Placeable` has no cost in the game's tables at all and is refused too. None of these
+  types was in a base of the saves checked.
 - **The cost table is of one game build** (26592269). A piece type added by a later build is refused until the table is made again.
 - **The item id counter.** The editor moves the save's item id counter past the new stacks, as every give in the editor does. The game's own recycle left the counter as it
   was in the measured pair.
