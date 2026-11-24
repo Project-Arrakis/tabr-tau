@@ -10,7 +10,7 @@ Modules in the Windows and Linux builds (from `go list -deps -test`; regenerate 
 
 ---
 
-## github.com/dustin/go-humanize v1.0.1
+## github.com/dustin/go-humanize v1.1.0
 
 ```text
 Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
@@ -131,7 +131,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---
 
-## github.com/ncruces/go-strftime v1.0.0
+## github.com/ncruces/go-strftime v1.1.0
 
 ```text
 MIT License
@@ -193,7 +193,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-## golang.org/x/sys v0.48.0
+## golang.org/x/sys v0.49.0
 
 ```text
 Copyright 2009 The Go Authors.
@@ -227,7 +227,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-## modernc.org/libc v1.77.1
+## modernc.org/libc v1.80.1
 
 ```text
 Copyright (c) 2017 The Libc Authors. All rights reserved.
@@ -329,7 +329,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-## modernc.org/sqlite v1.60.1
+## modernc.org/sqlite v1.62.0
 
 ```text
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
@@ -518,7 +518,7 @@ can return what the game's own tables say a base cost. If you hold the rights an
 
 ## Place names, arrival points, taxi points, fillable items and the save's table layout: taken from the game's own data
 
-Six more groups of embedded files hold data that comes from the game itself and not from the Dune Docker console. They are embedded in the executable.
+Seven more groups of embedded files hold data that comes from the game itself and not from the Dune Docker console. They are embedded in the executable.
 
 - `internal/ops/decree-names.json` (added in #608, 2026-11-15): for the 11 Landsraad decree ids of a save, the name the game shows for the decree and, for ten of them, its one-line effect. They are the game's own short text, read from the game's data table `DT_LandsraadDecrees` (the `Name` and `EffectText` columns, English) of game build 26592269, read-only; the plain `SpecialVendorActive` entry is the editor's own words, marked `derived`. It holds ten decree names and ten effect lines; the table's longer narrative texts and its artwork are not copied. The names were cross-checked against the community wiki's Landsraad page (CC BY-NC-SA 4.0); none of that page's text is used.
 
@@ -527,10 +527,11 @@ Six more groups of embedded files hold data that comes from the game itself and 
 - `internal/ops/deep-desert-taxis.json` (added in #521, 2026-10-30): for the three Deep Desert taxi service points, the grid cell, the marker position and the standing position beside it, from the game's level `DeepDesert_1_Travel`. It holds location keys and numbers only.
 - `kit/gamedata/fillables/item_table_fillables.json` (added in #551): the game's table of fillable items, `DT_ItemTableFillables`: 58 rows of an item template id, the most it holds, the amount a new item starts with, the liquid it takes and whether it is a container. It holds names (the game's own identifiers) and whole numbers; no artwork, no text, no save. It was read from the installed game's content files, read-only, on 2026-10-25 (game build 1.5.15.x).
 - `kit/schema/schema.sql` and `kit/schema/schema_map_names.sql` (the first extracted on 2026-09-30, the second on 2026-11-12; embedded since #563 and #588): the CREATE statements of the tables, indexes and trigger of the game's single-player save database, in the layout before and after the game's early-November 2026 update, taken with `select sql from sqlite_master` from real single-player saves. They are structure only: table, column and index names and types, no row and no value of any save (a test checks that there is no `INSERT`).
+- `internal/layoutroll/worldlayouts-line.txt` (added with the layout-roll command, #1141): the one line of the installed game's `DefaultGame.ini` that lists the data of every Deep Desert world layout and names the layout in use (`m_WorldLayoutsPerWorld`, ending in the `WorldLayoutIndexInSingleplayer` number), as measured in the game on 2026-10-27. It holds the game's own asset paths and settings names and whole numbers; no text, artwork or save. It is written into the person's own `Game.ini` only when that file has no such line yet, with the index the person chose; a line that is already there is only ever edited in its one number.
 
 What can be said from this repository: `place-names.json` and `deep-desert-taxis.json` are made by this project's tools (`tools/placenamesgen`, `tools/deepdeserttaxisgen`) from JSON dumps of the game's tables and level, read from the installed game read-only; `place-arrivals.json` is a committed file that no tool writes; the fillables file is pinned by a test against its canonical form. Nothing in the game is changed by reading its data. `internal/catalog/PROVENANCE.md` and `kit/PROVENANCE.md` hold the same facts next to the files.
 
-What the repository does not record, and this notice therefore does not state: the game build of the files under `internal/ops/` other than `decree-names.json`, the tool and the files used to read the game's tables, and any licence or terms-of-service position on using the data. This project is unofficial and not affiliated with or endorsed by Funcom; the game, its tables, its names and its text belong to their owners, and the files are included only so the editor can show and write values the game itself accepts. If you hold the rights and want any of these files changed or removed, open an issue on this repository.
+What the repository does not record, and this notice therefore does not state: the game build of the files under `internal/ops/` other than `decree-names.json` and of `worldlayouts-line.txt`, the tool and the files used to read the game's tables, and any licence or terms-of-service position on using the data. This project is unofficial and not affiliated with or endorsed by Funcom; the game, its tables, its names and its text belong to their owners, and the files are included only so the editor can show and write values the game itself accepts. If you hold the rights and want any of these files changed or removed, open an issue on this repository.
 
 ## Fixed places of the Landsraad house representatives: the reference map and public guides (location facts only)
 

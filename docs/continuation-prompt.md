@@ -6,9 +6,9 @@ Contains no credentials and no account IDs. Verify anything time-sensitive befor
 ## Who and what
 `tabr-tau` (`Project-Arrakis/tabr-tau`, Go, MIT) is a local-web-UI editor for a **single-player Dune: Awakening
 save** on a Windows PC (Windows 10/11 only; one exe that serves `127.0.0.1` and shows the UI in a WebView2 window or the browser).
-Operator: the repo owner. Operating rules: the Project Arrakis `meta` README (re-read it first; Requirement 17). Key rules here:
+Owner: the repo owner. Operating rules: the Project Arrakis `meta` README (re-read it first; Requirement 17). Key rules here:
 work on branches and PRs (21), every finding filed as an issue with a STRIDE table (20), no secrets or IDs in the repo (5, 24),
-no AI co-author trailers in commits (operator rule), verify before asserting (12), documentation drift is a defect (14).
+no AI co-author trailers in commits (the owner's rule), verify before asserting (12), documentation drift is a defect (14).
 
 ## State (2026-10-22)
 - Edits are written to the game's file as they are made, or queued while the file cannot be written (#238); there is no review pane
@@ -54,10 +54,10 @@ keep it local and private, delete when done. Never commit saves, snapshots, `Gam
 - Do not run tests or installers that write outside a scratch directory on a shared or production host, and never use `/tmp`.
 - Do not edit a live save while the game runs, and do not touch `autosave/`, `game_prepatch.db` or `game.crash.db`.
 - Do not trust `[I]` or `[T]` claims. Do not treat the audit's "not confirmed" items as facts.
-- Do not merge PRs or file issues on the public repo without operator approval (the operator has approved the routine PR flow in this
+- Do not merge PRs or file issues on the public repo without the owner's approval (the owner has approved the routine PR flow in this
   repository; anything outward-facing beyond it still needs a yes).
 
 ## Where the analysis inputs went
-The real sample save is **not** in git (contains IDs). The schema-only extract is `docs/evidence/`. The operator has the
+The real sample save is **not** in git (contains IDs). The schema-only extract is `docs/evidence/`. The owner has the
 original files on the PC (`%LOCALAPPDATA%\DuneSandbox`). Regenerate the DDL and diffs with the commands in
 `docs/design/2026-09-30-dune-docker-parity.md` section 7.
