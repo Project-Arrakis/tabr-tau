@@ -504,6 +504,18 @@ affiliated with or endorsed by Funcom; the game, its item tables and its names b
 editor can write values the game itself accepts. If you hold the rights and want either file changed or removed, open an issue on this
 repository.
 
+## Building costs: taken from the game's own building data tables
+
+- `internal/catalog/buildcosts.json` (added in #1176, 2026-11-23, game build 26592269): for 752 building piece types and 527 placeable types, what one unit costs to place
+  (item template ids and whole numbers), and the share of that cost a piece costs in the Deep Desert (50 percent). It is read from the game's building data tables
+  (`DT_BuildingData_*`, `DT_PlaceableData_*`, `DT_BuildableGroupData_Building`, `DT_BuildableGroupData_Placeable`, `DT_BuildableMapRegion`), read-only. It holds identifiers
+  and whole numbers only: no names, text, images or code of the game. It is embedded in the executable and used for one thing: to work out what Recycle base gives back for a
+  base. `tools/buildcostsgen` makes it from JSON dumps of the tables; `internal/catalog/PROVENANCE.md` ("buildcosts.json") lists the tables, the rule, and which step of the
+  extraction is repeatable from this repository and which is not.
+
+This project is unofficial and not affiliated with or endorsed by Funcom; the game, its tables and its names belong to their owners, and the file is included only so the editor
+can return what the game's own tables say a base cost. If you hold the rights and want the file changed or removed, open an issue on this repository.
+
 ## Place names, arrival points, taxi points, fillable items and the save's table layout: taken from the game's own data
 
 Six more groups of embedded files hold data that comes from the game itself and not from the Dune Docker console. They are embedded in the executable.

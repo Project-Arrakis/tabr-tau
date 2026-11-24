@@ -1565,7 +1565,7 @@ async function basesView() {
   const base = list.find((x) => x.base_id == id);
   const h = [html`<div class="card d-panel"><h3>Bases (${list.length})</h3>${tbl([{ k: 'name', label: 'Base name', f: (r) => html`<span title="Base number ${r.base_id}">${r.name}</span>${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => html`${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], list,
-    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}${r.picked_up ? '' : tip('bcrtip' + r.base_id, "Backs this base up the way the game's own base tool does, and takes it out of the world. It becomes a base backup you can place again with the in-game tool. Items stored in it stay with the backup.", html`<button class="b sec sm d-btn sm" data-act="baseRemove" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
+    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}${r.picked_up ? '' : tip('bcrtip' + r.base_id, "Backs this base up the way the game's own base tool does, and takes it out of the world. It becomes a base backup you can place again with the in-game tool. Items stored in it stay with the backup.", html`<button class="b sec sm d-btn sm" data-act="baseRemove" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`)}${r.picked_up ? '' : tip('bcytip' + r.base_id, "Recycles this base: the base is deleted, and everything stored in it and everything it cost to build goes to your character's Reserve. No base backup is made. It cannot be undone except by restoring a backup of the save.", html`<button class="b sec sm d-btn sm" data-act="baseRecycle" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcytip${r.base_id}">Recycle base</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
   if (base) {
     const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land claim editor'], ['structures', 'Structures']];
     h.push(html`<div class="card d-panel"><h3 title="Base number ${base.base_id}">${base.name}</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
@@ -3409,6 +3409,30 @@ const A = {
     return act(async () => {
       const r = await api('/api/bases/remove', { base_id: +d.id, fingerprint: pv.fingerprint });
       toast(`Backed up "${r.name}" as base backup ${r.backupId}: ${n(r.pieces)} pieces and ${n(r.placeables)} placeables are out of the world. Place it with the Base Reconstruction Tool in the game.` + NOT_SAVED);
+    }, null);
+  },
+  // Recycle base (#1176): the editor works out what the recycle deletes, moves and gives back (the edit, rolled back), the question lists the numbers, and only OK writes it. The
+  // write is sent the fingerprint of what was shown, so a base that changed in between is refused. Everything goes to the character's Reserve.
+  baseRecycle: async (d) => {
+    let pv;
+    try { pv = await api('/api/bases/recycle-preview?base=' + encodeURIComponent(d.id)); } catch (e) { toast(e.message, true); return; }
+    const n = (v) => Number(v).toLocaleString();
+    const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be; the backup of the save is taken when it is written.' : 'A backup of the save is taken first, then it is written at once.';
+    const refund = pv.refund.length ? pv.refund.map((x) => `${n(x.count)} ${x.name}`).join(', ') : 'nothing';
+    const rate = pv.costPercent === 100 ? '100% of the building cost' : `100% of the building cost on this map, which is ${pv.costPercent}% of the table cost`;
+    const list = [`${n(pv.pieces)} building pieces, the totem and ${n(pv.placeables)} placeables are deleted, with the land claim and the base marker. No base backup is made`,
+      `${n(pv.itemStacksMoved)} item stacks (${n(pv.itemsMoved)} items) stored in the base move to your Reserve, unchanged`,
+      `Refund to your Reserve (${rate}, ${n(pv.refundStacks)} new stacks): ${refund}`]
+      .concat(pv.holograms ? [`${n(pv.holograms)} holograms give nothing back`] : [])
+      .concat(pv.devStorage ? [`${n(pv.devStorage)} Developer storage containers give 10 Iron Ingot each`] : [])
+      .concat(pv.waterDropped ? [`${n(pv.waterDropped)} water stored in ${n(pv.waterDevices)} devices is dropped: water cannot be returned`] : [])
+      .concat(['Vehicles are not touched'], pv.warnings);
+    const ok = await ask({ title: `Recycle "${pv.name}"?`, ok: 'Recycle base', danger: true, gap: true, list, listLabel: 'What happens',
+      body: `The base is deleted and everything it returns goes to your character's Reserve. This cannot be undone, except by restoring a backup of the save. ${where}` });
+    if (!ok) return;
+    return act(async () => {
+      const r = await api('/api/bases/recycle', { base_id: +d.id, fingerprint: pv.fingerprint });
+      toast(`Recycled "${r.name}": ${n(r.pieces)} pieces and ${n(r.placeables)} placeables are deleted, ${n(r.itemStacksMoved)} item stacks and ${n(r.refundStacks)} refund stacks are in your Reserve.` + NOT_SAVED);
     }, null);
   },
   baseImportCancel: () => { bbImport = null; render(true); },

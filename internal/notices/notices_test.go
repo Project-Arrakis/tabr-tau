@@ -23,6 +23,7 @@ func TestEveryEmbeddedGameDataFileHasANotice(t *testing.T) {
 		"internal/catalog/stacks.json",
 		"internal/catalog/volumes.json",
 		"internal/catalog/customization_unlocks.json",
+		"internal/catalog/buildcosts.json",
 		"kit/gamedata/vehicles/vehicles.json",
 		"kit/gamedata/regions/hagga-regions.json",
 		"kit/gamedata/fillables/item_table_fillables.json",
