@@ -72,6 +72,7 @@ func TestAWriteStatementThatNeverEndsIsStoppedAndNothingIsChanged(t *testing.T) 
 	if o.S.Dirty() || stackOf(t, o, 10) != before {
 		t.Fatal("a stopped statement changes nothing")
 	}
+	SQLWriteTimeout = old // the short limit was for the endless statement; the plain follow-up edit must not race it on a slow runner
 	if _, err := o.ExecSQL(`update items set stack_size=stack_size+1 where id=10`); err != nil { // the lock was let go
 		t.Fatalf("the next edit works: %v", err)
 	}
