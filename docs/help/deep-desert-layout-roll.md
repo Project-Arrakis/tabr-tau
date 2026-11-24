@@ -42,7 +42,7 @@ Before it edits `Game.ini`, and only when the game is closed and the weekly rule
 
 `--set` and `--force` do not skip this check. The command never moves, picks up or deletes a base. To roll, take the character out of the Deep Desert and pick up your bases there with the game's base tool (which also keeps each as a base backup; the exported files are extra copies), let the game save, close it and run the command again. Deleting the bases from here is not built yet.
 
-The save checked is the one named with `--save` (before the word `layout-roll`, like `--config`), else the only one found on this computer. With none or several found the run refuses and says which, because it will not guess. The scheduled task registered by `layout-roll-task.ps1` has no `--save`; with more than one save on the computer, edit its action by hand.
+The save checked is the one named with `--save` (before the word `layout-roll`, like `--config`), else the only one found on this computer. With none or several found the run refuses and says which, because it will not guess. The scheduled task registered by `layout-roll-task.ps1` has a `--save` only when you give the script `-SavePath` (see "The weekly scheduled task" below); with more than one save on the computer, give it, or every weekly run refuses.
 
 ## What happens to your vehicles
 
@@ -136,6 +136,14 @@ Register it:
 ```
 & "$env:USERPROFILE\tabr-tau\scripts\layout-roll-task.ps1" -ExePath "$env:USERPROFILE\Downloads\tabr-tau.exe"
 ```
+
+If your computer has more than one save (the `find` command above lists them), the weekly run cannot tell which one to check and refuses every week. Name the save with `-SavePath`, the `game.db` file or the folder that holds it (it must exist). The task then runs `tabr-tau.exe --save "the path you gave" layout-roll`. `-WhatIf` shows the whole line first:
+
+```
+& "$env:USERPROFILE\tabr-tau\scripts\layout-roll-task.ps1" -ExePath "$env:USERPROFILE\Downloads\tabr-tau.exe" -SavePath "C:\path\to\the\folder\with\game.db" -WhatIf
+```
+
+Replace `C:\path\to\the\folder\with\game.db` with the folder that holds your save, and take `-WhatIf` off to register it. A task that was registered without `-SavePath` is changed by removing it (`-Remove`, below) and registering it again with `-SavePath`.
 
 Remove it:
 
