@@ -52,9 +52,9 @@ func notInBackup(table, idCol string) string {
 // the table, so a standing piece with a health far above what the game gives is not spread to the other pieces of its type. The ceilings are written into the text (they are constants of
 // the program, not arguments), so that the statement stays one that needs no arguments of its own.
 func bestHealthOf(table string) string {
-	idCol, overall, seen, extra := "building_id", policy.MaxRepairPieceHealth, policy.PieceTypeHealthSeen, ""
+	idCol, overall, seen, extra := "building_id", policy.MaxRepairPieceHealth, policy.PieceTypeHealthSeen(), ""
 	if table == "placeables" {
-		idCol, overall, seen, extra = "id", policy.MaxRepairPlaceableHealth, policy.PlaceableTypeHealthSeen, " and x.is_hologram=0"
+		idCol, overall, seen, extra = "id", policy.MaxRepairPlaceableHealth, policy.PlaceableTypeHealthSeen(), " and x.is_hologram=0"
 	}
 	return `(select s.building_type bt, min(s.top, coalesce(c.cap, ` + strconv.FormatFloat(overall, 'f', -1, 64) + `)) top
 		from (select x.building_type, max(x.health) top from ` + table + ` x join actors a on a.id=x.` + idCol + `

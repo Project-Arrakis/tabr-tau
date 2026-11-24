@@ -3,7 +3,10 @@
 // G-045).
 package policy
 
-import "math"
+import (
+	"maps"
+	"math"
+)
 
 // Health (#613, audit G-009).
 //
@@ -15,7 +18,7 @@ import "math"
 const (
 	// HealthCapMargin is the room above the highest figure seen.
 	HealthCapMargin = 1.25
-	// PieceHealthSeen and PlaceableHealthSeen are the highest health seen on any building piece (7,000) and on any placeable (20,000, one large refinery; the next is 4,000).
+	// PieceHealthSeen and PlaceableHealthSeen are the highest health seen on any building piece (7,000) and on any placeable (20,000, one large refinery; the next is 5,000).
 	PieceHealthSeen     = 7000.0
 	PlaceableHealthSeen = 20000.0
 	// MaxRepairPieceHealth and MaxRepairPlaceableHealth are the overall caps of the two tables.
@@ -26,8 +29,8 @@ const (
 	MaxPieceHealth = 1_000_000.0
 )
 
-// PieceTypeHealthSeen is the highest health seen per building type, for the types with at least five pieces in the measured save.
-var PieceTypeHealthSeen = map[string]float64{
+// pieceTypeHealthSeen is the highest health seen per building type, for the types with at least five pieces in the measured save.
+var pieceTypeHealthSeen = map[string]float64{
 	"MTX_B1C5_Choam_Level2Extention_Floor_01":   5600,
 	"MTX_Smug_Floor_Wedge":                      5600,
 	"Sardaukar_Column_corner":                   5600,
@@ -50,7 +53,7 @@ var PieceTypeHealthSeen = map[string]float64{
 	"Sardaukar_Railing_Inclined_Half":           5600,
 	"Sardaukar_Railing_Round_Corner":            5600,
 	"Sardaukar_Ramp":                            5600,
-	"Sardaukar_Ramp_Half":                       5586.25,
+	"Sardaukar_Ramp_Half":                       5600,
 	"Sardaukar_Roof_01":                         5600,
 	"Sardaukar_Roof_02":                         5600,
 	"Sardaukar_Roof_02_L":                       5600,
@@ -65,7 +68,7 @@ var PieceTypeHealthSeen = map[string]float64{
 	"Sardaukar_Wall_01":                         5600,
 	"Sardaukar_Wall_02":                         5600,
 	"Sardaukar_Wall_02_L":                       5600,
-	"Sardaukar_Wall_Half":                       5586.25,
+	"Sardaukar_Wall_Half":                       5600,
 	"Sardaukar_Wall_Inclined_Corner_Tall":       5585,
 	"Sardaukar_Wall_Inclined_Tall_01":           5600,
 	"Sardaukar_Wall_Inclined_Tall_01_L":         5600,
@@ -84,12 +87,12 @@ var PieceTypeHealthSeen = map[string]float64{
 	"Sardaukar_Wall_Triangle_Top_Tall_Right":    5600,
 	"Sardaukar_Window":                          5600,
 	"Sardaukar_Window_Inclined_Tall":            5586.25,
-	"Sardaukar_Window_Inclined_Tall_L":          5585,
+	"Sardaukar_Window_Inclined_Tall_L":          5600,
 	"Sardaukar_Window_L":                        5600,
 }
 
-// PlaceableTypeHealthSeen is the same for placeables (holograms left out), for the types with at least five placeables in the measured save.
-var PlaceableTypeHealthSeen = map[string]float64{
+// placeableTypeHealthSeen is the same for placeables (holograms left out), for the types with at least five placeables in the measured save.
+var placeableTypeHealthSeen = map[string]float64{
 	"B1C5_MTX_Sardaukar_WallLamp_Placeable":      500,
 	"Choam_PentashieldSurfaceVertical_Placeable": 3500,
 	"Developer_StorageContainer_Placeable":       1250,
@@ -106,7 +109,7 @@ func HealthCapOf(seen float64) float64 { return math.Ceil(seen * HealthCapMargin
 
 // PieceHealthCap is the most health a building piece of the type may have: the cap of its type, or the overall cap of the pieces for a type the table does not list.
 func PieceHealthCap(buildingType string) float64 {
-	if seen, ok := PieceTypeHealthSeen[buildingType]; ok {
+	if seen, ok := pieceTypeHealthSeen[buildingType]; ok {
 		return HealthCapOf(seen)
 	}
 	return MaxRepairPieceHealth
@@ -114,8 +117,14 @@ func PieceHealthCap(buildingType string) float64 {
 
 // PlaceableHealthCap is the same for a placeable.
 func PlaceableHealthCap(buildingType string) float64 {
-	if seen, ok := PlaceableTypeHealthSeen[buildingType]; ok {
+	if seen, ok := placeableTypeHealthSeen[buildingType]; ok {
 		return HealthCapOf(seen)
 	}
 	return MaxRepairPlaceableHealth
 }
+
+// PieceTypeHealthSeen is a copy of the table of the highest health seen per building type (the table itself is not exported, so no caller can change a cap).
+func PieceTypeHealthSeen() map[string]float64 { return maps.Clone(pieceTypeHealthSeen) }
+
+// PlaceableTypeHealthSeen is a copy of the same table for placeables.
+func PlaceableTypeHealthSeen() map[string]float64 { return maps.Clone(placeableTypeHealthSeen) }

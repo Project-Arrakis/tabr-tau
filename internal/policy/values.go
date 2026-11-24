@@ -3,7 +3,7 @@ package policy
 // The limits of the other values of a base file (#613, audit D3-1, G-021, G-045). The real figures seen are far below them; they are there to refuse the absurd, not to model the game.
 // Each was run over the whole of a real save and refuses nothing the game wrote.
 const (
-	// MaxItemDurability is the most an item's durability figures (current, maximum, decayed maximum) may be (real gear: 100).
+	// MaxItemDurability is the most an item's durability figures (current, maximum, decayed maximum) may be (real gear: 200).
 	MaxItemDurability = 1_000_000.0
 	// MaxUnknownStack is the most of one item a file may put in a slot when the catalog does not know the item.
 	MaxUnknownStack = 100_000

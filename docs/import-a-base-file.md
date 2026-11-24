@@ -82,7 +82,7 @@ The whole file is refused, nothing is written and the reason is shown, when:
   added, and for a type with no figure of its own the highest of its table with a quarter added (8,750 for a building piece, 25,000 for a placeable). The game's tables hold no maximum
   health, so these are measured figures with room above them, not the game's own; a placeable hologram has none and is held only to 1,000,000. A volume limit of an inventory or the
   volume of an item is negative or above 1,000,000. An item's durability (current, maximum, decayed maximum) is negative, above 1,000,000 or not a number, or its durability record is
-  not the pair of a list and a record of fields that the game writes. A slot **past** an inventory's stated slot count is not refused: the game's own saves hold a few (the character's
+  not the pair of a list and a record of fields that the game writes, or gives a durability key twice or in another case. A slot **past** an inventory's stated slot count is not refused: the game's own saves hold a few (the character's
   gear). Quality, shelter, sand buildup and positions are not range-checked (no real figure limits them): they are written as the file has them;
 - a reference inside JSON is of a kind the editor does not move, names an item or inventory that is not in the file, or sits inside other text;
 - the save has no character, or its character is not among its actors, or its entity ids leave no room for the file's.

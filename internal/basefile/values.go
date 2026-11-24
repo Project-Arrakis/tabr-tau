@@ -1,7 +1,9 @@
 package basefile
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -15,7 +17,8 @@ import (
 // anything: a stack of 9e18, two items in one slot, a health of 1e300 that the repair functions would copy onto every piece of the type. The rules are the ones the editor's own
 // give paths keep (a slot holds no more than the item's stack size, one item to a slot), and a ceiling for the figures the game's tables do not give us per item. Every rule was
 // run over the whole of a real save (30,627 items, 3,457 pieces, 230 placeables): none of them refuses anything the game wrote. The per-type health caps are the figures measured on that
-// save (policy/health.go); the volume ceilings were set from the largest figures the editor documents, not from a run over a save.
+// save (policy/health.go); the volume ceilings were set from the largest figures the editor documents and then run over the same save (the largest inventory volume limit there is 50,000
+// against 1,000,000, the largest item volume 6.0).
 
 // The limits are in internal/policy, which the repair functions share (#613, audit G-045): the health caps per building type, the ceilings of durability, volume and slot, and the stack a
 // file may put in a slot for an item the catalog does not know.
@@ -45,13 +48,10 @@ func (b *Base) verifyValues() error {
 			limit, kind := policy.MaxPieceHealth, "the outer ceiling"
 			if holo := hg >= 0 && r[hg] != nil && r[hg] != int64(0); !holo {
 				ty, _ := r[tc].(string)
-				limit, kind = t.cap(ty), "the most the game gives this type of "+t.what
-				if ty == "" {
-					kind = "the most the game gives a " + t.what
-				}
+				limit, kind = t.cap(ty), "the most the game gives this type of "+t.what // ty is never empty: Verify requires the name (required, namePattern)
 			}
 			if math.IsNaN(h) || math.IsInf(h, 0) || h < 0 || h > limit {
-				return fmt.Errorf("row %d of %s: the health of this %s is %v, which is not a number from 0 to %.0f (%s)", i+1, t.table, t.what, h, limit, kind)
+				return fmt.Errorf("row %d of %s: the health of this %s is %s, which is not a number from 0 to %.0f (%s)", i+1, t.table, t.what, healthText(h), limit, kind)
 			}
 		}
 	}
@@ -122,10 +122,16 @@ func volumeOK(v any) error {
 // (current, maximum and decayed maximum durability) are, when present, null or a finite number from 0 to policy.MaxItemDurability; text, a flag, a list or an object there is refused,
 // not left to the game. Only the durability key is decoded as an array: another key of any shape (a number, text, an object) beside it does not make the text undecodable and never
 // lets a bad durability through.
+//
+// The two objects it reads (the stats and the record) are walked key by key, not decoded into a map, because a map keeps the LAST of a repeated key while SQLite's json_extract on the
+// saved text reads the FIRST: a file with the key twice, one good and one bad, would pass this check and be read as the bad one. So a key repeated in either object is refused, and so is
+// a key that is one of the four names checked spelled in another case (the game's own readers are case sensitive, but nothing here may rest on that).
 func durabilityOK(stats string) error {
-	var doc map[string]json.RawMessage
-	if json.Unmarshal([]byte(stats), &doc) != nil {
+	doc, err := recordFields([]byte(stats), "FItemStackAndDurabilityStats")
+	if errors.Is(err, errNotRecord) {
 		return fmt.Errorf("the stats mention a durability but are not a record of groups")
+	} else if err != nil {
+		return err
 	}
 	raw, has := doc["FItemStackAndDurabilityStats"]
 	if !has {
@@ -135,9 +141,11 @@ func durabilityOK(stats string) error {
 	if json.Unmarshal(raw, &pair) != nil || len(pair) < 2 {
 		return fmt.Errorf("the durability record is not a pair of a list and a record of fields")
 	}
-	var rec map[string]json.RawMessage
-	if json.Unmarshal(pair[1], &rec) != nil {
+	rec, err := recordFields(pair[1], "CurrentDurability", "MaxDurability", "DecayedMaxDurability")
+	if errors.Is(err, errNotRecord) {
 		return fmt.Errorf("the durability record is not a record of fields")
+	} else if err != nil {
+		return err
 	}
 	for _, key := range []string{"CurrentDurability", "MaxDurability", "DecayedMaxDurability"} {
 		raw, has := rec[key]
@@ -160,4 +168,53 @@ func durabilityOK(stats string) error {
 		}
 	}
 	return nil
+}
+
+// errNotRecord says the text is not a JSON object.
+var errNotRecord = errors.New("not a record")
+
+// recordFields reads a JSON object into its keys and the raw text of each value, walking it with the token reader so that every key is seen. A key that comes twice is refused, and so is a
+// key that is not one of the names in checked but is the same name in another case.
+func recordFields(raw []byte, checked ...string) (map[string]json.RawMessage, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	if t, err := dec.Token(); err != nil || t != json.Delim('{') {
+		return nil, errNotRecord
+	}
+	out := map[string]json.RawMessage{}
+	for dec.More() {
+		t, err := dec.Token()
+		if err != nil {
+			return nil, errNotRecord
+		}
+		key, ok := t.(string)
+		if !ok {
+			return nil, errNotRecord
+		}
+		if _, dup := out[key]; dup {
+			return nil, fmt.Errorf("the key %s is given twice in one record, and the two readings would differ", clip(key))
+		}
+		for _, name := range checked {
+			if key != name && strings.EqualFold(key, name) {
+				return nil, fmt.Errorf("the key %s is %s spelled in another case, which the editor does not read", clip(key), name)
+			}
+		}
+		var v json.RawMessage
+		if dec.Decode(&v) != nil {
+			return nil, errNotRecord
+		}
+		out[key] = v
+	}
+	if t, err := dec.Token(); err != nil || t != json.Delim('}') {
+		return nil, errNotRecord
+	}
+	return out, nil
+}
+
+// healthText prints a health the way a person reads it: whole figures and fractions in full (1000000.5, not 1.0000005e+06), and only a figure too large to read as digits (1e300) in
+// the short form.
+func healthText(h float64) string {
+	if math.Abs(h) < 1e15 {
+		return strconv.FormatFloat(h, 'f', -1, 64)
+	}
+	return strconv.FormatFloat(h, 'g', -1, 64)
 }

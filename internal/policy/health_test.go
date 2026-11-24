@@ -7,12 +7,12 @@ func TestHealthCapsAreAboveWhatWasMeasured(t *testing.T) {
 	if MaxRepairPieceHealth != 8750 || MaxRepairPlaceableHealth != 25000 {
 		t.Fatalf("the overall caps are %v and %v", MaxRepairPieceHealth, MaxRepairPlaceableHealth)
 	}
-	for ty, seen := range PieceTypeHealthSeen {
+	for ty, seen := range PieceTypeHealthSeen() {
 		if seen > PieceHealthSeen || PieceHealthCap(ty) > MaxRepairPieceHealth || PieceHealthCap(ty) < seen {
 			t.Errorf("%s: seen %v does not fit the caps of the pieces", ty, seen)
 		}
 	}
-	for ty, seen := range PlaceableTypeHealthSeen {
+	for ty, seen := range PlaceableTypeHealthSeen() {
 		if seen > PlaceableHealthSeen || PlaceableHealthCap(ty) > MaxRepairPlaceableHealth || PlaceableHealthCap(ty) < seen {
 			t.Errorf("%s: seen %v does not fit the caps of the placeables", ty, seen)
 		}

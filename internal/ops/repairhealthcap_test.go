@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Project-Arrakis/tabr-tau/internal/policy"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -164,21 +163,8 @@ insert into placeables(id,health,building_type,owner_entity_id) values
 	}
 }
 
-// The overall caps and the per-type caps agree with the figures they were measured from, and a type name is quoted safely in the statement.
-func TestHealthCapsAreAboveWhatWasMeasured(t *testing.T) {
-	if policy.MaxRepairPieceHealth != 8750 || policy.MaxRepairPlaceableHealth != 25000 {
-		t.Fatalf("the overall caps are %v and %v", policy.MaxRepairPieceHealth, policy.MaxRepairPlaceableHealth)
-	}
-	for ty, seen := range policy.PieceTypeHealthSeen {
-		if seen > policy.PieceHealthSeen || policy.HealthCapOf(seen) > policy.MaxRepairPieceHealth || policy.HealthCapOf(seen) < seen {
-			t.Errorf("%s: seen %v does not fit the caps of the pieces", ty, seen)
-		}
-	}
-	for ty, seen := range policy.PlaceableTypeHealthSeen {
-		if seen > policy.PlaceableHealthSeen || policy.HealthCapOf(seen) > policy.MaxRepairPlaceableHealth || policy.HealthCapOf(seen) < seen {
-			t.Errorf("%s: seen %v does not fit the caps of the placeables", ty, seen)
-		}
-	}
+// A type name is quoted safely in the statement (the caps themselves are checked against the figures they were measured from in internal/policy).
+func TestACapValueQuotesATypeName(t *testing.T) {
 	if got := capValues(map[string]float64{"A'B": 100}); got != "('A''B',125)" {
 		t.Fatalf("a quote in a type name must be doubled: %s", got)
 	}

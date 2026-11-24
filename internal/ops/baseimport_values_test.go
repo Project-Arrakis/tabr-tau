@@ -156,6 +156,21 @@ func TestImportRefusesValuesOutOfRange(t *testing.T) {
 				}
 			})
 		}, "MaxDurability is -5"},
+		{"a durability key given twice in the stats, the bad one first", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = json.RawMessage(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":1e300}],"FItemStackAndDurabilityStats":[[],{}]}`)
+			})
+		}, "is given twice"},
+		{"a durability figure given twice in the record", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = json.RawMessage(`{"FItemStackAndDurabilityStats":[[],{"CurrentDurability":1e300,"CurrentDurability":5}]}`)
+			})
+		}, "is given twice"},
+		{"a durability figure spelled in another case", func() []byte {
+			return editFile(t, good, func(tb map[string][]map[string]any) {
+				rowWhere(tb, "items", "id", 9002)["stats"] = json.RawMessage(`{"FItemStackAndDurabilityStats":[[],{"currentdurability":1e300}]}`)
+			})
+		}, "in another case"},
 		{"text longer than the limit", func() []byte {
 			return editFile(t, good, func(tb map[string][]map[string]any) {
 				rowWhere(tb, "permission_actor", "actor_id", 701)["actor_name"] = strings.Repeat("a", basefile.MaxText+1)
@@ -205,7 +220,7 @@ func TestImportKeepsAHologramToTheOuterCeiling(t *testing.T) {
 		})
 	}
 	mustImport(t, target(t), set("1000000"))
-	refuses(t, target(t), set("1000000.5"), "the health of this placeable is 1.0000005e+06, which is not a number from 0 to 1000000 (the outer ceiling)")
+	refuses(t, target(t), set("1000000.5"), "the health of this placeable is 1000000.5, which is not a number from 0 to 1000000 (the outer ceiling)")
 }
 
 // Repair buildings and Repair base copy the best health seen for a type onto the others. A health outside 0 to policy.MaxPieceHealth is never "the best seen" and never copied, so a piece
@@ -290,5 +305,33 @@ func TestExportAndImportOfABaseWhoseInventoriesStateNoSlotCount(t *testing.T) {
 	}
 	if _, err := o.PreviewBaseImport(out.Data); err != nil {
 		t.Fatalf("an item past its inventory's slot count: %v", err)
+	}
+}
+
+// The cap of a type that has a figure of its own is allowed to the unit: 7,000 on a foundation-class piece type (5,600 seen, a quarter added) and 3,125 on a water cistern; one more is
+// refused above (TestImportRefusesValuesOutOfRange).
+func TestImportAcceptsAHealthAtTheCapOfAListedType(t *testing.T) {
+	good := exportedFile(t)
+	edge := editFile(t, good, func(tb map[string][]map[string]any) {
+		tb["building_instances"][0]["building_type"] = "Sardaukar_Wall_01"
+		tb["building_instances"][0]["health"] = json.Number("7000")
+		r := rowWhere(tb, "placeables", "id", 701)
+		r["building_type"], r["health"] = "MediumWaterCistern_Placeable", json.Number("3125")
+	})
+	o := target(t)
+	if _, err := o.PreviewBaseImport(edge); err != nil {
+		t.Fatalf("a health at the cap of its type was refused: %v", err)
+	}
+	mustImport(t, o, edge)
+}
+
+// A building type is never empty or NULL when the health check runs (the file check requires a name first), so the health check has no case of its own for an unnamed type.
+func TestImportRefusesAPieceOrPlaceableWithNoTypeName(t *testing.T) {
+	good := exportedFile(t)
+	for _, table := range []string{"building_instances", "placeables"} {
+		for _, v := range []any{nil, ""} {
+			data := editFile(t, good, func(tb map[string][]map[string]any) { tb[table][0]["building_type"] = v })
+			refuses(t, target(t), data, "building_type")
+		}
 	}
 }
