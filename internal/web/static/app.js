@@ -1558,6 +1558,7 @@ async function baseBackupsCard() {
 }
 
 let bsTab = 'power', bsOpen = null, bsGroup = 'storage';
+let recycleSolido = false; // the choice on the Bases card: make a Solido of a base first when it is recycled (#1187). It lasts until the page is closed
 let bsInvOpen = null; // { id, name }: the container opened with Open in the base's Inventory list. It stays open when the page is drawn again (after a delete, an edit or the page's own refresh) and goes with a move to another base, sub-tab, group or page (#731)
 // Back up and remove is not offered for a base in the Deep Desert (#1177): the game does not back up bases there, and the editor refuses it too. The map is the Bases list's own map field.
 const BASE_REMOVE_DD_NOTE = 'Not available for a base in the Deep Desert: the game does not back up bases there. A recycle of Deep Desert bases is planned (#1176).';
@@ -1568,7 +1569,8 @@ async function basesView() {
   const base = list.find((x) => x.base_id == id);
   const h = [html`<div class="card d-panel"><h3>Bases (${list.length})</h3>${tbl([{ k: 'name', label: 'Base name', f: (r) => html`<span title="Base number ${r.base_id}">${r.name}</span>${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => html`${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], list,
-    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}${r.picked_up ? '' : isDeepDesertBase(r.map) ? tip('bcrtip' + r.base_id, BASE_REMOVE_DD_NOTE, html`<button class="b sec sm d-btn sm" disabled data-id="${r.base_id}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`) : tip('bcrtip' + r.base_id, "Backs this base up the way the game's own base tool does, and takes it out of the world. It becomes a base backup you can place again with the in-game tool. Items stored in it stay with the backup.", html`<button class="b sec sm d-btn sm" data-act="baseRemove" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`)}${r.picked_up ? '' : tip('bcytip' + r.base_id, "Recycles this base: the base is deleted, and everything stored in it and everything it cost to build goes to your character's Reserve. No base backup is made. It cannot be undone except by restoring a backup of the save.", html`<button class="b sec sm d-btn sm" data-act="baseRecycle" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcytip${r.base_id}">Recycle base</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
+    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}${r.picked_up ? '' : isDeepDesertBase(r.map) ? tip('bcrtip' + r.base_id, BASE_REMOVE_DD_NOTE, html`<button class="b sec sm d-btn sm" disabled data-id="${r.base_id}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`) : tip('bcrtip' + r.base_id, "Backs this base up the way the game's own base tool does, and takes it out of the world. It becomes a base backup you can place again with the in-game tool. Items stored in it stay with the backup.", html`<button class="b sec sm d-btn sm" data-act="baseRemove" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`)}${r.picked_up ? '' : tip('bcytip' + r.base_id, "Recycles this base: the base is deleted, and everything stored in it and everything it cost to build goes to your character's Reserve. No base backup is made. It cannot be undone except by restoring a backup of the save.", html`<button class="b sec sm d-btn sm" data-act="baseRecycle" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcytip${r.base_id}">Recycle base</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}
+    <div class="row">${tip('rcsolidotip', "When a base is recycled, the editor first makes the game's own Solido of it (a copy that can rebuild it) in the same edit. It goes into a blank Solido device in your inventory; with none, a new device is made in your loadout inventory. A Solido that is already filled is never changed. The claim totem and the doors are left out, as the game leaves them.", html`<label><input type="checkbox" id="rcSolido" aria-describedby="rcsolidotip" ${recycleSolido ? 'checked' : ''}> Make a Solido of the base first when I recycle it</label>`)}</div></div>`];
   if (base) {
     const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land claim editor'], ['structures', 'Structures']];
     h.push(html`<div class="card d-panel"><h3 title="Base number ${base.base_id}">${base.name}</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
@@ -3418,26 +3420,29 @@ const A = {
   // write is sent the fingerprint of what was shown, so a base that changed in between is refused. Everything goes to the character's Reserve.
   baseRecycle: async (d) => {
     let pv;
-    try { pv = await api('/api/bases/recycle-preview?base=' + encodeURIComponent(d.id)); } catch (e) { toast(e.message, true); return; }
+    const solido = recycleSolido; // the choice the question is about: the write is sent the same one
+    try { pv = await api('/api/bases/recycle-preview?base=' + encodeURIComponent(d.id) + (solido ? '&solido=1' : '')); } catch (e) { toast(e.message, true); return; }
     const n = (v) => Number(v).toLocaleString();
     const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be; the backup of the save is taken when it is written. If the game saves a change to this base before then, the queued recycle is dropped and nothing is recycled. Close the game first to be sure.' : 'A backup of the save is taken first, then it is written at once.';
     const lines = pv.refund || [];
     const refund = lines.length ? lines.map((x) => `${n(x.count)} ${x.name}`).join(', ') : 'nothing';
     const rate = pv.costPercent === 100 ? '100% of the building cost' : `100% of the building cost on this map, which is ${pv.costPercent}% of the table cost`;
-    const list = [`${n(pv.pieces)} building pieces, the totem and ${n(pv.placeables)} placeables are deleted, with the land claim and the base marker. No base backup is made`,
+    const sol = pv.solido;
+    const solidoLine = sol ? [`A Solido of the base is made first, in the same edit: ${n(sol.pieces)} building pieces and ${n(sol.placeables)} placeables (${n(sol.pentashields)} pentashields), in ${sol.itemCreated ? 'a new Solido device (BuildingBlueprint_CopyDevice) in your loadout inventory' : 'the blank Solido device (item ' + sol.item + ') that is already in your inventory'}. Left out, as the game leaves them: the claim totem${sol.doorsLeftOut ? `, ${n(sol.doorsLeftOut)} doors` : ''}${sol.piecesLeftOut ? `, ${n(sol.piecesLeftOut)} pieces` : ''}`] : [];
+    const list = solidoLine.concat([`${n(pv.pieces)} building pieces, the totem and ${n(pv.placeables)} placeables are deleted, with the land claim and the base marker. No base backup is made`,
       `${n(pv.itemStacksMoved)} item stacks (${n(pv.itemsMoved)} items) stored in the base move to your Reserve, unchanged`,
-      `Refund to your Reserve (${rate}, ${n(pv.refundStacks)} new stacks): ${refund}`]
+      `Refund to your Reserve (${rate}, ${n(pv.refundStacks)} new stacks): ${refund}`])
       .concat(pv.respawnPoints ? [`${n(pv.respawnPoints)} respawn ${pv.respawnPoints === 1 ? 'point' : 'points'} at this base ${pv.respawnPoints === 1 ? 'is' : 'are'} deleted with it: you can no longer respawn there`] : [])
       .concat(pv.holograms ? [`${n(pv.holograms)} holograms give nothing back`] : [])
       .concat(pv.devStorage ? [`${n(pv.devStorage)} Developer storage containers give 10 Iron Ingot each`] : [])
       .concat(pv.waterDropped ? [`${n(pv.waterDropped)} water stored in ${n(pv.waterDevices)} devices is dropped: water cannot be returned`] : [])
       .concat(['Vehicles are not touched'], pv.warnings);
-    const ok = await ask({ title: `Recycle "${pv.name}"?`, ok: 'Recycle base', danger: true, gap: true, list, listLabel: 'What happens',
-      body: `The base is deleted and everything it returns goes to your character's Reserve. This cannot be undone, except by restoring a backup of the save. ${where}` });
+    const ok = await ask({ title: `Recycle "${pv.name}"?`, ok: sol ? 'Make a Solido and recycle base' : 'Recycle base', danger: true, gap: true, list, listLabel: 'What happens',
+      body: `${sol ? 'A Solido of the base is made first, then the base is deleted' : 'The base is deleted'} and everything it returns goes to your character's Reserve. This cannot be undone, except by restoring a backup of the save. ${where}` });
     if (!ok) return;
     return act(async () => {
-      const r = await api('/api/bases/recycle', { base_id: +d.id, fingerprint: pv.fingerprint });
-      toast(`Recycled "${r.name}": ${n(r.pieces)} pieces and ${n(r.placeables)} placeables are deleted, ${n(r.itemStacksMoved)} item stacks and ${n(r.refundStacks)} refund stacks are in your Reserve.` + NOT_SAVED);
+      const r = await api('/api/bases/recycle', solido ? { base_id: +d.id, fingerprint: pv.fingerprint, solido: true } : { base_id: +d.id, fingerprint: pv.fingerprint });
+      toast(`Recycled "${r.name}": ${n(r.pieces)} pieces and ${n(r.placeables)} placeables are deleted, ${n(r.itemStacksMoved)} item stacks and ${n(r.refundStacks)} refund stacks are in your Reserve.` + (r.solido ? ` A Solido of it (${n(r.solido.pieces)} pieces, ${n(r.solido.placeables)} placeables) is in item ${r.solido.item}.` : '') + NOT_SAVED);
     }, null);
   },
   baseImportCancel: () => { bbImport = null; render(true); },
@@ -3833,6 +3838,7 @@ document.addEventListener('change', (e) => {
   if (t.id == 'vcClass' || t.id == 'vcTpl' || t.dataset.vcslot !== undefined) { vcChanged(t); return; }
   if (t.dataset.vcprev !== undefined) { vcPartPicked(t); return; }
   if (t.id == 'skCharge') { skCharge = t.checked; return; }
+  if (t.id == 'rcSolido') { recycleSolido = t.checked; return; }
   if (t.dataset.autojob) { // one job of the automatic pass switched on or off; the card is drawn again from what the server kept
     const key = t.dataset.autojob, on = t.checked, label = ((t.closest('label') || {}).textContent || key).trim();
     act(async () => { try { await api('/api/settings', { [key]: on }); } catch (e) { render('scroll'); throw e; } toast(label + ' is now ' + (on ? 'on' : 'off') + ' for the automatic pass'); }, null);
