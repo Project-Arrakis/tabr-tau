@@ -34,6 +34,9 @@ import (
 //     ordered). The numbers are only labels: nothing refers to one except the pentashield rows, which name the placeable's new number. This edit numbers pieces by the piece's
 //     own instance id and placeables by their actor id, ascending, which is also the order the base was built in.
 //
+// Only the pieces the base itself owns go in (the owner entity of the totem). A piece of the base's building actor with another owner entity or none is recycled with the actor (the
+// game moves a building actor whole) but is not in the Solido; the answer says how many, and the measured base had none.
+//
 // Not measured, so refused when it comes up: a base with more than one building actor, a base with no building actor, a building actor that is tilted, a piece or placeable that is
 // tilted (pitch or roll), a Pentashield with no readable scale, a type with no name. Nothing was ever seen with a tilt in the measured saves.
 const (
@@ -549,7 +552,7 @@ func applySolido(m *save.Mut, p *recyclePlan) (map[string]any, int64, error) {
 	return map[string]any{
 		"made": true, "blueprint": bp, "item": item, "itemCreated": created, "itemWhere": sp.Where,
 		"pieces": int64(len(sp.Rows.Instances)), "placeables": int64(len(sp.Rows.Placeables)), "pentashields": int64(len(sp.Rows.Pentas)),
-		"piecesLeftOut": sp.Rows.SkippedPieces, "doorsLeftOut": sp.Rows.SkippedDoors,
+		"piecesLeftOut": sp.Rows.SkippedPieces, "doorsLeftOut": sp.Rows.SkippedDoors, "otherOwnerPieces": p.Unowned,
 	}, bp, nil
 }
 
@@ -672,5 +675,10 @@ func solidoWords(s map[string]any) string {
 		out = append(out, fmt.Sprintf("%d doors and gates", n))
 	}
 	out = append(out, "the claim totem")
-	return w + " Left out, as the game leaves them: " + strings.Join(out, ", ") + "."
+	w += " Left out, as the game leaves them: " + strings.Join(out, ", ") + "."
+	// pieces of the building actor that the base does not own: the recycle deletes them with the actor, and the Solido (made from the base's own pieces) does not hold them
+	if n, _ := s["otherOwnerPieces"].(int64); n > 0 {
+		w += fmt.Sprintf(" %d pieces of the building actor that belong to no base or to another one are recycled with it but are not in the Solido.", n)
+	}
+	return w
 }

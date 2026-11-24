@@ -70,6 +70,10 @@ The answer and the question say where the device is.
 | The item | Its stats gain `FBuildingBlueprintItemStats`, a blueprint record with `PlayerBlueprintId` `!!bbp#<the blueprint's number>` and an empty `PlayerBaseBackupId`, after its two usual records |
 | The blueprint row | One row in `building_blueprints` (the number comes from the table's own counter), `item_id` the device, no owner, an empty map |
 
+**Pieces the base does not own.** Only the pieces the base itself owns (those of the totem's owner entity) go into the Solido. A piece of the base's building actor that another owner
+entity holds, or none, is still deleted by the recycle (the game moves a building actor whole, and the recycle deletes the actor), but it is **not in the Solido**. The answer says how
+many: "N pieces of the building actor that belong to no base or to another one are recycled with it but are not in the Solido". The measured base had none.
+
 **What is not the game's.** The game numbers the pieces 0 to n-1 and the placeables 0 to m-1 in an order that cannot be reproduced from the base's rows (it repeats a type in runs,
 and the placeables look hash-ordered). Nothing refers to those numbers except the pentashield rows, which name their placeable's number. The editor numbers pieces by the piece's
 own number and placeables by their own, in ascending order, which is also the order the base was built in. The rows are the same set; their numbers are different.

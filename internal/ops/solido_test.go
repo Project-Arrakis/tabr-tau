@@ -133,6 +133,26 @@ func TestRecycleWithASolidoMakesItFirstInTheSameEditAndTheBaseStillGoes(t *testi
 	})
 }
 
+// Pieces of the building actor that another owner entity holds, or none, are recycled with the actor but are not in the Solido, and the answer counts them.
+func TestPiecesOfTheBuildingActorThatTheBaseDoesNotOwnAreCountedAsNotInTheSolido(t *testing.T) {
+	ins := func(id int, owner string) string {
+		return fmt.Sprintf(`insert into building_instances(building_id,instance_id,building_type,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,owner_entity_id,building_flags,health,shelter,sand_buildup,last_placed_by_player_id)
+ values (602,%d,'Sardaukar_Wall_01',5030,6000,7,0,0,0,1,%s,0,1.0,0,0,1);`, id, owner)
+	}
+	o := solidoOps(t, blankDevice+ins(90, "null")+ins(91, "99999999"))
+	r := recycleWithSolido(t, o)
+	s := r["solido"].(map[string]any)
+	if s["otherOwnerPieces"] != int64(2) || s["pieces"] != int64(3) || rmCount(t, o, `building_blueprint_instances`) != 3 || rmCount(t, o, `building_instances where building_id=602`) != 0 ||
+		!strings.Contains(r["summary"].([]string)[0], " 2 pieces of the building actor that belong to no base or to another one are recycled with it but are not in the Solido.") {
+		t.Fatalf("%v %v", s, r["summary"])
+	}
+	// none of them: nothing is said
+	o = solidoOps(t, blankDevice)
+	if r := recycleWithSolido(t, o); strings.Contains(r["summary"].([]string)[0], "belong to no base") || r["solido"].(map[string]any)["otherOwnerPieces"] != int64(0) {
+		t.Fatalf("%v", r["summary"])
+	}
+}
+
 func TestRecycleWithoutASolidoIsWhatItWasAndLeavesTheDeviceAlone(t *testing.T) {
 	o := solidoOps(t, blankDevice)
 	plain, perr := o.PreviewBaseRecycle(601)
