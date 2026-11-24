@@ -80,6 +80,8 @@ func sizeOfActorClass(class any) vehicleSize {
 const (
 	placeStartRadius  = 800.0  // the first candidate when the facing is unknown, or the character is in a base: 800 along x
 	placeAheadRadius  = 1000.0 // the first candidate for a ground vehicle outdoors: 10 m ahead, the console's own distance (#480)
+	placeLineGap      = 1200.0 // vehicles put down together in one go stand this far apart along the facing: 12 m (#480)
+	placeFrontReach   = 3000.0 // the front half is searched this far past the first spot before the half behind is tried: 30 m (#480)
 	placeStep         = 400.0  // the rings grow by this much
 	placeMaxRadius    = 8000.0 // the farthest candidate from the character: 80 m
 	placeDrop         = 150.0  // above the character's feet, as before
@@ -390,6 +392,7 @@ type charPose struct {
 	X, Y, Z   float64
 	Fx, Fy    float64
 	HasFacing bool
+	Advance   float64 // how much farther along the facing the first spot is moved: 0 for the first vehicle of a go, 12 m (more for two big vehicles) for each one put down before it (#480)
 }
 
 // facingOf reads the facing from a saved rotation (x, y, z, w): forward = (1 - 2(qy² + qz²), 2(qx·qy + qw·qz)), normalised on the ground plane, which is the maths the console uses.
@@ -424,6 +427,7 @@ type placement struct {
 	Bearing string
 	Up      float64 // above the character's height, in centimetres (negative: below it)
 	Air     bool    // an aircraft, set down in the air for the game to settle (#540)
+	Side    string  // where the spot is against the character's facing: "front", "behind" or "" (to a side, or the facing is not used); never set for a character in a base (#480)
 }
 
 var compass8 = []string{"north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"}
@@ -455,7 +459,14 @@ func (p placement) Words() string {
 	if p.InBase {
 		b.WriteString("outside your base, ")
 	}
-	fmt.Fprintf(&b, "%d m %s of you", int(math.Round(p.Dist/100)), p.Bearing)
+	switch p.Side {
+	case "front":
+		fmt.Fprintf(&b, "%d m in front of you (%s)", int(math.Round(p.Dist/100)), p.Bearing)
+	case "behind":
+		fmt.Fprintf(&b, "%d m behind you (%s)", int(math.Round(p.Dist/100)), p.Bearing)
+	default:
+		fmt.Fprintf(&b, "%d m %s of you", int(math.Round(p.Dist/100)), p.Bearing)
+	}
 	if p.Air {
 		fmt.Fprintf(&b, " and %d m above you", int(math.Round(p.Up/100)))
 	}
@@ -476,10 +487,15 @@ func (p placement) Words() string {
 	return b.String()
 }
 
+// Coords is the map and the coordinates in centimetres, for a person to read next to the words.
+func (p placement) Coords() string {
+	return fmt.Sprintf("%s, x %d, y %d, z %d", p.Map, int64(math.Round(p.X)), int64(math.Round(p.Y)), int64(math.Round(p.Z)))
+}
+
 // Info is the answer's description of the place.
 func (p placement) Info() map[string]any {
 	return map[string]any{"map": p.Map, "x": p.X, "y": p.Y, "z": p.Z, "words": p.Words(), "moved": p.Moved, "inBase": p.InBase,
-		"blocked": append([]string{}, p.Blocked...), "claim": p.Claim, "distance": math.Round(p.Dist), "up": math.Round(p.Up), "inAir": p.Air}
+		"blocked": append([]string{}, p.Blocked...), "claim": p.Claim, "distance": math.Round(p.Dist), "up": math.Round(p.Up), "inAir": p.Air, "coords": p.Coords()}
 }
 
 // choosePlace finds the place for a vehicle of the given size next to the character, which stands at pose on the map. exclude is the vehicle that is being moved.
@@ -525,6 +541,12 @@ func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placem
 			start = math.Atan2(pose.Fy, pose.Fx)
 		}
 	}
+	// Several vehicles put down in one go stand in a line ahead, 12 m apart along the facing (#480).
+	if (ahead || (sz.Flies && pose.HasFacing)) && pose.Advance > 0 {
+		firstRing += pose.Advance
+	}
+	// With the facing in use, the half in front is searched (to 30 m past the first spot) before anything behind the character is tried (#480).
+	facingFirst := (ahead || (sz.Flies && pose.HasFacing)) && !inBase
 	zAt := func(x, y float64) float64 {
 		if sz.Flies {
 			z := cz + flyingVehicleZOffset
@@ -555,45 +577,110 @@ func (w *placeWorld) choose(pose charPose, sz vehicleSize, label string) (placem
 	}
 	r := sz.Radius + placeMargin
 	var first *placement
-	for ring := firstRing; ring <= placeMaxRadius; ring += placeStep {
-		count := int(math.Max(12, math.Ceil(2*math.Pi*ring/400)))
-		for i := 0; i < count; i++ {
-			// the ring's own order: the start direction, then alternately to either side of it
-			k := (i + 1) / 2
-			if i%2 == 0 {
-				k = -k
+	passes := 1
+	if facingFirst {
+		passes = 2 // the front half, then the rest of each ring
+	}
+	for pass := 0; pass < passes; pass++ {
+		for ring := firstRing; ring <= placeMaxRadius; ring += placeStep {
+			if facingFirst && pass == 0 && ring > firstRing+placeFrontReach {
+				break
 			}
-			a := start + 2*math.Pi*float64(k)/float64(count)
-			x, y := cx+ring*math.Cos(a), cy+ring*math.Sin(a)
-			z := zAt(x, y)
-			if len(w.blocked(x, y, z, sz)) > 0 {
-				continue
+			count := int(math.Max(12, math.Ceil(2*math.Pi*ring/400)))
+			for i := 0; i < count; i++ {
+				// the ring's own order: the start direction, then alternately to either side of it
+				k := (i + 1) / 2
+				if i%2 == 0 {
+					k = -k
+				}
+				if facingFirst {
+					// the front half is the quarter turn to either side of the facing; the second pass takes what the first did not
+					inFront := ring <= firstRing+placeFrontReach && 4*absInt(k) <= count
+					if inFront != (pass == 0) {
+						continue
+					}
+				}
+				a := start + 2*math.Pi*float64(k)/float64(count)
+				x, y := cx+ring*math.Cos(a), cy+ring*math.Sin(a)
+				z := zAt(x, y)
+				if len(w.blocked(x, y, z, sz)) > 0 {
+					continue
+				}
+				p := placement{Map: w.mapName, X: x, Y: y, Z: z, InBase: inBase, Blocked: legacy, Dist: ring, Bearing: bearingWord(x-cx, y-cy), Up: z - cz, Air: sz.Flies}
+				if pose.HasFacing && !inBase {
+					p.Side = sideOf(pose, x-cx, y-cy)
+				}
+				p.Moved = math.Abs(x-lx) > 0.5 || math.Abs(y-ly) > 0.5 || math.Abs(z-lz) > 0.5
+				if len(claims) == 0 {
+					return p, nil
+				}
+				if outsideClaims(claims, x, y, r) {
+					p.Claim = "outside"
+					return p, nil
+				}
+				p.Claim = "inside"
+				if first == nil {
+					first = &p
+				}
+				if ring >= claimReach {
+					return *first, nil
+				}
 			}
-			p := placement{Map: w.mapName, X: x, Y: y, Z: z, InBase: inBase, Blocked: legacy, Dist: ring, Bearing: bearingWord(x-cx, y-cy), Up: z - cz, Air: sz.Flies}
-			p.Moved = math.Abs(x-lx) > 0.5 || math.Abs(y-ly) > 0.5 || math.Abs(z-lz) > 0.5
-			if len(claims) == 0 {
-				return p, nil
-			}
-			if outsideClaims(claims, x, y, r) {
-				p.Claim = "outside"
-				return p, nil
-			}
-			p.Claim = "inside"
-			if first == nil {
-				first = &p
-			}
-			if ring >= claimReach {
+			if first != nil && ring+placeStep > claimReach {
 				return *first, nil
 			}
-		}
-		if first != nil && ring+placeStep > claimReach {
-			return *first, nil
 		}
 	}
 	if first != nil {
 		return *first, nil
 	}
 	return placement{}, apierr.Newf(apierr.ErrBadArgument, "there is no clear spot for a %s within %d m of the character: base pieces, buildings or other vehicles are in the way. Walk to open ground, or give a place", strings.ToLower(label), int(placeMaxRadius/100))
+}
+
+func absInt(k int) int {
+	if k < 0 {
+		return -k
+	}
+	return k
+}
+
+// sideOf says whether (dx, dy) from the character is within 45 degrees of the facing ("front"), within 45 degrees of straight back ("behind"), or to a side ("").
+func sideOf(pose charPose, dx, dy float64) string {
+	n := math.Hypot(dx, dy)
+	if n == 0 {
+		return ""
+	}
+	c := (dx*pose.Fx + dy*pose.Fy) / n
+	switch {
+	case c >= math.Cos(math.Pi/4)-1e-9:
+		return "front"
+	case c <= -math.Cos(math.Pi/4)+1e-9:
+		return "behind"
+	}
+	return ""
+}
+
+// placeLine puts several vehicles of the given sizes down in one go: the first as choosePlace does, each next one 12 m farther along the facing (more when the two footprints are wider), and every vehicle put down before it counts as an
+// obstacle, so none overlaps another (#480). It is for a caller that puts several vehicles down in one edit; the places come back in the order of the sizes.
+func placeLine(query rowReader, mapName string, dim int64, pose charPose, sizes []vehicleSize, exclude int64, label string) ([]placement, error) {
+	w, err := loadPlaceWorld(query, mapName, dim, pose.X, pose.Y, exclude)
+	if err != nil {
+		return nil, err
+	}
+	var out []placement
+	for k, sz := range sizes {
+		if k > 0 {
+			// 12 m from the one before, or the two footprints and their margins when those are wider: a line, not a pile
+			pose.Advance += math.Max(placeLineGap, sizes[k-1].Radius+sz.Radius+2*placeMargin)
+		}
+		p, err := w.choose(pose, sz, label)
+		if err != nil {
+			return nil, err
+		}
+		w.solids = append(w.solids, solid{x: p.X, y: p.Y, hx: sz.Radius, round: true, z0: p.Z - 150, z1: p.Z + sz.Height, kind: "vehicle"})
+		out = append(out, p)
+	}
+	return out, nil
 }
 
 // blocked is what keeps a vehicle out of (x, y, z): what is in the way, or "pieces" when it is shut in.

@@ -84,7 +84,7 @@ func TestPlaceOutdoorsWithNothingNearIsTenMetresAhead(t *testing.T) {
 			t.Errorf("%s: outdoors the vehicle goes 10 m ahead of the character, whatever its size: %v %v %v", key, x, y, z)
 		}
 		p := placeOf(r)
-		if p["words"] != "10 m south of you" || p["moved"] != false || p["inBase"] != false || p["inAir"] != false || p["nextToCharacter"] != true || len(p["blocked"].([]string)) != 0 {
+		if p["words"] != "10 m in front of you (south)" || p["moved"] != false || p["inBase"] != false || p["inAir"] != false || p["nextToCharacter"] != true || len(p["blocked"].([]string)) != 0 {
 			t.Errorf("%s: the answer: %v", key, p)
 		}
 	}
@@ -310,7 +310,7 @@ func TestPlaceBringVehicleAndDuplicateUseTheSameSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if x, y, z := xyz(t, o, 578); math.Abs(x-100) > 0.001 || math.Abs(y-3200) > 0.001 || z != 1000 || placeOf(r.(map[string]any))["words"] != "30 m south of you and 7 m above you; it starts in the air and the game settles it" {
+	if x, y, z := xyz(t, o, 578); math.Abs(x-100) > 0.001 || math.Abs(y-3200) > 0.001 || z != 1000 || placeOf(r.(map[string]any))["words"] != "30 m in front of you (south) and 7 m above you; it starts in the air and the game settles it" {
 		t.Errorf("bring outdoors: %v %v %v %v", x, y, z, r)
 	}
 	// the copy of a vehicle that stands there is put beside it, not on it

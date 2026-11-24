@@ -10,7 +10,7 @@ import (
 
 func TestPlaceGroundVehicleIsTenMetresAheadWhateverTheFacing(t *testing.T) {
 	t.Parallel()
-	words := map[float64]string{0: "10 m east of you", 90: "10 m south of you", 180: "10 m west of you", 270: "10 m north of you", 45: "10 m south-east of you"}
+	words := map[float64]string{0: "10 m in front of you (east)", 90: "10 m in front of you (south)", 180: "10 m in front of you (west)", 270: "10 m in front of you (north)", 45: "10 m in front of you (south-east)"}
 	for _, deg := range []float64{0, 45, 90, 180, 270, -30} {
 		for _, key := range groundKeys {
 			o := placeOps(t, turnTo(deg))
@@ -64,7 +64,7 @@ func TestPlaceBringVehicleOfAGroundVehicleFollowsTheFacing(t *testing.T) {
 		t.Fatal(err)
 	}
 	x, y, z := row["x"].(float64), row["y"].(float64), row["z"].(float64)
-	if math.Abs(x-(100-1000)) > 1e-6 || math.Abs(y-200) > 1e-6 || z != 450 || placeOf(r.(map[string]any))["words"] != "10 m west of you" {
+	if math.Abs(x-(100-1000)) > 1e-6 || math.Abs(y-200) > 1e-6 || z != 450 || placeOf(r.(map[string]any))["words"] != "10 m in front of you (west)" {
 		t.Errorf("brought: %v %v %v %v", x, y, z, r)
 	}
 }
