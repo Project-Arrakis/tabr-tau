@@ -147,9 +147,13 @@ type recyclePlan struct {
 	Rows           map[string]int64 // rows to delete, by table
 	Marker         *baseMarker
 	MarkerNote     string
+	Solido         *solidoPlan // nil when no Solido is made first (#1187)
 }
 
 func (p *recyclePlan) all() []int64 { return append(append([]int64{}, p.Actors...), p.Buildings...) }
+
+// solidoFingerprintPrefix starts the fingerprint of a recycle that makes a Solido first, so that a write sent with the other choice can be told from a base that changed.
+const solidoFingerprintPrefix = "solido-"
 
 func (p *recyclePlan) fingerprint() string {
 	h := sha256.New()
@@ -168,6 +172,12 @@ func (p *recyclePlan) fingerprint() string {
 	}
 	if p.Marker != nil {
 		fmt.Fprintf(h, "m%d/%d/%s/%d", p.Marker.Hash, p.Marker.Dim, p.Marker.Map, p.Marker.MapID)
+	}
+	if s := p.Solido; s != nil { // only when a Solido is made, so that the fingerprint of a recycle without one is what it was
+		fmt.Fprintf(h, "|solido|%d|%d|%d|%d|%d|%d|%s", s.Item, s.ItemInv, len(s.Rows.Instances), len(s.Rows.Placeables), len(s.Rows.Pentas), s.Rows.SkippedPieces+s.Rows.SkippedDoors, s.Digest)
+	}
+	if p.Solido != nil {
+		return solidoFingerprintPrefix + hex.EncodeToString(h.Sum(nil))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -231,7 +241,7 @@ func refundTotals(p *recyclePlan, pieces, plcs []save.Row) (map[string]int64, []
 }
 
 // planBaseRecycle reads the save (or the edit's view of it) and works out what the recycle deletes, moves and gives back, or says why this base cannot be recycled. It writes nothing.
-func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (*recyclePlan, error) {
+func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, opt RecycleOptions) (*recyclePlan, error) {
 	head, err := q.One(`select a.state state, coalesce(a.map,'') map, a.dimension_index dim, a.location_x lx, a.location_y ly, a.location_z lz, coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type,
 		(select entity_id from actor_fgl_entities where actor_id=t.id and slot_name='Actor' order by entity_id limit 1) ent,
 		exists (select 1 from base_backup_linked_actors where actor_id=t.id) linked,
@@ -461,6 +471,15 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 	p.Rows["inventories"] = int64(len(p.Inventories))
 	p.Rows["actors"] = int64(len(p.Actors) + len(p.Buildings))
 
+	// The Solido, when it is asked for: made from the base's rows as they are now, in this same edit (#1187).
+	if opt.Solido {
+		sp, err := planSolido(q, p)
+		if err != nil {
+			return nil, err
+		}
+		p.Solido = sp
+	}
+
 	// Water: an amount in the device's entity. It is not an item and is not returned.
 	w, err := q.One(`select count(*) n, coalesce(sum(cast(json_extract(fe.components,'$.FWaterStorageComponent[1].m_WaterStored') as integer)),0) w
 		from actor_fgl_entities ae join fgl_entities fe on fe.entity_id=ae.entity_id
@@ -510,18 +529,35 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player) (
 // when its function has returned, which a rolled back edit would otherwise never reach; the refund stacks carry items.stats, a JSON cell) and rolls it back. So a base the plan
 // refuses, a base whose read back differs and a base whose edit would leave a dangling reference or a JSON cell the game may not read are all refused here, and nothing in the
 // save changes. What a preview cannot see is anything that changes in the save between the question and the answer; that is what the fingerprint is for.
-func (o *Ops) PreviewBaseRecycle(totem int64) (any, error) { return o.recycleBase(totem, "", true) }
+func (o *Ops) PreviewBaseRecycle(totem int64) (any, error) {
+	return o.recycleBase(totem, "", true, RecycleOptions{})
+}
+
+// RecycleOptions are the choices of a recycle. Solido makes the game's own Solido of the base first (#1187), in the same edit.
+type RecycleOptions struct {
+	Solido bool
+}
+
+// PreviewBaseRecycleWith is PreviewBaseRecycle with options.
+func (o *Ops) PreviewBaseRecycleWith(totem int64, opt RecycleOptions) (any, error) {
+	return o.recycleBase(totem, "", true, opt)
+}
 
 // RecycleBase recycles the standing base with this totem: the base is deleted, what it stored and what it cost go to the character's Reserve. fingerprint is the one the
 // preview gave.
 func (o *Ops) RecycleBase(totem int64, fingerprint string) (any, error) {
+	return o.RecycleBaseWith(totem, fingerprint, RecycleOptions{})
+}
+
+// RecycleBaseWith is RecycleBase with options; a fingerprint that was made with an option is only good with the same option.
+func (o *Ops) RecycleBaseWith(totem int64, fingerprint string, opt RecycleOptions) (any, error) {
 	if fingerprint == "" {
 		return nil, apierr.New(apierr.ErrBadArgument, "fingerprint is missing: a base is recycled as the question showed it")
 	}
-	return o.recycleBase(totem, fingerprint, false)
+	return o.recycleBase(totem, fingerprint, false, opt)
 }
 
-func (o *Ops) recycleBase(totem int64, want string, dry bool) (any, error) {
+func (o *Ops) recycleBase(totem int64, want string, dry bool, opt RecycleOptions) (any, error) {
 	if totem <= 0 {
 		return nil, apierr.New(apierr.ErrBadArgument, "base must be the number of a base in this save")
 	}
@@ -532,11 +568,14 @@ func (o *Ops) recycleBase(totem int64, want string, dry bool) (any, error) {
 	var res map[string]any
 	msql := markerSQL{newer: o.S.MarkersMapNameID(), player: o.S.PlayerMarkersTable(), markers: o.S.MarkersTable()}
 	_, err = o.S.Mutate("Recycle base", func(m *save.Mut) error {
-		plan, err := o.planBaseRecycle(m, msql, totem, pl)
+		plan, err := o.planBaseRecycle(m, msql, totem, pl, opt)
 		if err != nil {
 			return err
 		}
 		if want != "" && want != plan.fingerprint() {
+			if strings.HasPrefix(want, solidoFingerprintPrefix) != (plan.Solido != nil) {
+				return apierr.New(apierr.ErrConflict, "The Solido option changed since the question was shown. Nothing was changed. Ask again.")
+			}
 			return apierr.New(apierr.ErrConflict, "This base has changed since the question was shown. Nothing was changed. Ask again.")
 		}
 		r, err := applyBaseRecycle(m, msql, plan)
@@ -545,6 +584,9 @@ func (o *Ops) recycleBase(totem int64, want string, dry bool) (any, error) {
 		}
 		res = r
 		m.Desc = fmt.Sprintf("Recycle base \"%s\": %d pieces, %d placeables, %d item stacks and the refund to the Reserve", importLabel(plan.Name), plan.Pieces, plan.Placeables, plan.ItemRows)
+		if plan.Solido != nil {
+			m.Desc = fmt.Sprintf("Make a Solido of the base, then recycle it: \"%s\", %d pieces, %d placeables, %d item stacks and the refund to the Reserve", importLabel(plan.Name), plan.Pieces, plan.Placeables, plan.ItemRows)
+		}
 		res["dryRun"] = dry
 		if dry {
 			// The save layer checks the references of an edit when the edit's function has returned without an error. A preview ends with an error (to be rolled back), so
@@ -590,6 +632,16 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 			return 0, errors.New("a count could not be read back")
 		}
 		return n, nil
+	}
+
+	// 0. The Solido, when it is asked for, is made first, from the base's rows as they still are. It is read back after everything else is written (below).
+	var solido map[string]any
+	var solidoBP int64
+	if p.Solido != nil {
+		var err error
+		if solido, solidoBP, err = applySolido(m, p); err != nil {
+			return nil, err
+		}
 	}
 
 	// 1. What is stored moves to the Reserve, each row to a free position; nothing else of a row changes.
@@ -719,6 +771,12 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 	}
 
 	// 4. Read back. Every count must be the plan's, or the whole edit fails and nothing is changed.
+	if p.Solido != nil {
+		item, _ := toInt(solido["item"])
+		if err := readBackSolido(m, p, solidoBP, item); err != nil {
+			return nil, err
+		}
+	}
 	for _, s := range steps {
 		if deleted[s.table] != p.Rows[s.table] {
 			return nil, recycleMismatch("the deleted rows of "+s.table, deleted[s.table], p.Rows[s.table])
@@ -832,13 +890,20 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		summary = append(summary, "Dropped: nothing (the base stores no water).")
 	}
 	summary = append(summary, "Everything returned is in the character's Reserve. No base backup was written, and vehicles were not touched.")
+	if solido != nil {
+		summary = append([]string{solidoWords(solido)}, summary...)
+	}
 
-	return map[string]any{
+	out := map[string]any{
 		"ok": true, "changed": true, "base": p.Totem, "name": p.Name, "map": p.Map, "costPercent": p.Percent,
 		"pieces": p.Pieces, "placeables": p.Placeables, "holograms": p.Holograms, "devStorage": p.DevStorage, "actors": p.Rows["actors"],
 		"deleted": deleted, "itemStacksMoved": p.ItemRows, "itemsMoved": p.ItemUnits,
 		"refund": p.Refund, "refundStacks": p.RefundStacks, "waterDropped": p.Water, "waterDevices": p.WaterDevices,
 		"respawnPoints": p.RespawnPoints, "reserveInventory": p.Reserve, "destination": "Reserve", "markerRemoved": markerRemoved,
 		"summary": summary, "warnings": warns, "fingerprint": p.fingerprint(),
-	}, nil
+	}
+	if solido != nil {
+		out["solido"] = solido
+	}
+	return out, nil
 }

@@ -17,6 +17,7 @@ project's operator, not a copy of the game.
 | Moved to the Reserve | Every item stored in the base, unchanged: chests, the totem's own slots, windtrap filters, generator fuel and lubricant, refinery and fabricator slots |
 | Added to the Reserve | The refund: what every piece and placeable cost to build, as new stacks |
 | Dropped | Water in cisterns and windtraps; a unit of fuel that is already burning |
+| Made first (only when you tick the box) | A Solido of the base, the game's own copy that can rebuild it: see [Make a Solido first](#make-a-solido-of-the-base-first-option) |
 | Not touched | Vehicles, every other base, every base backup, everything else in the save |
 | Not written | A base backup. The Deep Desert never has one in the game, and this edit writes none on any map |
 
@@ -34,11 +35,60 @@ project's operator, not a copy of the game.
    - the refund, item by item, and how many new stacks it is;
    - the respawn point at the base, when the base is one: it is deleted with the base and you can no longer respawn there;
    - holograms, Developer storage containers and water, when the base has any;
+   - when the box **Make a Solido of the base first when I recycle it** on the Bases card is ticked, the first line says how many pieces and placeables the Solido holds and in which
+     device it goes (see below);
    - that everything goes to the Reserve, and that it cannot be undone except by restoring a backup of the save.
 4. Press **Recycle base** in the question. It is one edit. The editor takes a backup copy of the save first and then writes (or queues the edit while the game runs; the backup
    is then taken when the edit is written, and the question says that a queued recycle is dropped when the game saves a change to the base in between). The write is sent the fingerprint of what the question showed, and is refused when the base changed in between.
 5. Start the game, load the save and open the Reserve. To put things into storage boxes, move them in the game or with the editor's item move; choosing storage boxes as the
    destination is not part of this phase.
+
+## Make a Solido of the base first (option)
+
+Tick **Make a Solido of the base first when I recycle it** on the Bases card (#1187), then press **Recycle base**. A Solido is the game's own copy of a base: an item that holds
+the base's pieces and placeables, so that the base can be rebuilt from it. The editor makes it in the **same edit** as the recycle, before the base is deleted, from the base's
+rows as they are in that moment: the same lock, the same read back, one all-or-nothing write. If anything about the Solido cannot be written or does not read back, the whole recycle
+is refused and nothing changes. Without the box the recycle is exactly what it was.
+
+**Which item.** A Solido is a `BuildingBlueprint_CopyDevice` item. The editor uses the **lowest-numbered blank device the character holds** (in the backpack, the worn gear or the
+loadout; no blueprint record in its stats and no row of `building_blueprints` pointing at it). A Solido that is already filled is never changed or reused. When the character holds
+no blank device, a **new** device is made in the character's **backpack** (inventory type 0), the way the dedicated server's console and the editor's own give put an item there,
+with the same slot and volume check, in its first free slot. Only when the backpack has no room is the device made in the **loadout** (inventory type 15, the 8-slot hotbar, which is
+usually full). When neither has room, the Solido is refused by name (it says which of the two is full) and nothing changes: free a slot in the game, or recycle without the Solido.
+The answer and the question say where the device is.
+
+**What is in it.** The conversion was measured on a pair of saves from the game, taken before and after a Solido of a Hagga base was made (2,141 pieces and 254 placeables went in,
+2,133 and 251 came out), and the editor's test makes the Solido of that base again from the save before and compares every row with the game's, to within 0.01:
+
+| | |
+|---|---|
+| Where it is measured from | The base's **building actor**, not the claim totem and not the world: a piece's place is its place minus the actor's, turned by minus the actor's yaw; its yaw is its yaw minus the actor's; height is a plain difference |
+| Pieces | Every piece of the base, except those whose `building_flags` has the bit 4 (8 of 2,141 in the measured base; what the bit means is not known). `provides_stability` is the bit 1 of the flags. `health` 0 and `hologram` 1 on every row |
+| Placeables | Every placeable of the base except the **claim totem** (the Solido item holds no claim) and the **doors and gates** (a type with "Door" in its name: both doors of the measured base were left out; the gate `Gate_M_SquishUp_Placeable` is the sibling of the door `Door_S_SquishUp_Placeable` and is left out by the same rule, with or without an owner's prefix as in `Choam_Door_S_SquishUp_Placeable`; no gate was in the measured base, so this part is by the sibling's rule, not by a measurement; it is the only `Gate` type among the placeables of the cost table, the others are building pieces such as `*_Railing_Gate` and `*_Gate_Big`, which the game's flag decides on, not the name). Holograms and a Developer storage container stay. `hologram` 1 on every row |
+| Angle columns | In the game's own labelling the column `transform_pitch` holds the yaw and `transform_yaw` holds the pitch (the self-hosted Dune console's import swaps the same two names) |
+| Pentashields | One row for each Pentashield placeable that is kept: its three scale numbers are the placeable's `m_PersistentScale` times 10 (a scale of 8.000014 is 80) |
+| The item | Its stats gain `FBuildingBlueprintItemStats`, a blueprint record with `PlayerBlueprintId` `!!bbp#<the blueprint's number>` and an empty `PlayerBaseBackupId`, after its two usual records |
+| The blueprint row | One row in `building_blueprints` (the number comes from the table's own counter), `item_id` the device, no owner, an empty map |
+
+**Pieces the base does not own.** Only the pieces the base itself owns (those of the totem's owner entity) go into the Solido. A piece of the base's building actor that another owner
+entity holds, or none, is still deleted by the recycle (the game moves a building actor whole, and the recycle deletes the actor), but it is **not in the Solido**. The answer says how
+many: "N pieces of the building actor that belong to no base or to another one are recycled with it but are not in the Solido". The measured base had none.
+
+**What is not the game's.** The game numbers the pieces 0 to n-1 and the placeables 0 to m-1. Its piece order follows the base's own piece numbers, ascending, in 2,027 of the 2,132
+steps from one piece to the next (the other 105 are out of order, and no rule for them was found); its placeables are scattered through the base's order, with no rule found either. The
+editor's order is simply the base's own, ascending, for both. Nothing refers to the pieces' numbers (the base's own `instance_id` is not copied anywhere), and the one reference there
+is, from a pentashield row to its placeable's number, is correct in the editor's numbering. The rows are the same set; their numbers are different.
+
+**Refused by name (not measured).** A base with more than one building actor or none; a building actor, a piece or a placeable that is tilted (pitch or roll: every one in the
+measured saves stood upright); a Pentashield whose scale cannot be read or is not a whole number of steps; a base with nothing a Solido can hold; a device whose stats are not a JSON
+object. A `Choam_PentashieldSurface*PlacementCorner` placeable (horizontal or vertical) that has no `m_PersistentScale` in its properties refuses the **whole** Solido, because a
+Pentashield's scale is part of its row and none is guessed: recycle that base without the Solido.
+
+**Deep Desert.** A Deep Desert base is made the same way as any other, but that rests on a stood-up copy: the check was made on a copy of a save in which a Deep Desert base was set
+standing again, not on a Solido that the game made of a Deep Desert base. The game's own Deep Desert Solido was not seen.
+
+**Not checked in the game.** The box's explanation and the question both say so: "Not yet tried in the game: keep your save backup until you have placed it." That the game shows this Solido in the backpack and previews the base from it, and that it can be placed, has not been tried: only that the rows are
+those the game wrote for a base of its own.
 
 ## Every rule
 
@@ -170,6 +220,11 @@ Placeables of the base that have no buildable support belong to the totem as wel
 
 **Changed rows:** each stored item row in `items`: `inventory_id` becomes the Reserve, `position_index` a free position there. Nothing else of the row changes.
 
+**With the Solido box ticked, also:** one `building_blueprints` row, the rows of `building_blueprint_instances`, `building_blueprint_placeables` and
+`building_blueprint_pentashields` (the Solido), and in `items` either a changed row (the blank device's stats gain the blueprint record) or one new row (the new device, with its
+two usual records and the blueprint record). The Solido is written first; it is read back with the rest (every row of it, as a digest, and the device's record), and the preview runs the same
+reference check and JSON check on it.
+
 **New rows:** the refund stacks in `items` (the Reserve, a free position each, marked new, with the item's usual durability record, as every give in the editor writes it), and the item id counter
 (`items_id_sequencer`) moved past them.
 
@@ -242,8 +297,8 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 
 ## Known gaps
 
-- **A Solido of the base is not covered.** To build the same base again you need a Solido (blueprint) of it, made in the game before the recycle. The editor does not make,
-  read or keep one, and a base's Solido is not checked for before the recycle.
+- **A Solido is optional, and its numbering is not the game's.** See [Make a Solido first](#make-a-solido-of-the-base-first-option). The editor never reads or places a Solido,
+  and it does not check that one exists before a recycle without the box.
 - **Storage boxes as the destination are phase 2.** Everything goes to the Reserve. Moving it on into chosen storage boxes, in the same step, is not built.
 - **The game's own recycle returns about half.** The editor returns everything, by the operator's choice. A base recycled here gives more than the same base recycled in the
   game. An "as the game does" mode is not built: the game's rate and rounding are known from one base only.

@@ -1,5 +1,6 @@
 // Recycle base on Player > Bases (#1176): a button on every standing base next to the others, a question that lists the numbers, says everything goes to the Reserve and that it
-// cannot be undone except by restoring a backup of the save, and a write that carries the fingerprint of what was shown.
+// cannot be undone except by restoring a backup of the save, and a write that carries the fingerprint of what was shown. The Solido option (#1187): a box on the Bases card, a
+// question that says a Solido is made first and in which device, and a write that carries the same choice.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -123,4 +124,82 @@ test('a refusal of the preview is the message of the page and no question opens'
   assert.ok(!ui.doc.querySelector('#ask').textContent.includes('Recycle "Home"'), 'no question');
   assert.equal(ui.posted.length, 0);
   ui.dom.window.close();
+});
+
+const SOLIDO = { made: true, blueprint: 1, item: 61428455, itemCreated: false, pieces: 2133, placeables: 251, pentashields: 9, piecesLeftOut: 8, doorsLeftOut: 2 };
+const tick = (ui, on) => { const b = ui.doc.querySelector('#rcSolido'); b.checked = on; b.dispatchEvent(new ui.w.Event('change', { bubbles: true })); };
+
+test('the Bases card has the Solido box, unticked, with its explanation, and a recycle without it asks for no Solido', async () => {
+  const ui = await boots();
+  const main = await openBases(ui);
+  const box = main.querySelector('#rcSolido');
+  assert.ok(box && box.type === 'checkbox' && box.checked === false);
+  assert.ok(box.closest('label').textContent.includes('Make a Solido of the base first when I recycle it'));
+  const tipBox = main.querySelector('#' + box.getAttribute('aria-describedby'));
+  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('blank Solido device') && tipBox.textContent.includes('never changed') && tipBox.textContent.includes('claim totem') &&
+    tipBox.textContent.includes('Not yet tried in the game: keep your save backup until you have placed it.'), tipBox && tipBox.textContent);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  assert.deepEqual(ui.fetchedUrls.filter((u) => u.startsWith('/api/bases/recycle-preview')), ['/api/bases/recycle-preview?base=7']);
+  assert.ok(![...ui.doc.querySelectorAll('#ask li')].some((l) => /Solido/.test(l.textContent)), 'no Solido line');
+  assert.equal(ui.doc.querySelector('#aok').textContent.trim(), 'Recycle base');
+  ui.dom.window.close();
+});
+
+test('with the box ticked the preview is asked for a Solido, the question says it is made first and in which device, and OK writes with the same choice', async () => {
+  const ui = await boots({ '/api/bases/recycle': { ...PREVIEW, dryRun: false, outcome: 'written', solido: SOLIDO } }, { ...PREVIEW, solido: SOLIDO });
+  await openBases(ui);
+  tick(ui, true);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  assert.deepEqual(ui.fetchedUrls.filter((u) => u.startsWith('/api/bases/recycle-preview')), ['/api/bases/recycle-preview?base=7&solido=1']);
+  const q = ui.doc.querySelector('#ask');
+  const items = [...q.querySelectorAll('li')].map((l) => l.textContent);
+  assert.ok(items[0].includes('A Solido of the base is made first, in the same edit') && items[0].includes('2,133 building pieces') && items[0].includes('251 placeables') && items[0].includes('9 pentashields') &&
+    items[0].includes('the blank Solido device (item 61428455) that is already in your inventory') && items[0].includes('the claim totem, 2 doors and gates, 8 pieces') &&
+    items[0].endsWith('Not yet tried in the game: keep your save backup until you have placed it.'), items[0]);
+  assert.ok(items[1].includes('2,141 building pieces') && items[1].includes('No base backup is made'), items[1]);
+  assert.ok(q.textContent.includes('A Solido of the base is made first, then the base is deleted'));
+  assert.equal(ui.doc.querySelector('#aok').textContent.trim(), 'Make a Solido and recycle base');
+  await ui.wait(450);
+  ui.click('#aok'); await ui.settle();
+  assert.deepEqual(ui.posted.filter((x) => x.path === '/api/bases/recycle').map((x) => x.body), [{ base_id: 7, fingerprint: 'abc123', solido: true }]);
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('Recycled "Home"') && t.includes('A Solido of it (2,133 pieces, 251 placeables) is in the blank device you already had (item 61428455)'), t);
+  ui.dom.window.close();
+});
+
+test('the toast says where a new device is: the backpack, or the loadout when the backpack was full', async () => {
+  for (const where of ['backpack', 'loadout']) {
+    const sol = { ...SOLIDO, itemCreated: true, itemWhere: where, item: 99 };
+    const ui = await boots({ '/api/bases/recycle': { ...PREVIEW, dryRun: false, outcome: 'written', solido: sol } }, { ...PREVIEW, solido: sol });
+    await openBases(ui);
+    tick(ui, true);
+    ui.click('[data-act="baseRecycle"]'); await ui.settle();
+    const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
+    assert.ok(items[0].includes(`a new Solido device (BuildingBlueprint_CopyDevice) in your ${where}`), items[0]);
+    await ui.wait(450);
+    ui.click('#aok'); await ui.settle();
+    const t = ui.doc.querySelector('#toast').textContent;
+    assert.ok(t.includes(`is in a new device in your ${where} (item 99)`), t);
+    ui.dom.window.close();
+  }
+});
+
+test('a new device is named as a new device in the backpack, and a Solido refused by the preview is the message of the page', async () => {
+  const ui = await boots({}, { ...PREVIEW, solido: { ...SOLIDO, itemCreated: true, doorsLeftOut: 0, piecesLeftOut: 0 } });
+  await openBases(ui);
+  tick(ui, true);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
+  assert.ok(items[0].includes('a new Solido device (BuildingBlueprint_CopyDevice) in your backpack') && items[0].includes('the claim totem') && items[0].endsWith('Not yet tried in the game: keep your save backup until you have placed it.'), items[0]);
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(ui.posted.filter((x) => x.path === '/api/bases/recycle').length, 0);
+  ui.dom.window.close();
+  const ui2 = await boot({ get: { '/api/bases/list': [HOME], '/api/bases/backups': [], '/api/bases/recycle-preview': { __fail: 'The Solido could not be made: no free slot. Nothing was changed.', __code: 'conflict', __status: 409 } } });
+  await openBases(ui2);
+  tick(ui2, true);
+  ui2.click('[data-act="baseRecycle"]'); await ui2.settle();
+  assert.ok(ui2.doc.querySelector('#toast').textContent.includes('The Solido could not be made'));
+  assert.ok(!ui2.doc.querySelector('#ask').textContent.includes('Recycle "Home"'), 'no question');
+  assert.equal(ui2.posted.length, 0);
+  ui2.dom.window.close();
 });
