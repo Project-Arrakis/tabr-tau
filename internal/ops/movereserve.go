@@ -24,7 +24,7 @@ import (
 //     free slot and room by volume, into that box's lowest free position.
 //   - Room, by the give's own rules (giveupto.go: freeSlotsInTx, inventoryVolumeLimitInTx, inventoryVolumeUsedInTx, unitVolume, stackFitsByVolume), applied to whole stacks. Every stack
 //     takes one slot (cosmetics and uniques too). A box holds max_item_count stacks (the slots; a box with no count above 0 is refused although a give would call it unlimited: a Developer
-//     storage container always holds 1,000 slots, so such a box is unknown, and a move cannot be undone in the game) and max_item_volume of volume (a limit
+//     storage container holds 1,000 slots in every save seen, so such a box is unknown, and a move cannot be undone in the game) and max_item_volume of volume (a limit
 //     of 0 or none recorded means no limit, as a give reads it). Volume is each row's unit volume (its volume_override when it has one, else the game's item table, catalog.Volume)
 //     times its stack. A row whose item has no known volume counts as none and the answer says how many units that was. When the Reserve does not fit, nothing is changed and the answer
 //     says what was needed, what each box has free, and the shortfall.
@@ -592,7 +592,7 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 		moveReserveBeforeReadBack(m)
 	}
 
-	// 2. read back: the Reserve is empty, every row is in the box and slot that were planned, no other column of any row changed, no position is shared, no box is over its limits
+	// 2. read back: the Reserve is empty, every row is in the box and slot that were planned, no other column of any row changed, no position is shared, every box holds as many stacks as planned, none is over its slot count, and the volume of what each box now holds (re-summed with the give's own count, units of unknown volume as none) is within its volume limit
 	left, err := m.One(`select count(*) n from items where inventory_id=?`, p.Reserve)
 	if err != nil {
 		return nil, err
@@ -657,6 +657,23 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 		}
 		if n > b.Cap || hi >= b.Cap || lo < 0 {
 			return nil, apierr.Newf(apierr.ErrConflict, "The move was not written: the box %q (box %d) would be over its %d slots. Nothing was changed.", b.Name, i+1, b.Cap)
+		}
+		// the volume, re-summed from the rows the box holds now with the give's own count (inventoryVolumeUsedInTx: units of unknown volume count as none) against the box's limit as
+		// it is now (a limit not above 0 means none recorded), within the same tolerance the plan used (volumeWithinLimit). A box the move put no volume into is not judged: one that was
+		// already over its limit before (Give item calls such a box full too) keeps what it had and is not a reason to refuse a move that did not make it worse.
+		if b.Volume <= 0 {
+			continue
+		}
+		limit, err := inventoryVolumeLimitInTx(m, b.Inv)
+		if err != nil {
+			return nil, err
+		}
+		usedVol, _, err := inventoryVolumeUsedInTx(m, b.Inv)
+		if err != nil {
+			return nil, err
+		}
+		if !volumeWithinLimit(limit, usedVol) {
+			return nil, apierr.Newf(apierr.ErrConflict, "The move was not written: the box %q (box %d) would hold volume %s, over its volume limit of %s. Nothing was changed.", b.Name, i+1, fmtVol(usedVol), fmtVol(limit))
 		}
 	}
 
