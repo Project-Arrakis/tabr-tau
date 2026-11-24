@@ -525,6 +525,38 @@ func TestThePreviewRefusesAnEditThatWouldLeaveADanglingReference(t *testing.T) {
 	}
 }
 
+// A Reserve with a slot limit (none was seen in a real save, where it is -1) that has no room for everything is a refusal, never a partial return.
+func TestAReserveWithNoRoomForEverythingIsRefused(t *testing.T) {
+	// the base returns 4 stored stacks and 6 refund stacks; the Reserve holds 1 stack already
+	o := recycleOps(t, `update inventories set max_item_count=10 where id=12;`)
+	before := everything(t, o)
+	_, err := o.PreviewBaseRecycle(601)
+	refusedWith(t, err, apierr.ErrConflict, "The Reserve of this save has room for 9 stacks and the base returns 10")
+	if everything(t, o) != before || len(o.S.Ops()) != 0 {
+		t.Fatal("a refusal must change nothing")
+	}
+	// exactly enough room is enough
+	o2 := recycleOps(t, `update inventories set max_item_count=11 where id=12;`)
+	if r := recycle(t, o2, 601); r["itemStacksMoved"] != int64(4) || r["refundStacks"] != int64(6) || rmCount(t, o2, `items where inventory_id=12`) != 11 {
+		t.Fatalf("%v", r)
+	}
+}
+
+// An item that has its own inventory (a container item) lying in a chest of the base moves to the Reserve with its inventory and what is in it: the inventory hangs from the
+// item, not from an actor of the base, so it is neither deleted nor emptied.
+func TestAContainerItemInAChestKeepsItsOwnInventoryAndContents(t *testing.T) {
+	o := recycleOps(t, `insert into inventories(id,item_id,inventory_type,max_item_count,max_item_volume) values (7100,9002,7,4,10.0);
+insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (9100,7100,5,0,'CopperOre',0,1790000100,'{}',0,null);`)
+	r := recycle(t, o, 601)
+	if r["itemStacksMoved"] != int64(4) || r["itemsMoved"] != int64(352) {
+		t.Fatalf("only the rows of the base's own inventories are counted as moved: %v", r)
+	}
+	if rmCount(t, o, `items where id=9002 and inventory_id=12`) != 1 || rmCount(t, o, `inventories where id=7100 and item_id=9002 and actor_id is null`) != 1 ||
+		rmCount(t, o, `items where id=9100 and inventory_id=7100 and stack_size=5 and position_index=0`) != 1 {
+		t.Fatal("the container item, its inventory or what it holds did not come through unchanged")
+	}
+}
+
 func TestRecycleIsOneQueuedEditAndARefusedBaseQueuesNothing(t *testing.T) {
 	o := recycleOps(t, "")
 	recycle(t, o, 601)
