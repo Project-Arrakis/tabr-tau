@@ -142,24 +142,114 @@ func TestAScoutIsStoredWithTheGamesOwnRowsAndNothingElseChanges(t *testing.T) {
 	}
 }
 
-// Only one vehicle fits the character's backup (UNIQUE(character_id)): the first is stored, the second is moved and the answer says why. A character that already has a backup row stores nothing.
-func TestOnlyOneVehicleFitsTheBackupTheOtherIsMovedAndSaysWhy(t *testing.T) {
-	o := ddOps(t, 0, ddVehicle(310, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5)+ddVehicle(311, "OrnithopterLight", "B", 1, "DeepDesert", 6, 6, 6))
-	p := plan(t, o)
-	if p[310].Action != "store" || p[311].Action != "move" || !strings.Contains(p[311].Reason, "already holds a vehicle") || !strings.Contains(p[311].Words, "not stored because") {
+// The game's backup holds ONE vehicle for each character (UNIQUE(character_id)). With a Scout and a Sandbike both in the Deep Desert the Scout is stored and the Sandbike is moved,
+// whichever of the two comes first in the save (operator rule, 2026-11-24); one alone is stored; two of one type: the lowest vehicle number is stored.
+func TestOnlyOneVehicleFitsTheBackupTheScoutIsStoredTheSandbikeIsMovedAndSaysWhy(t *testing.T) {
+	for _, c := range []struct {
+		name         string
+		extra        string
+		stored       int64
+		moved        []int64
+		reasonSubstr string
+	}{
+		{"bike first", ddVehicle(310, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5) + ddVehicle(311, "OrnithopterLight", "B", 1, "DeepDesert", 6, 6, 6), 311, []int64{310}, "is stored in it first"},
+		{"scout first", ddVehicle(310, "OrnithopterLight", "B", 1, "DeepDesert", 6, 6, 6) + ddVehicle(311, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5), 310, []int64{311}, "is stored in it first"},
+		{"lone scout", ddVehicle(310, "OrnithopterLight", "B", 1, "DeepDesert", 6, 6, 6), 310, nil, ""},
+		{"lone bike", ddVehicle(310, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5), 310, nil, ""},
+		{"two scouts", ddVehicle(320, "OrnithopterLight", "B", 1, "DeepDesert", 6, 6, 6) + ddVehicle(310, "OrnithopterLight", "C", 1, "DeepDesert", 7, 7, 7), 310, []int64{320}, "is stored in it first"},
+		{"two bikes", ddVehicle(320, "Sandbike", "B", 1, "DeepDesert", 6, 6, 6) + ddVehicle(310, "Sandbike", "C", 1, "DeepDesert", 7, 7, 7), 310, []int64{320}, "is stored in it first"},
+		{"two bikes and a scout, a buggy too", ddVehicle(309, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5) + ddVehicle(310, "Sandbike", "B", 1, "DeepDesert", 6, 6, 6) +
+			ddVehicle(330, "OrnithopterLight", "C", 1, "DeepDesert", 7, 7, 7) + ddVehicle(311, "Buggy", "", 1, "DeepDesert", 8, 8, 8), 330, []int64{309, 310, 311}, ""},
+		// the first by number has no customization in the save: the next one that can be stored is, a Scout still first
+		{"scout without customization", ddVehicle(310, "OrnithopterLight", "", 1, "DeepDesert", 6, 6, 6) + ddVehicle(311, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5), 311, []int64{310}, "customization"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			o := ddOps(t, 0, c.extra)
+			p := plan(t, o)
+			n := 0
+			for id, v := range p {
+				switch {
+				case id == c.stored:
+					n++
+					if v.Action != "store" || v.Reason != "" {
+						t.Fatalf("vehicle %d: %+v", id, v)
+					}
+				case v.Action != "move" || v.To == nil || !strings.Contains(v.Reason+v.Words, c.reasonSubstr) && v.Name != "Buggy":
+					t.Fatalf("vehicle %d should be moved: %+v", id, v)
+				}
+			}
+			if n != 1 || len(p)-1 != len(c.moved) {
+				t.Fatalf("plan: %+v", p)
+			}
+			for _, id := range c.moved {
+				if p[id].Action != "move" {
+					t.Fatalf("vehicle %d: %+v", id, p[id])
+				}
+				if v := p[id]; (v.Name == "Sandbike" || strings.Contains(v.Class, "Ornithopter")) && !strings.Contains(v.Words, "not stored because") {
+					t.Fatalf("the words do not say why: %q", v.Words)
+				}
+			}
+			// the plan is the same every time, and the edit does what the plan says
+			again := plan(t, o)
+			for id, v := range p {
+				if again[id].Action != v.Action {
+					t.Fatalf("the plan changed: %+v vs %+v", p, again)
+				}
+			}
+			if _, err := o.MoveDeepDesertVehicles(); err != nil {
+				t.Fatal(err)
+			}
+			bak, _ := o.S.Query(`select character_id, vehicle_id from backup_vehicles`)
+			if len(bak) != 1 || bak[0]["character_id"] != int64(1) || bak[0]["vehicle_id"] != c.stored {
+				t.Fatalf("backup rows: %v", bak)
+			}
+		})
+	}
+}
+
+// A character whose backup already holds a vehicle, of ANY type (a Sandbike, a Scout, a buggy), stores nothing: every Scout and Sandbike in the Deep Desert is moved. A vehicle that is
+// already stored is not touched. The slot is the character's own: a row of another character does not take it.
+func TestAFullBackupMovesEveryScoutAndSandbikeWhateverTheStoredVehicleIs(t *testing.T) {
+	both := ddVehicle(310, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5) + ddVehicle(311, "OrnithopterLight", "B", 1, "DeepDesert", 6, 6, 6)
+	for _, stored := range []string{"Sandbike", "OrnithopterLight", "Buggy"} {
+		o := ddOps(t, 0, both+ddVehicle(312, stored, "C", 1, "HaggaBasin", 7, 7, 7)+
+			"update actors set state=2 where id=312; insert into backup_vehicles(character_id,vehicle_id,customization_id) values (1,312,'C');")
+		before := snapshot(t, o.S)
+		p := plan(t, o)
+		for _, id := range []int64{310, 311} {
+			if p[id].Action != "move" || !strings.Contains(p[id].Reason, "already holds a vehicle") || !strings.Contains(p[id].Words, "not stored because") {
+				t.Fatalf("%s stored, vehicle %d: %+v", stored, id, p[id])
+			}
+		}
+		if _, ok := p[312]; ok || len(p) != 2 {
+			t.Fatalf("%s stored: the stored vehicle is in the plan: %+v", stored, p)
+		}
+		if _, err := o.MoveDeepDesertVehicles(); err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range changedRows(before, snapshot(t, o.S)) {
+			if strings.Contains(r, "backup_vehicles") || strings.Contains(r, "HaggaBasin") && strings.Contains(r, "312") {
+				t.Fatalf("%s stored: the backup or the stored vehicle changed: %s", stored, r)
+			}
+		}
+		if bak, _ := o.S.Query(`select vehicle_id from backup_vehicles`); len(bak) != 1 || bak[0]["vehicle_id"] != int64(312) {
+			t.Fatalf("%s stored: backup rows %v", stored, bak)
+		}
+		if a := actorOf(t, o, 312); a["st"] != int64(2) {
+			t.Fatalf("%s stored: its state: %v", stored, a)
+		}
+	}
+	// a backup row of ANOTHER character (the save has two) does not take this character's slot; the character is the first player record
+	o := ddOps(t, 0, both+"insert into player_state(id, account_id, character_name) values (2, 2, 'Other');"+ddVehicle(312, "Sandbike", "C", 2, "HaggaBasin", 7, 7, 7)+
+		"update actors set state=2 where id=312; insert into backup_vehicles(character_id,vehicle_id,customization_id) values (2,312,'C');")
+	if p := plan(t, o); p[311].Action != "store" || p[310].Action != "move" {
 		t.Fatalf("%+v", p)
 	}
 	if _, err := o.MoveDeepDesertVehicles(); err != nil {
 		t.Fatal(err)
 	}
-	if n, _ := o.S.One(`select count(*) n from backup_vehicles`); n["n"] != int64(1) {
-		t.Fatalf("backup rows: %v", n)
-	}
-	// a character whose slot is taken by a vehicle stored earlier
-	o2 := ddOps(t, 0, ddVehicle(310, "Sandbike", "A", 1, "DeepDesert", 5, 5, 5)+ddVehicle(312, "Sandbike", "C", 1, "HaggaBasin", 7, 7, 7)+
-		"update actors set state=2 where id=312; insert into backup_vehicles(character_id,vehicle_id,customization_id) values (1,312,'C');")
-	if p := plan(t, o2); p[310].Action != "move" || !strings.Contains(p[310].Reason, "already holds") {
-		t.Fatalf("%+v", p)
+	if n, _ := o.S.One(`select count(*) n from backup_vehicles where character_id=2`); n["n"] != int64(1) {
+		t.Fatalf("the other character's backup row changed: %v", n)
 	}
 }
 
