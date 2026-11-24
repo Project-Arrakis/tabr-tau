@@ -22,7 +22,7 @@
 //     rectangle would give; the file's "grid" record still names the picture's rectangle (the constants below; a test in internal/ops pins them to that file). A point outside the
 //     top row (row A) is an error: the Deep Desert's taxis are in row A, and a point that is not there is not offered.
 //
-// Numbers are rounded to one decimal. Every point is written with "observed": false: nobody has stood there yet. When the operator has, set that to true by hand in the committed
+// Numbers are rounded to one decimal. Every point is written with "observed": false: nobody has stood there yet. When a person has, set that to true by hand in the committed
 // file and keep it when the file is made again.
 //
 // Usage: go run ./tools/deepdeserttaxisgen -level <dump of DeepDesert_1_Travel> -names internal/ops/place-names.json -read 2026-10-30 -out internal/ops/deep-desert-taxis.json
