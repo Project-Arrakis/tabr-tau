@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/basefile"
@@ -15,9 +16,11 @@ import (
 )
 
 // The Deep Desert guard (#1167). A layout change puts new terrain under the Deep Desert, so a base, the character or a vehicle left there is left inside it. Before Game.ini is
-// touched the run (with the game closed): takes a verified checkpoint of the whole save, reads the save and refuses the roll when a base of the player, the character or a vehicle
-// of the player is in the Deep Desert, and exports each such base to a console base backup file first. The save is only ever read: the checkpoint copies it into the backup folder,
-// nothing is written to it. Nothing is moved, deleted or picked up by this run.
+// touched the run (with the game closed): takes a verified checkpoint of the whole save, reads the save and refuses the roll when a base of the player or the character is in the Deep
+// Desert, and exports each such base to a console base backup file first. The vehicles of the player that stand in the Deep Desert are taken out by the run itself (#1174): stored in
+// the game's own vehicle backup (a Scout, a Sandbike) or moved to the character's map in front of the character (every other type), in one edit of the save that is read back, written
+// through the editor's own write path (the game must be closed) and read back again from the file; then the guard looks once more and must find none. A run that is going to refuse for
+// another reason (a base, the character) changes nothing, vehicles included. No base is moved, deleted or picked up by this run.
 
 // exportFolderPrefix names the dated folder (beside the state file) that holds the base files of one refused run.
 const exportFolderPrefix = "layout-roll-bases-"
@@ -27,6 +30,19 @@ var (
 	openSave       = save.Open
 	takeCheckpoint = func(s *save.Save) (save.ManualBackup, error) { return s.BackupCheckpoint() }
 	inspectSave    = func(s *save.Save) (ops.DeepDesertHolds, error) { return (&ops.Ops{S: s}).DeepDesertHolds() }
+	// the vehicle step (#1174): the plan alone (a dry run), the edit, the write to the file, the lock that keeps a second editor off the save, and the check of the written file
+	planVehicles  = func(s *save.Save) ([]ops.VehicleMove, error) { return (&ops.Ops{S: s}).PlanDeepDesertVehicles() }
+	moveVehicles  = func(s *save.Save) ([]ops.VehicleMove, error) { return (&ops.Ops{S: s}).MoveDeepDesertVehicles() }
+	flushSave     = func(s *save.Save) save.Flush { return s.Flush() }
+	lockSave      = save.LockSave
+	verifyWritten = func(path string, plan []ops.VehicleMove) error {
+		fresh, err := openSave(path)
+		if err != nil {
+			return err
+		}
+		defer fresh.Close()
+		return (&ops.Ops{S: fresh}).VerifyVehicleMoves(plan)
+	}
 	exportBaseFile = func(s *save.Save, id int64, at time.Time, editor string) (*ops.BaseExport, error) {
 		return (&ops.Ops{S: s}).ExportStandingBaseConsole(id, at, editor)
 	}
@@ -40,6 +56,7 @@ type checkRecord struct {
 	Blockers         []string  `json:"blockers,omitempty"`         // why the roll was refused, one line each
 	ExportFolder     string    `json:"exportFolder,omitempty"`     // the dated folder the base files were written to
 	ExportFiles      []string  `json:"exportFiles,omitempty"`      // their names
+	Vehicles         []string  `json:"vehicles,omitempty"`         // what was done with each vehicle of the player in the Deep Desert, one line each (#1174)
 }
 
 // guardDeepDesert is the whole guard. done is true when the run must end now: with err when it refused or stopped (nothing was changed), and with err nil in a dry run that shows it
@@ -95,6 +112,31 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 		return stop("not changed: the save could not be checked", fmt.Errorf("not changed: the save could not be checked (%v)", err))
 	}
 	r.say("Deep Desert check: %d base(s) and %d vehicle(s) of yours looked at, and the character.", h.Checked.Bases, h.Checked.Vehicles)
+
+	// 3b (#1174). The vehicles of the player in the Deep Desert are stored or moved out, but only when nothing else blocks the roll: a run that will refuse changes nothing.
+	if len(h.Vehicles) > 0 && !h.BlockedBesidesVehicles() {
+		if done, err := clearVehicles(o, r, &rec, s, stop); done {
+			return true, err
+		}
+		if o.DryRun {
+			h.Vehicles = nil // the plan above is what a real run does; nothing was written, so there is nothing to look at again
+		} else {
+			// the check again, on the save as written: the vehicles must now be out, and the guard must find nothing of them
+			if h, err = inspectSave(s); err != nil {
+				rec.Blockers = []string{"the save could not be checked again: " + err.Error()}
+				r.say("Stopped: the save could not be checked again after the vehicles were taken out (%v). The checkpoint %s holds the save as it was before.", err, rec.Checkpoint)
+				return stop("stopped: the save could not be checked again", fmt.Errorf("stopped: the save could not be checked again (%v)", err))
+			}
+			r.say("Deep Desert check again: %d vehicle(s) of yours still stand in the Deep Desert.", len(h.Vehicles))
+			if len(h.Vehicles) > 0 {
+				// the edit was written and read back, yet the guard still finds a vehicle: not expected; the layout is not rolled, and the save has been changed, so say so
+				msg := fmt.Sprintf("the save WAS changed, but the check after it still finds %d vehicle(s) of yours in the Deep Desert (%s). The checkpoint %s holds the save as it was before; Database > Save backups restores it", len(h.Vehicles), strings.Join(blockerLines(h), "; "), rec.Checkpoint)
+				rec.Blockers = []string{msg}
+				r.say("Stopped: %s.", msg)
+				return stop("stopped: a vehicle is still in the Deep Desert after the edit", errors.New("stopped: "+msg))
+			}
+		}
+	}
 	if !h.Blocked() {
 		r.say("Nothing of yours stands in the Deep Desert: no base, not the character, no vehicle.")
 		if !o.DryRun {
@@ -127,7 +169,7 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 		}
 	}
 	r.say("Not changed: %s", refusalSummary(h))
-	r.say("What to do: take the character out of the Deep Desert; move or store each vehicle; pick up each base with the game's base tool, which also keeps it as a base backup (the files above are extra copies). Then run this again. Nothing was moved or deleted by this run.")
+	r.say("What to do: take the character out of the Deep Desert; pick up each base with the game's base tool, which also keeps it as a base backup (the files above are extra copies). Your vehicles there are stored or moved by this run itself once nothing else blocks it. Then run this again. Nothing was moved or deleted by this run.")
 	if o.DryRun {
 		r.say("Dry run: it would refuse for the reasons above.")
 		return true, nil
@@ -135,6 +177,68 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 	st.LastCheck = &rec
 	saveRun(o.StatePath, *st, now, "not changed: "+refusalSummary(h))
 	return true, fmt.Errorf("not changed: %s", refusalSummary(h))
+}
+
+// clearVehicles is the vehicle step (#1174): it takes the player's vehicles out of the Deep Desert, or, in a dry run, says what it would do. done is true when the run must end now.
+// A real run: the save lock (a second editor would write over it), ONE edit that stores or moves every vehicle and reads the rows back inside itself, the write of the save through the
+// editor's own write path (which refuses while the game runs and takes its own backup), and a check of the file that was written, opened afresh. A failure before the write leaves the
+// save as it was; a failure after it says the save WAS changed and names the checkpoint that restores it.
+func clearVehicles(o Options, r *Result, rec *checkRecord, s *save.Save, stop func(string, error) (bool, error)) (done bool, err error) {
+	if o.DryRun {
+		plan, err := planVehicles(s)
+		if err != nil {
+			rec.Blockers = []string{"the vehicles cannot be taken out of the Deep Desert: " + err.Error()}
+			r.say("Not changed: the vehicles of yours in the Deep Desert cannot be taken out (%v).", err)
+			return stop("not changed: the vehicles could not be placed", fmt.Errorf("not changed: the vehicles cannot be taken out (%v)", err))
+		}
+		r.say("Dry run: would take %d vehicle(s) of yours out of the Deep Desert, in one edit of the save that is read back (after the checkpoint):", len(plan))
+		for _, l := range ops.VehicleMoveLines(plan) {
+			r.say("  - %s", l)
+		}
+		return false, nil
+	}
+	fail := func(outcome string, format string, a ...any) (bool, error) {
+		msg := fmt.Sprintf(format, a...)
+		rec.Blockers = []string{msg}
+		r.say("Not changed: %s", msg)
+		return stop(outcome, errors.New("not changed: "+msg))
+	}
+	release, err := lockSave(s.Path)
+	if err != nil {
+		return fail("not changed: the save is in use", "the save is open in another TABR TAU window or program, so it is not written (%v). Close that and run this again", err)
+	}
+	defer release()
+	plan, err := moveVehicles(s)
+	if err != nil {
+		return fail("not changed: the vehicles could not be taken out of the Deep Desert", "the vehicles of yours in the Deep Desert could not be taken out (%v); the save was not changed", err)
+	}
+	if len(plan) == 0 {
+		return fail("not changed: the vehicles could not be taken out of the Deep Desert", "the check found vehicles of yours in the Deep Desert but the plan for them is empty (a bug); the save was not changed")
+	}
+	f := flushSave(s)
+	if !f.Saved {
+		s.Discard() // the edit stays out of the file; throw it away so nothing is left queued
+		return fail("not changed: the vehicles could not be written", "the vehicles were planned but the save could not be written (%s); the save was not changed", f.Why)
+	}
+	// from here the save file HAS been changed
+	changed := func(outcome, why string) (bool, error) {
+		msg := fmt.Sprintf("the save WAS changed (%d vehicle(s) taken out of the Deep Desert) but %s. The checkpoint %s holds the save as it was before; Database > Save backups restores it. Look at it before the game starts", len(plan), why, rec.Checkpoint)
+		rec.Blockers = []string{msg}
+		r.say("Stopped: %s.", msg)
+		return stop(outcome, errors.New("stopped: "+msg))
+	}
+	if f.Warning != "" {
+		return changed("stopped: the written save needs a look", "the write reported: "+f.Warning)
+	}
+	if err := verifyWritten(s.Path, plan); err != nil {
+		return changed("stopped: the written save does not read back", "the file does not read back as written ("+err.Error()+")")
+	}
+	rec.Vehicles = ops.VehicleMoveLines(plan)
+	r.say("Took %d vehicle(s) of yours out of the Deep Desert in one edit of the save, read back inside the edit and again from the written file:", len(plan))
+	for _, l := range rec.Vehicles {
+		r.say("  - %s", l)
+	}
+	return false, nil
 }
 
 // blockerLines is one plain line per thing that blocks the roll.
@@ -147,11 +251,7 @@ func blockerLines(h ops.DeepDesertHolds) []string {
 		out = append(out, fmt.Sprintf("the character is %s (its %s; x %.0f, y %.0f)", placeName(c.Map), c.Which, c.X, c.Y))
 	}
 	for _, v := range h.Vehicles {
-		kind := "placed"
-		if v.Stored {
-			kind = "stored"
-		}
-		out = append(out, fmt.Sprintf("vehicle %d (%s, %s) is %s", v.ID, v.Name, kind, placeName(v.Map)))
+		out = append(out, fmt.Sprintf("vehicle %d (%s) is %s", v.ID, v.Name, placeName(v.Map)))
 	}
 	out = append(out, h.Problems...)
 	return out
