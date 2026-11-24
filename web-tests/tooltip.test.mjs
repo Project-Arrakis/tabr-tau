@@ -84,7 +84,7 @@ const LIST = [BASE(7), BASE(8), BASE(9)];
 test('hovering Export for console opens its tooltip beside the button and leaving closes it; the table is not touched', async () => {
   const ui = await openBases({ '/api/bases/list': LIST, '/api/bases/backups': [] });
   const wraps = [...ui.doc.querySelectorAll('.scroll .tip')];
-  assert.equal(wraps.length, 3, 'one tooltip wrapper per base, all inside the table box');
+  assert.equal(wraps.length, 6, 'two tooltip wrappers per base (Export for console, Back up and remove), all inside the table box');
   const strip = (s) => s.replace(/ style="[^"]*"/g, '').replace(/ class="tip open"/g, ' class="tip"');
   const before = strip(ui.doc.querySelector('.scroll').innerHTML);
   const w = wraps[0], box = w.querySelector('.tipbox');

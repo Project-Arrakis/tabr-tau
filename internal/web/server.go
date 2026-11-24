@@ -798,6 +798,16 @@ func (s *Server) routes() {
 		return o.ClearSandBase(id)
 	})
 	s.post("/api/bases/clear-sand-all", func(ops.Args) (any, error) { return o.ClearSand() })
+	// Back up and remove one base the way the game's own base backup does (#1127). The preview reads and changes nothing (it is the edit, rolled back); the write is the ordinary
+	// edit (written after a backup, or queued while a game process exists) and must be sent the fingerprint the preview gave.
+	s.get("/api/bases/remove-preview", func(r *http.Request) (any, error) { return o.PreviewBaseRemoval(int64(qint(r, "base", 0))) })
+	s.post("/api/bases/remove", func(a ops.Args) (any, error) {
+		id, err := a.Int("base_id")
+		if err != nil {
+			return nil, err
+		}
+		return o.BackUpAndRemoveBase(id, a.Str("fingerprint"))
+	})
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
 	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
 	s.get("/api/bases/list", func(r *http.Request) (any, error) { return o.BaseList() })

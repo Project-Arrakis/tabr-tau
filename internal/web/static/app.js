@@ -1565,7 +1565,7 @@ async function basesView() {
   const base = list.find((x) => x.base_id == id);
   const h = [html`<div class="card d-panel"><h3>Bases (${list.length})</h3>${tbl([{ k: 'name', label: 'Base name', f: (r) => html`<span title="Base number ${r.base_id}">${r.name}</span>${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => html`${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}${r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], list,
-    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
+    { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}${r.picked_up ? '' : tip('bcrtip' + r.base_id, "Backs this base up the way the game's own base tool does, and takes it out of the world. It becomes a base backup you can place again with the in-game tool. Items stored in it stay with the backup.", html`<button class="b sec sm d-btn sm" data-act="baseRemove" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}</div>`];
   if (base) {
     const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land claim editor'], ['structures', 'Structures']];
     h.push(html`<div class="card d-panel"><h3 title="Base number ${base.base_id}">${base.name}</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
@@ -3393,6 +3393,23 @@ const A = {
   kitExport: (d) => kitDownload(d.name),
   baseBackupExport: (d) => baseBackupDownload(d),
   baseConsoleExport: (d) => baseConsoleDownload(d),
+  // Back up and remove (#1127): the editor works out what the game's own pick-up would do (the edit, rolled back), the question says it in words, and only OK writes it. The write
+  // is sent the fingerprint of what was shown, so a base that changed in between is refused. Items stored in the base are not moved.
+  baseRemove: async (d) => {
+    let pv;
+    try { pv = await api('/api/bases/remove-preview?base=' + encodeURIComponent(d.id)); } catch (e) { toast(e.message, true); return; }
+    const n = (v) => Number(v).toLocaleString();
+    const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be.' : 'It is written at once, after a backup.';
+    const list = [`${n(pv.pieces)} building pieces and ${n(pv.placeables)} placeables leave the world`, 'The base becomes one base backup that you can place again with the Base Reconstruction Tool in the game', 'The land claim and the base marker go, as they do when the game picks a base up',
+      `Items stored in the base (${n(pv.storedItems)}) are not moved: they stay where they are, with the backup, as the game's own pick-up leaves them`].concat(pv.warnings.filter((w) => !/stored in this base/.test(w)));
+    const ok = await ask({ title: `Back up and remove "${pv.name}"?`, ok: 'Back up and remove', danger: true, gap: true, list, listLabel: 'What happens',
+      body: `This does what the game's own base backup does. It is one edit, and it is reversible only by placing the backup again in the game or by restoring a backup of the save. ${where}` });
+    if (!ok) return;
+    return act(async () => {
+      const r = await api('/api/bases/remove', { base_id: +d.id, fingerprint: pv.fingerprint });
+      toast(`Backed up "${r.name}" as base backup ${r.backupId}: ${n(r.pieces)} pieces and ${n(r.placeables)} placeables are out of the world. Place it with the Base Reconstruction Tool in the game.` + NOT_SAVED);
+    }, null);
+  },
   baseImportCancel: () => { bbImport = null; render(true); },
   // Import sends the text that was previewed with the hash the preview gave; the editor refuses it if the text is another file. It asks nothing: it only adds rows.
   baseImportGo: () => {
