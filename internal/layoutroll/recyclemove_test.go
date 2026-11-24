@@ -51,7 +51,7 @@ func noExportFolder(t *testing.T, e *env) {
 
 // Two bases, two boxes: every stack of each base lands in a box, in the order the Reserve held them, and the Reserve ends empty; the roll goes on.
 func TestTwoBasesTwoBoxesEveryStackLandsInABoxInOrder(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(3, 3))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(3, 3))
 	r, err := Roll(o)
 	if err != nil || !r.Wrote || e.ini() == iniWith("11") {
 		t.Fatalf("%v\n%s", err, lines(r))
@@ -86,7 +86,7 @@ func TestTheMoveIsAskedWithTheTwoBoxNamesAndEveryBaseOfTheRun(t *testing.T) {
 	if fmt.Sprint(reserveBoxNames()) != "[DD-1 DD-2]" {
 		t.Fatalf("%v", reserveBoxNames())
 	}
-	e, o := rcEnv(t, rcWorld(ddBases(3)...)+rcBoxes(10, 10))
+	e, o := mvEnv(t, rcWorld(ddBases(3)...)+rcBoxes(10, 10))
 	var seen []string
 	real := emptyReserveInto
 	swapVar(t, &emptyReserveInto, func(s *save.Save, exclude []int64, previewOnly bool) (movedReserve, error) {
@@ -96,10 +96,10 @@ func TestTheMoveIsAskedWithTheTwoBoxNamesAndEveryBaseOfTheRun(t *testing.T) {
 	if r, err := Roll(o); err != nil {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	if len(seen) != 3 {
-		t.Fatalf("%v", seen)
+	if len(seen) != 4 || seen[0] != "[1010 1020 1030] true" {
+		t.Fatalf("the preflight asks first (preview only), then one real move per base: %v", seen)
 	}
-	for _, s := range seen {
+	for _, s := range seen[1:] {
 		if s != "[1010 1020 1030] false" {
 			t.Fatalf("%v", seen)
 		}
@@ -109,12 +109,33 @@ func TestTheMoveIsAskedWithTheTwoBoxNamesAndEveryBaseOfTheRun(t *testing.T) {
 	}
 }
 
-// A box that stands in a base of this run is never taken. The base's own actors must all be on the Deep Desert, so such a box is on the Deep Desert too and the move refuses it;
-// asked about with what an earlier run left in the Reserve, the run recycles nothing and exports nothing.
-func TestABoxStandingInABaseOfTheRunIsNeverUsed(t *testing.T) {
-	const et1 = 5764607523034230010 // the entity of base 1's totem
-	world := rcWorld(ddBases(2)...) + rcBoxes(10, 10) + rcReserveItem + fmt.Sprintf(`update placeables set owner_entity_id=%d where id=3001; update actors set map='DeepDesert' where id=3001;`, et1)
+// mvEnv is rcEnv with the real move of the Reserve into the boxes DD-1 and DD-2.
+func mvEnv(t *testing.T, world string) (*env, Options) {
 	e, o := rcEnv(t, world)
+	swapVar(t, &emptyReserveInto, moveReserveIntoBoxes)
+	return e, o
+}
+
+const et1 = 5764607523034230010 // the entity of base 1's totem (rcBase)
+
+// A box that stands in a base of this run is never taken, and the run says that the base is being recycled: the exclude list reaches the move. The check of the actors of a base (every
+// actor must be on the Deep Desert) is switched off here, so that only the move can refuse the box. The Reserve starts empty: the boxes are asked about before base 1 all the same.
+func TestABoxInABaseOfTheRunIsRefusedAsBeingRecycledEvenWhenTheReserveStartsEmpty(t *testing.T) {
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+fmt.Sprintf(`update placeables set owner_entity_id=%d where id=3001;`, et1))
+	swapVar(t, &baseActorMaps, func(*save.Save, int64) ([]string, error) { return nil, nil })
+	before := sha(t, e.save)
+	_, err := Roll(o)
+	if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
+		t.Fatalf("%v", err)
+	}
+	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", `The box "DD-1"`, "stands in base 1010, which is being recycled", "Nothing was recycled and nothing was exported")
+	noExportFolder(t, e)
+}
+
+// The same box on the Deep Desert inside a base of the run (the way a real save would hold it): refused too, with a Reserve left by an earlier run.
+func TestABoxOnTheDeepDesertInABaseOfTheRunIsRefused(t *testing.T) {
+	world := rcWorld(ddBases(2)...) + rcBoxes(10, 10) + rcReserveItem + fmt.Sprintf(`update placeables set owner_entity_id=%d where id=3001; update actors set map='DeepDesert' where id=3001;`, et1)
+	e, o := mvEnv(t, world)
 	before := sha(t, e.save)
 	_, err := Roll(o)
 	if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
@@ -124,10 +145,23 @@ func TestABoxStandingInABaseOfTheRunIsNeverUsed(t *testing.T) {
 	noExportFolder(t, e)
 }
 
+// A box on the Deep Desert that stands in no base at all is refused, with the Reserve empty.
+func TestABoxOnTheDeepDesertOutsideAnyBaseIsRefused(t *testing.T) {
+	world := rcWorld(ddBases(2)...) + rcBoxes(10, 10) + `update actors set map='DeepDesert' where id=3001; update placeables set owner_entity_id=5764607523034239999 where id=3001;`
+	e, o := mvEnv(t, world)
+	before := sha(t, e.save)
+	_, err := Roll(o)
+	if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
+		t.Fatalf("%v", err)
+	}
+	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", `The box "DD-1"`, "is on the Deep Desert")
+	noExportFolder(t, e)
+}
+
 // The box is full after base 1: base 1 is recycled, the move is refused for room, the run stops BEFORE the roll with base 2 left and says so. A re-run with room in the boxes moves what
 // the Reserve holds first, recycles base 2, and rolls.
 func TestABoxThatIsFullAfterBase1StopsTheRunWithBase2LeftAndAReRunContinues(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
 	r, err := Roll(o)
 	if err == nil || r.Wrote || e.ini() != iniWith("11") {
 		t.Fatalf("it should stop before the roll: %v\n%s", err, lines(r))
@@ -166,7 +200,7 @@ const rcReserveItem2 = `insert into items(id,inventory_id,stack_size,position_in
 
 // A run that finds the Reserve full and cannot move it (the boxes are too small) recycles nothing and exports nothing.
 func TestAFullReserveThatCannotBeMovedRecyclesNothing(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1)+rcReserveItem+rcReserveItem2)
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1)+rcReserveItem+rcReserveItem2)
 	before := sha(t, e.save)
 	_, err := Roll(o)
 	if err == nil || sha(t, e.save) != before {
@@ -176,38 +210,54 @@ func TestAFullReserveThatCannotBeMovedRecyclesNothing(t *testing.T) {
 	noExportFolder(t, e)
 }
 
-// No boxes in the save: base 1 fits (the Reserve was empty), the move is refused, and the run stops before the roll with the other bases left. Nothing beyond what fits is recycled.
-func TestNoBoxesStopsTheRunAfterWhatFitsAndSaysWhichBasesAreLeft(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(3)...))
+// No boxes in the save: the boxes are asked about before base 1 even though the Reserve is empty, so the run recycles nothing, exports nothing and changes nothing.
+func TestNoBoxesGiveZeroOfNAndChangeNothing(t *testing.T) {
+	e, o := mvEnv(t, rcWorld(ddBases(3)...))
+	before := sha(t, e.save)
 	r, err := Roll(o)
-	if err == nil || r.Wrote || e.ini() != iniWith("11") {
+	if err == nil || r.Wrote || e.ini() != iniWith("11") || sha(t, e.save) != before {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, err.Error(), "1 of 3 base(s) recycled", `No Developer storage container in this save is named "DD-1"`, "the remaining base(s) (base 1020", "base 1030")
-	if got := standingIDs(t, e.save); fmt.Sprint(got) != "[1020 1030]" {
+	mustContain(t, err.Error(), "0 of 3 base(s) can be recycled now", `No Developer storage container in this save is named "DD-1"`, "Nothing was recycled and nothing was exported")
+	if got := standingIDs(t, e.save); fmt.Sprint(got) != "[1010 1020 1030]" {
 		t.Fatalf("standing %v", got)
 	}
-	if inInv(t, e.save, 12) != 3 {
-		t.Fatal("the Reserve of base 1 is not there")
-	}
+	noExportFolder(t, e)
 }
 
-// With only one base left and no boxes, the base is recycled and the roll goes on (nothing is left to hold back); the Reserve stays full and the run says so.
+// A box that is misnamed (names are matched exactly) is the same: 0 of N, nothing changed.
+func TestAMisnamedBoxGivesZeroOfNAndChangesNothing(t *testing.T) {
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+"update permission_actor set actor_name='dd-2' where actor_id=3002;")
+	before := sha(t, e.save)
+	_, err := Roll(o)
+	if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
+		t.Fatalf("%v", err)
+	}
+	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", `named "DD-2"`)
+	noExportFolder(t, e)
+}
+
+// With only one base left and boxes that cannot take its Reserve, the base is recycled and the roll goes on (nothing is left to hold back); the Reserve stays full, the run says so,
+// and the warning is kept in the state file (lastCheck and the outcome of the run) so it can be read the next day.
 func TestTheLastBaseIsRecycledAndRolledEvenWhenTheReserveCannotBeMoved(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(1, 1))
 	r, err := Roll(o)
 	if err != nil || !r.Wrote || e.ini() == iniWith("11") {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
 	mustContain(t, lines(r), "Warning: after the last base the Reserve still holds 3 stack(s)", "make room in the boxes DD-1 and DD-2")
 	if inInv(t, e.save, 12) != 3 {
-		t.Fatal("the Reserve was emptied without boxes")
+		t.Fatal("the Reserve was emptied although the boxes had no room")
+	}
+	stt := readState(t, e.state)
+	if stt.LastCheck == nil || !strings.Contains(stt.LastCheck.ReserveNote, "still holds 3 stack(s)") || stt.LastRun == nil || !strings.Contains(stt.LastRun.Outcome, "rolled layout") || !strings.Contains(stt.LastRun.Outcome, "WARNING: after the last base the Reserve still holds 3 stack(s)") {
+		t.Fatalf("the warning is not in the state file: %+v %+v", stt.LastCheck, stt.LastRun)
 	}
 }
 
 // A dry run asks the whole chain (the recycle plan and the move plan after each base) and writes nothing: not the save, not the state file, no checkpoint, no export.
 func TestADryRunPrintsTheMovePlanAfterEachBaseAndWritesNothing(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(3, 3))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(3, 3))
 	o.DryRun = true
 	before := sha(t, e.save)
 	r, err := Roll(o)
@@ -230,19 +280,23 @@ func TestADryRunPrintsTheMovePlanAfterEachBaseAndWritesNothing(t *testing.T) {
 
 // A dry run with a box that is full after base 1 shows the k-of-N stop and still writes nothing.
 func TestADryRunWithAFullBoxShowsTheStop(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
 	o.DryRun = true
 	before := sha(t, e.save)
 	r, err := Roll(o)
 	if err != nil || sha(t, e.save) != before {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, lines(r), "Dry run: 1 of 2 base(s) recycled", "does not fit into the boxes", "Nothing was written")
+	out := lines(r)
+	mustContain(t, out, "Dry run: 1 of 2 base(s) would be recycled", "would not be", "does not fit into the boxes", "Nothing was written", "A real run would continue")
+	if strings.Contains(out, "base(s) recycled;") || strings.Contains(out, "was not, because") {
+		t.Fatalf("a dry run says that it recycled:\n%s", out)
+	}
 }
 
 // verifyBasesWritten after a real write: a stack that is not in the box it was moved to is found.
 func TestTheWrittenFileWithAMovedStackMissingFromItsBoxIsRefused(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
 		f := s.Flush()
 		editSave(t, e.save, `delete from items where id=9101`)
@@ -257,7 +311,7 @@ func TestTheWrittenFileWithAMovedStackMissingFromItsBoxIsRefused(t *testing.T) {
 
 // verifyBasesWritten: the Reserve of the file holds a stack although all were moved.
 func TestTheWrittenFileWithAStackLeftInTheReserveIsRefused(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
 		f := s.Flush()
 		editSave(t, e.save, `insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (8800,12,1,40,'CopperOre',0,1790000000,'{}',0,null)`)
@@ -272,7 +326,7 @@ func TestTheWrittenFileWithAStackLeftInTheReserveIsRefused(t *testing.T) {
 
 // A character with no Reserve is refused in the preview, before anything is exported.
 func TestACharacterWithNoReserveIsRefusedBeforeTheExport(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10)+"delete from inventories where id=12;")
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10)+"delete from inventories where id=12;")
 	before := sha(t, e.save)
 	_, err := Roll(o)
 	if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
@@ -284,7 +338,7 @@ func TestACharacterWithNoReserveIsRefusedBeforeTheExport(t *testing.T) {
 
 // N2: the state file holds the intent (the checkpoint, the planned bases, the file's hash) BEFORE the save is written.
 func TestTheStateFileHoldsTheIntentBeforeTheSaveIsWritten(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10))
 	var seen state
 	var shaThen [32]byte
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
@@ -312,7 +366,7 @@ func TestTheStateFileHoldsTheIntentBeforeTheSaveIsWritten(t *testing.T) {
 
 // N2: a state file that cannot be written before the save refuses the write: the save is not touched.
 func TestAStateFileThatCannotBeWrittenBeforeTheSaveRefusesTheWrite(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
 	swapVar(t, &writeStateFile, func(p string, s state) error {
 		if s.LastRun != nil && strings.Contains(s.LastRun.Outcome, "about to write") {
 			return errors.New("the disk is full")
@@ -334,7 +388,7 @@ func TestAStateFileThatCannotBeWrittenBeforeTheSaveRefusesTheWrite(t *testing.T)
 
 // N2: a state file that cannot be written after the save was written is said loudly, and the run still names the way back.
 func TestAStateFileThatCannotBeWrittenAfterTheSaveWasWrittenIsSaidLoudly(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
 	swapVar(t, &writeStateFile, func(p string, s state) error {
 		if s.LastRun != nil && !strings.Contains(s.LastRun.Outcome, "about to write") {
 			return errors.New("the disk is full")
@@ -351,7 +405,7 @@ func TestAStateFileThatCannotBeWrittenAfterTheSaveWasWrittenIsSaidLoudly(t *test
 
 // N2: and when the run goes on to the roll, the failed record of it is a WARNING with the way back too.
 func TestAFailedRecordOfTheRollAfterRecycledBasesIsAWarning(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
 	swapVar(t, &writeStateFile, func(p string, s state) error {
 		if s.LastRoll != nil {
 			return errors.New("the disk is full")
@@ -367,7 +421,7 @@ func TestAFailedRecordOfTheRollAfterRecycledBasesIsAWarning(t *testing.T) {
 
 // N1: a write that is not reported as saved, with a file that is different, but NOT what was planned (another program changed it): the run does not say bases were recycled.
 func TestAnUnconfirmedWriteThatDoesNotReadBackAsPlannedDoesNotClaimTheBasesWereRecycled(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
 		editSave(t, e.save, `update actors set location_x=location_x+1 where id=2`) // another program changes the file; the recycle is not written
 		return save.Flush{Why: "the written file could not be verified"}
@@ -376,7 +430,7 @@ func TestAnUnconfirmedWriteThatDoesNotReadBackAsPlannedDoesNotClaimTheBasesWereR
 	if err == nil || r.Wrote || e.ini() != iniWith("11") {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, err.Error(), "the save file is different from before the write", "does not read back as the recycle that was planned", "NOT known what changed the file", "Copy-Item -Force", "Look at it before the game starts")
+	mustContain(t, err.Error(), "the save file is different from before the write", "does not read back as the recycle that was planned", "NOT known what happened to the save file", "Copy-Item -Force", "Look at it before the game starts")
 	if strings.Contains(err.Error(), "WERE recycled") || strings.Contains(err.Error(), "WAS changed (1 base") {
 		t.Fatalf("it claims the bases were recycled: %v", err)
 	}
@@ -388,7 +442,7 @@ func TestAnUnconfirmedWriteThatDoesNotReadBackAsPlannedDoesNotClaimTheBasesWereR
 
 // N1: a file that cannot be read before the write is refused before the write; the save is not touched.
 func TestASaveFileThatCannotBeReadBeforeTheWriteIsNotWritten(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(1)...))
+	e, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10))
 	swapVar(t, &fileSHA, func(string) (string, error) { return "", errors.New("access denied") })
 	called := false
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush { called = true; return s.Flush() })
@@ -402,7 +456,7 @@ func TestASaveFileThatCannotBeReadBeforeTheWriteIsNotWritten(t *testing.T) {
 
 // N1, the vehicle step: the same two rules.
 func TestTheVehicleStepDoesNotClaimVehiclesWereTakenOutWhenTheFileDoesNotReadBackAsPlanned(t *testing.T) {
-	e, o := rcEnv(t, rcWorld()+vehicleSQL(311, "DeepDesert", 0, 1))
+	e, o := mvEnv(t, rcWorld()+vehicleSQL(311, "DeepDesert", 0, 1))
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
 		editSave(t, e.save, `update actors set location_x=location_x+1 where id=2`)
 		return save.Flush{Why: "the written file could not be verified"}
@@ -411,14 +465,14 @@ func TestTheVehicleStepDoesNotClaimVehiclesWereTakenOutWhenTheFileDoesNotReadBac
 	if err == nil || e.ini() != iniWith("11") {
 		t.Fatalf("%v", err)
 	}
-	mustContain(t, err.Error(), "the save file is different from before the write", "does not read back as the vehicles taken out", "NOT known what changed the file", "Database > Save backups")
+	mustContain(t, err.Error(), "the save file is different from before the write", "does not read back as the vehicles taken out", "NOT known what happened to the save file", "Database > Save backups")
 	if strings.Contains(err.Error(), "vehicle(s) taken out of the Deep Desert)") {
 		t.Fatalf("it claims the vehicles were taken out: %v", err)
 	}
 }
 
 func TestTheVehicleStepRefusesTheWriteWhenTheFileCannotBeReadFirst(t *testing.T) {
-	e, o := rcEnv(t, rcWorld()+vehicleSQL(311, "DeepDesert", 0, 1))
+	e, o := mvEnv(t, rcWorld()+vehicleSQL(311, "DeepDesert", 0, 1))
 	swapVar(t, &fileSHA, func(string) (string, error) { return "", errors.New("access denied") })
 	called := false
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush { called = true; return s.Flush() })
@@ -432,7 +486,7 @@ func TestTheVehicleStepRefusesTheWriteWhenTheFileCannotBeReadFirst(t *testing.T)
 
 // N4: the written file holds as many bases as expected, but not the ones expected.
 func TestTheWrittenFileWithADifferentBaseStandingThanExpectedIsRefused(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(1, 1))
 	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
 		f := s.Flush()
 		// base 1020 loses its owner (it no longer counts as the player's) and base 1030 of the player appears: one base stands, as expected, but it is another one
@@ -448,7 +502,7 @@ func TestTheWrittenFileWithADifferentBaseStandingThanExpectedIsRefused(t *testin
 
 // N4 as a direct call: the same count, another id.
 func TestVerifyBasesWrittenNamesTheBaseThatStandsInsteadOfTheExpectedOne(t *testing.T) {
-	e, _ := rcEnv(t, rcWorld(ddBases(2)...))
+	e, _ := mvEnv(t, rcWorld(ddBases(2)...))
 	err := verifyBasesWritten(e.save, nil, []ops.HoldBase{{ID: 1010}, {ID: 1030}}, writtenExpect{})
 	if err == nil || !strings.Contains(err.Error(), "base 1020 stands in the Deep Desert, and base 1030 was expected") {
 		t.Fatalf("%v", err)
@@ -457,7 +511,7 @@ func TestVerifyBasesWrittenNamesTheBaseThatStandsInsteadOfTheExpectedOne(t *test
 
 // N5: the note names the checkpoints of the EARLIER runs, never this run's own.
 func TestTheNoteDoesNotListThisRunsOwnCheckpointUnderEarlierRuns(t *testing.T) {
-	e, o := rcEnv(t, rcWorld(ddBases(3)...)+rcBoxes(1, 1))
+	e, o := mvEnv(t, rcWorld(ddBases(3)...)+rcBoxes(1, 1))
 	e.now = e.now.Add(time.Minute)
 	_, err := Roll(o) // run 1: base 1010 recycled, stops (the boxes are too small)
 	if err == nil {

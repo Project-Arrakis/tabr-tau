@@ -316,18 +316,22 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	if len(refused) > 0 {
 		return halt("not changed: a base cannot be recycled", "%d of %d base(s) cannot be recycled, so none was (all or nothing): %s", len(refused), len(bases), strings.Join(refused, " | "))
 	}
-	if firstWhy == "" && enforceEmptyReserve && room0.Reserve.Used > 0 {
-		firstWhy = reserveWhy(0, room0.Reserve.Used)
-		// something an earlier run left in the Reserve is moved into the boxes first: asked about now, on the untouched save, so that a run that cannot do it exports nothing
-		if emptyReserveInto != nil {
-			if _, err := emptyReserveInto(s, holdIDs(bases), true); err == nil {
-				firstWhy = ""
-			} else if isCannotMove(err) {
-				firstWhy += ", and " + reserveCannotWords(err)
-			} else {
+	// The boxes are asked about now, on the untouched save, even when the Reserve is empty (the move looks for the boxes first): a box that is missing, misnamed, in a base of this run or
+	// on the Deep Desert gives 0 of N with nothing changed and nothing exported, instead of a base recycled and the rest left. What an earlier run left in the Reserve is moved first, so it
+	// is asked about the same way.
+	if firstWhy == "" && emptyReserveInto != nil {
+		if _, err := emptyReserveInto(s, holdIDs(bases), true); err != nil {
+			if !isCannotMove(err) {
 				return halt("not changed: the move of the Reserve could not be asked about", "the move of the Reserve into the boxes could not be asked about (%v); nothing was recycled", err)
 			}
+			if room0.Reserve.Used > 0 {
+				firstWhy = reserveWhy(0, room0.Reserve.Used) + ", and " + reserveCannotWords(err)
+			} else {
+				firstWhy = "the move of the Reserve into the boxes " + boxesWords + ", which each base needs before the next one, would be refused: " + err.Error()
+			}
 		}
+	} else if firstWhy == "" && enforceEmptyReserve && room0.Reserve.Used > 0 {
+		firstWhy = reserveWhy(0, room0.Reserve.Used)
 	}
 	if firstWhy == "" {
 		if p := spaceProblems(room0, []recycledRecord{first}); len(p) > 0 {
@@ -369,15 +373,25 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	res, failed, err := applyEach(s, bases, room0, o.DryRun)
 	if err != nil {
 		s.Discard()
+		// a failure of the MOVE of the Reserve is not a failure of the base it followed: that base was recycled and verified on the working copy
+		var mf *moveFailure
+		moveFailed := errors.As(err, &mf)
 		for i, b := range bases {
 			switch {
 			case i < failed:
 				r.say("  - %s: recycled and verified in the working copy only (discarded)", baseLabel(b))
+			case i == failed && moveFailed && mf.baseDone:
+				r.say("  - %s: recycled and verified in the working copy only (discarded); then moving its Reserve into the boxes FAILED", baseLabel(b))
+			case i == failed && moveFailed:
+				r.say("  - %s: not tried; moving the Reserve an earlier run left into the boxes FAILED first", baseLabel(b))
 			case i == failed:
 				r.say("  - %s: FAILED", baseLabel(b))
 			default:
 				r.say("  - %s: not tried", baseLabel(b))
 			}
+		}
+		if moveFailed {
+			return halt("not changed: the move of the Reserve failed", "%v. The bases were only tried on a working copy and the save file was not written, so NOTHING is changed (the checkpoint %s is there anyway: Database > Save backups)", err, checkpointWords(o, rec))
 		}
 		return halt("not changed: a base failed to recycle", "%v. The bases before it were only tried on a working copy and the save file was not written, so NOTHING is changed (the checkpoint %s is there anyway: Database > Save backups)", err, checkpointWords(o, rec))
 	}
@@ -388,7 +402,6 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		r.say("  %s", l)
 	}
 	rec.RecycleSpace = table
-	rec.ReserveMoves = res.moves
 	moveAt := func(base int64) {
 		for _, m := range res.moves {
 			if m.AfterBase != base {
@@ -433,7 +446,11 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	rest := bases[k:]
 	partial := ""
 	if k < n {
-		partial = fmt.Sprintf("%d of %d base(s) recycled; base %d %q was not, because %s. Not rolled: the roll needs a Deep Desert with no base in it. %s The run continues with the remaining base(s) (%s) when run again; the checkpoint of this run is %s", k, n, rest[0].ID, rest[0].Name, res.why, makeRoom(), labels(rest), checkpointWords(o, rec))
+		recycledWords, notWords, continues := "recycled", "was not", "The run continues"
+		if o.DryRun {
+			recycledWords, notWords, continues = "would be recycled", "would not be", "A real run would continue"
+		}
+		partial = fmt.Sprintf("%d of %d base(s) %s; base %d %q %s, because %s. Not rolled: the roll needs a Deep Desert with no base in it. %s %s with the remaining base(s) (%s) when run again; the checkpoint of this run is %s", k, n, recycledWords, rest[0].ID, rest[0].Name, notWords, res.why, makeRoom(), continues, labels(rest), checkpointWords(o, rec))
 	}
 	if o.DryRun {
 		s.Discard()
@@ -459,6 +476,10 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	// written afterwards, still leaves the way back on record. A state file that cannot be written now refuses the write.
 	rec.SaveFile = s.Path
 	rec.Intent = &writeIntent{Bases: recordIDs(done), SaveFile: s.Path, BeforeSHA256: before}
+	for _, d := range done {
+		rec.Intent.SolidoItems = append(rec.Intent.SolidoItems, d.SolidoItem)
+		rec.Intent.SolidoBlueprints = append(rec.Intent.SolidoBlueprints, d.SolidoBlueprint)
+	}
 	if err := sw.intent(fmt.Sprintf("in progress: about to write the save with %d base(s) recycled (not written yet; if this is the last word, the save may or may not have been written: see the checkpoint)", len(done))); err != nil {
 		rec.Intent = nil
 		sw.withdraw()
@@ -466,7 +487,12 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		return halt("not changed: the state file could not be written", "the state file cannot be written (%v), and it must hold the checkpoint and the plan before the save is changed; the save was not written", err)
 	}
 	f := flushSave(s)
-	mark := func() { rec.Intent = nil; rec.Recycled, rec.written, rec.SaveFile = done, true, s.Path }
+	// what is recorded as written (the bases, the moves of the Reserve, the warning about a Reserve left full) is set only once the file is known to hold it
+	mark := func() {
+		rec.Intent = nil
+		rec.Recycled, rec.written, rec.SaveFile = done, true, s.Path
+		rec.ReserveMoves, rec.ReserveNote = res.moves, res.reserveNote
+	}
 	warn := func(err error) {
 		if err == nil {
 			return
@@ -491,7 +517,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		}
 		// the file is different, but what made it different is not known until it is read: it is opened afresh and checked against the plan before anything is said about bases
 		if verr := verifyBasesWritten(s.Path, done, rest, expect); verr != nil {
-			msg := fmt.Sprintf("the save file is different from before the write, and it does not read back as the recycle that was planned (%v). The write was not reported as saved (%s) and %s, so it is NOT known what changed the file (the bases in part, or another program). %s. Look at it before the game starts", verr, f.Why, why, rec.wayBack())
+			msg := fmt.Sprintf("the write was not reported as saved (%s), and it is NOT known what happened to the save file: %s; checked against the plan, it does not read back as the recycle that was planned (%v). It may have been changed in part, or by another program. %s. Look at it before the game starts", f.Why, why, verr, rec.wayBack())
 			rec.Blockers = append(rec.Blockers, msg)
 			r.say("Stopped: %s.", msg)
 			_, e := stop("stopped: the save file changed and does not read back as planned", errors.New("stopped: "+msg))
@@ -649,7 +675,7 @@ func applyEach(s *save.Save, bases []ops.HoldBase, room0 ops.RecycleRoom, dry bo
 					res.why = reserveWhy(i, now.Reserve.Used) + ", and " + reserveCannotWords(err)
 					return res, 0, nil
 				}
-				return res, i, fmt.Errorf("%s: the Reserve could not be moved into the boxes before it (%v)", baseLabel(b), err)
+				return res, i, &moveFailure{err: fmt.Errorf("the Reserve that an earlier run left could not be moved into the boxes before %s (%v)", baseLabel(b), err)}
 			}
 			if now, err = roomOf(s); err != nil {
 				return res, i, fmt.Errorf("%s: the room could not be read after the Reserve was moved (%v)", baseLabel(b), err)
@@ -700,7 +726,7 @@ func applyEach(s *save.Save, bases []ops.HoldBase, room0 ops.RecycleRoom, dry bo
 		if emptyReserveInto != nil && after.Reserve.Used > 0 {
 			if err := moveReserve(d.ID, after.Reserve.Used); err != nil {
 				if !isCannotMove(err) {
-					return res, i, fmt.Errorf("%s: the Reserve could not be moved into the boxes after it was recycled (%v)", baseLabel(b), err)
+					return res, i, &moveFailure{err: fmt.Errorf("the Reserve could not be moved into the boxes after %s was recycled (%v)", baseLabel(b), err), baseDone: true}
 				}
 				// the base is recycled and verified; what is left is the Reserve, which the boxes refused
 				if i == len(bases)-1 {

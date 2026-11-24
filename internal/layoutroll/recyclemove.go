@@ -187,3 +187,13 @@ func verifyMovedWritten(fresh *save.Save, want writtenExpect) error {
 	}
 	return nil
 }
+
+// moveFailure is a failure of the move of the Reserve into the boxes that is not a refusal of the boxes: the run's working copy is thrown away. baseDone says that the base the move
+// followed had been recycled and verified on the working copy (false for the move of what an earlier run left, made before the first base).
+type moveFailure struct {
+	err      error
+	baseDone bool
+}
+
+func (m *moveFailure) Error() string { return m.err.Error() }
+func (m *moveFailure) Unwrap() error { return m.err }

@@ -342,7 +342,7 @@ func TestTheDryRunPrintsThePlanAndWritesNothing(t *testing.T) {
 		rule bool
 		want []string
 	}{
-		"the Reserve rule on": {true, []string{"Rule: The Reserve must be empty before each base is recycled", "1 of 3 base(s) recycled", "base 1020", "Dry run: it would stop here", "#1191", "Reserve: empty before each base", "backpack: needs 1 slot(s)"}},
+		"the Reserve rule on": {true, []string{"Rule: The Reserve must be empty before each base is recycled", "1 of 3 base(s) would be recycled", "base 1020", "Dry run: it would stop here", "#1191", "Reserve: empty before each base", "backpack: needs 1 slot(s)"}},
 		"all three fit":       {false, []string{"3 of 3 base(s) can be recycled in this run: 3 Solido device(s)", "refund together:", "Dry run: that is what a real run does", "Dry run: would change Game.ini", "backpack: needs 3 slot(s)", `Base 1030 "Base 3"`}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -455,7 +455,10 @@ func TestTheStorageCallPointLetsSeveralBasesGoInOneRun(t *testing.T) {
 	})
 	t.Run("the move fails", func(t *testing.T) {
 		e, o := rcEnv(t, rcWorld(ddBases(2)...))
-		swapVar(t, &emptyReserveInto, func(*save.Save, []int64, bool) (movedReserve, error) {
+		swapVar(t, &emptyReserveInto, func(_ *save.Save, _ []int64, previewOnly bool) (movedReserve, error) {
+			if previewOnly {
+				return movedReserve{}, nil
+			}
 			return movedReserve{}, errors.New("no storage box")
 		})
 		before := sha(t, e.save)

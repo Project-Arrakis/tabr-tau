@@ -377,6 +377,9 @@ type recycleHistoryEntry struct {
 	// Unconfirmed is set on the entry written BEFORE the save is written (the bases are the ones about to be recycled): the entry is replaced when the write is confirmed and removed when
 	// the save was not written, so one that stays says the run ended without recording how the write went.
 	Unconfirmed bool `json:"unconfirmed,omitempty"`
+	// BeforeSHA256 is the SHA-256 of the save file as it was before the write, kept on an unconfirmed entry: the next run compares it with the file as it is then (reconcile.go).
+	BeforeSHA256     string  `json:"saveSha256Before,omitempty"`
+	SolidoBlueprints []int64 `json:"solidoBlueprints,omitempty"` // as the Solido items, on an unconfirmed entry: what the next run checks the file for
 }
 
 // line is the entry as one plain sentence.
@@ -403,18 +406,41 @@ func (s *state) recordRecycleRun(rec *checkRecord) {
 		e.SolidoItems = append(e.SolidoItems, b.SolidoItem)
 	}
 	if rec.Intent != nil && len(rec.Recycled) == 0 {
-		e.Bases, e.Unconfirmed = rec.Intent.Bases, true
+		e.Bases, e.Unconfirmed, e.BeforeSHA256 = rec.Intent.Bases, true, rec.Intent.BeforeSHA256
+		e.SolidoItems, e.SolidoBlueprints = rec.Intent.SolidoItems, rec.Intent.SolidoBlueprints
 	}
+	replaced := false
 	for i := range s.RecycleHistory {
 		if s.RecycleHistory[i].At.Equal(rec.At) {
 			s.RecycleHistory[i] = e
-			return
+			replaced = true
+			break
 		}
 	}
-	s.RecycleHistory = append(s.RecycleHistory, e)
-	if len(s.RecycleHistory) > maxRecycleHistory {
-		s.RecycleHistory = s.RecycleHistory[len(s.RecycleHistory)-maxRecycleHistory:]
+	if !replaced {
+		s.RecycleHistory = append(s.RecycleHistory, e)
 	}
+	s.trimHistory()
+}
+
+// trimHistory keeps the newest maxRecycleHistory CONFIRMED entries. An unconfirmed entry (written before the save is written) does not count against the cap and is never removed
+// by it: noting an intent must not push the oldest checkpoint out before anything has been written.
+func (s *state) trimHistory() {
+	confirmed := 0
+	for _, e := range s.RecycleHistory {
+		if !e.Unconfirmed {
+			confirmed++
+		}
+	}
+	var keep []recycleHistoryEntry
+	for _, e := range s.RecycleHistory {
+		if !e.Unconfirmed && confirmed > maxRecycleHistory {
+			confirmed--
+			continue
+		}
+		keep = append(keep, e)
+	}
+	s.RecycleHistory = keep
 }
 
 // historyLines is the history, oldest first, one sentence each.
@@ -486,7 +512,12 @@ func writeState(path string, s state) error {
 
 func saveRoll(path string, s state, now time.Time, from, to int) error {
 	s.LastRoll = &rollRecord{At: now, From: from, To: to}
-	s.LastRun = &runRecord{At: now, Outcome: fmt.Sprintf("rolled layout %d -> %d", from, to)}
+	outcome := fmt.Sprintf("rolled layout %d -> %d", from, to)
+	// a warning of the recycle step that the person must still see the next day (the Reserve that could not be emptied after the last base) is part of the outcome
+	if c := s.LastCheck; c != nil && c.ReserveNote != "" {
+		outcome += "; WARNING: " + c.ReserveNote
+	}
+	s.LastRun = &runRecord{At: now, Outcome: outcome}
 	return writeStateFile(path, s)
 }
 
