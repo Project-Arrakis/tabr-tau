@@ -15,8 +15,6 @@ import (
 
 // Back up and remove a base the way the game does (#1127). The world is a standing base of the character's (a totem, a building actor with three pieces and an entity, a chest with
 // an item, a placeable with no buildable support, a map marker), a base of another player, a base the character is only a member of, and a base the game already picked up.
-const removeEnt = int64(5764607523034234881)
-
 const removeWorld = `
 insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,dimension_index,state,serial,owner_account_id,properties) values
   (99,'/Game/BP_Other.BP_Other_C','HaggaBasin',0,0,0,0,0,0,1,0,0,1,1,jsonb('{}')),
