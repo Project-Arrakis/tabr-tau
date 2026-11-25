@@ -133,6 +133,20 @@ func TestLayoutRollRecycleBasesFlagIsOptIn(t *testing.T) {
 	}
 }
 
+// --keep-markers (#1216) reaches the roll: with Deep Desert markers in the save a dry run says it would remove them, and with the flag it says they are left.
+func TestLayoutRollKeepMarkersFlag(t *testing.T) {
+	o, dir := layoutTestOptions(t, false)
+	o.SavePath = testsave.PlayerWithSQL(t, `insert into markers(marker_hash_id,dimension_index,map_name,marker_type,x,y,z) values (1,0,'DeepDesert','Cave',1,1,0);`).Path
+	var out bytes.Buffer
+	if err := runLayoutRoll([]string{"--dry-run"}, dir, &out, o); err != nil || !strings.Contains(out.String(), "would remove the Deep Desert markers from the save") || !strings.Contains(out.String(), "1 marker(s)") {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+	out.Reset()
+	if err := runLayoutRoll([]string{"--dry-run", "--keep-markers"}, dir, &out, o); err != nil || !strings.Contains(out.String(), "left as they are (--keep-markers)") {
+		t.Fatalf("%v\n%s", err, out.String())
+	}
+}
+
 func TestLayoutRollVettedFlag(t *testing.T) {
 	o, dir := layoutTestOptions(t, false)
 	var out bytes.Buffer
