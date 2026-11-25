@@ -39,8 +39,8 @@
 
 .PARAMETER RecycleBases
   Optional, off by default. Adds --recycle-bases to the task action (after the word layout-roll): the weekly run then recycles your own bases in the Deep Desert, one at a time, each with a
-  Solido, before it rolls, instead of refusing while a base stands. The Reserve must be empty before each base, so the run moves the whole Reserve into your two storage boxes named
-  DD-1 and DD-2 (Developer storage containers, named exactly so in the game) between the bases and after the last one; a run that could not recycle every base (a box is missing, or the
+  Solido, before it rolls, instead of refusing while a base stands. The Reserve must be empty before each base, so the run moves the whole Reserve into your storage boxes named
+  DD-1, DD-2 ... up to DD-6 (Developer storage containers, named exactly so in the game, as many as run in a row from DD-1) between the bases and after the last one; a run that could not recycle every base (a box is missing, or the
   boxes are full) stops before the roll and says so in %APPDATA%\tabr-tau\layout-roll.json, and the next run continues. The task is given 30 minutes instead of 5. Without -RecycleBases
   the task is exactly what it was.
 

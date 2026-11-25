@@ -12,9 +12,10 @@ import (
 )
 
 // Move the Reserve into named storage boxes (#1191). A recycle (#1176) puts everything into the character's Reserve (inventory type 33). The Reserve can only be filled by the game
-// (a recycle), never by the player, so it is a one-way inbox: this edit empties it into two storage boxes the person has named, so that the next recycle starts with an empty Reserve.
+// (a recycle), never by the player, so it is a one-way inbox: this edit empties it into the storage boxes the person has named (or, with no names given, the boxes DD-1, DD-2 ... DD-6 found in a row from DD-1, #1214), so that the next recycle starts with an empty Reserve.
 //
-//   - Which boxes: each configured name is looked up as the name the person gave the box in the game (permission_actor.actor_name of the box's placeable, the same name the Bases >
+//   - Which boxes: with no names given, the Developer storage containers named exactly DD-1, DD-2 ... up to DD-6, used in that order; the scan stops at the first number that has no box
+//     (a higher one is ignored, and the answer says so), and at least DD-1 must exist (scanReserveBoxes). Otherwise, each given name (at most six) is looked up as the name the person gave the box in the game (permission_actor.actor_name of the box's placeable, the same name the Bases >
 //     Inventory list shows). It must match exactly one Developer storage container of the save, and that one must stand in a base of the character's own (the owner rank, as a recycle
 //     checks it), be in the normal state, not be a hologram, not be on the Deep Desert, and not be part of a base that is being recycled (MoveReserveOptions.ExcludeBases). A name that
 //     matches none, or more than one, a box that is refused for one of those reasons, and the same box named twice all refuse the whole move, naming what was found. Nothing is guessed:
@@ -34,9 +35,232 @@ import (
 //
 // An empty Reserve is not an error and writes nothing.
 
-// DefaultReserveBoxes are the names of the two boxes the operator uses: the editor and the command offer them when none are typed. A name is matched exactly, capitals included: the
-// save keeps the name as it was typed in the game, and nothing is known of the game treating names as case-insensitive.
-var DefaultReserveBoxes = []string{"DD-1", "DD-2"}
+// MaxReserveBoxes is how many boxes DD-1, DD-2 ... one move uses at most (#1214). Each Developer storage box holds 1,000 slots and 50,000 volume in the saves seen, and a Deep Desert base
+// refunds in full (#1212), so one base can bring more than two boxes hold.
+const MaxReserveBoxes = 6
+
+// ReserveBoxName is the name of box n (1 to MaxReserveBoxes): "DD-1", "DD-2" ... A name is matched exactly, capitals included: the save keeps the name as it was typed in the game, and
+// nothing is known of the game treating names as case-insensitive.
+func ReserveBoxName(n int) string { return fmt.Sprintf("DD-%d", n) }
+
+// ReserveBoxScan is what the one detection of the boxes found (#1214): a move that is given no names, the editor's line "Storage boxes" and the layout roll all use it. The boxes must be
+// consecutive from DD-1, used in that order: the scan stops at the first number no container carries, and a higher one that exists is ignored (and said so, so that a
+// typo cannot silently skip a box).
+type ReserveBoxScan struct {
+	Found   []string // DD-1 ... DD-n, the boxes of the move, in order (a container of that name that cannot be used is in here too: the move refuses it by name)
+	Ignored []string // higher boxes that exist behind a gap (DD-5 when DD-4 is missing)
+	Gap     string   // the first number with no box ("DD-3"), empty when all MaxReserveBoxes were found
+
+	// Wrong says, for a name of Found, why no Developer storage box can be found by it: a container of another kind carries the name, alone or beside a Developer box.
+	Wrong map[string]string
+	// Other are the names of the Developer storage containers that are not DD-1 ... DD-6 ("D-3", "dump box"), for the hint when a number is missing; OtherMore counts those left out of the list.
+	Other     []string
+	OtherMore int
+	// Unusable is filled by the editor's line only (DetectReserveBoxes): the boxes of Found that a move would refuse, each with the reason.
+	Unusable []ReserveBoxProblem
+}
+
+// ReserveBoxProblem is a box named DD-n that cannot be used, and why.
+type ReserveBoxProblem struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
+// Hint lists the Developer storage boxes that have other names, so that a typo ("D-3", "dd-3", "DD-03") shows; empty when there are none.
+func (s ReserveBoxScan) Hint() string {
+	if len(s.Other) == 0 {
+		return ""
+	}
+	q := make([]string, len(s.Other))
+	for i, n := range s.Other {
+		q[i] = fmt.Sprintf("%q", importLabel(n))
+	}
+	out := "Developer storage boxes with other names: " + strings.Join(q, ", ")
+	if s.OtherMore > 0 {
+		out += fmt.Sprintf(" and %d more", s.OtherMore)
+	}
+	return out + "."
+}
+
+// usable is Found without the boxes that cannot be used.
+func (s ReserveBoxScan) usable() []string {
+	bad := map[string]bool{}
+	for _, u := range s.Unusable {
+		bad[u.Name] = true
+	}
+	var out []string
+	for _, n := range s.Found {
+		if !bad[n] {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// Words says in plain words what was found.
+func (s ReserveBoxScan) Words() string {
+	if len(s.Found) == 0 {
+		return "No Developer storage box named " + ReserveBoxName(1) + " was found. Name a Developer storage container " + ReserveBoxName(1) + " in the game (capitals and the hyphen exactly), then DD-2, DD-3 ... for more room."
+	}
+	use := s.usable()
+	list := ""
+	if len(use) > 0 {
+		list = ": " + strings.Join(use, ", ")
+	}
+	out := fmt.Sprintf("Storage boxes: %s ... %s, used in that order (found %d usable%s).", ReserveBoxName(1), ReserveBoxName(MaxReserveBoxes), len(use), list)
+	for _, u := range s.Unusable {
+		out += fmt.Sprintf(" %s cannot be used: %s", u.Name, u.Reason)
+	}
+	if len(s.Ignored) > 0 {
+		out += fmt.Sprintf(" Ignored: %s (%s is missing, and the boxes are used in a row from %s without a gap). Name a box %s in the game, or rename the ignored ones.", strings.Join(s.Ignored, ", "), s.Gap, ReserveBoxName(1), s.Gap)
+	}
+	if s.Gap != "" {
+		if h := s.Hint(); h != "" {
+			out += " " + h
+		}
+	}
+	if len(s.Found) == 1 && s.Gap == ReserveBoxName(2) && len(s.Ignored) == 0 {
+		out += fmt.Sprintf(" Warning: only %s was found; %s .. %s are optional. If you named more boxes, check their names (capitals and the hyphen exactly).", ReserveBoxName(1), ReserveBoxName(2), ReserveBoxName(MaxReserveBoxes))
+	}
+	return out
+}
+
+// scanReserveBoxes looks for the containers named DD-1 ... DD-6 and keeps them in a row from DD-1. The name is trimmed and matched exactly (DD-10, DD-0, dd-3, DD-03 are not DD-n). A container
+// with such a name counts as found whatever it is: one that cannot be used (a duplicate name, one of another kind than a Developer storage box, one in a vehicle or in a refused place) is
+// refused by the move, by name, and is never silently passed over.
+func scanReserveBoxes(q baseQ) (ReserveBoxScan, error) {
+	args := make([]any, 0, MaxReserveBoxes+1)
+	marks := make([]string, MaxReserveBoxes)
+	for i := range marks {
+		marks[i] = "?"
+		args = append(args, ReserveBoxName(i+1))
+	}
+	args = append(args, strings.ToLower(devStorageType))
+	rows, err := q.Query(`select trim(pa.actor_name, ' '||char(9,10,13)) name, p.building_type bt, count(*) n from placeables p join permission_actor pa on pa.actor_id=p.id
+		where trim(pa.actor_name, ' '||char(9,10,13)) in (`+strings.Join(marks, ",")+`)
+		and (lower(p.building_type)=? or exists (select 1 from inventories i where i.actor_id=p.id and i.item_id is null))
+		group by 1, 2 order by 1, 2`, args...)
+	if err != nil {
+		return ReserveBoxScan{}, err
+	}
+	has := map[string]bool{}
+	dev := map[string]int64{}
+	other := map[string][]string{}
+	for _, r := range rows {
+		n, _ := r["name"].(string)
+		bt, _ := r["bt"].(string)
+		c, _ := toInt(r["n"])
+		has[n] = true
+		if strings.EqualFold(bt, devStorageType) {
+			dev[n] += c
+		} else {
+			if bt == "" {
+				bt = "unknown"
+			}
+			other[n] = append(other[n], fmt.Sprintf("%q", importLabel(bt)))
+		}
+	}
+	var s ReserveBoxScan
+	for i := 1; i <= MaxReserveBoxes; i++ {
+		n := ReserveBoxName(i)
+		if s.Gap == "" && has[n] {
+			s.Found = append(s.Found, n)
+			if kinds := other[n]; len(kinds) > 0 {
+				if s.Wrong == nil {
+					s.Wrong = map[string]string{}
+				}
+				if dev[n] == 0 {
+					s.Wrong[n] = "is a " + strings.Join(kinds, " and a ") + " container, not a Developer storage container"
+				} else {
+					s.Wrong[n] = "has the same name as a " + strings.Join(kinds, " and a ") + " container, so the name does not find one Developer storage container"
+				}
+			}
+			continue
+		}
+		if s.Gap == "" {
+			s.Gap = n
+		} else if has[n] {
+			s.Ignored = append(s.Ignored, n)
+		}
+	}
+	// the Developer storage containers with other names, for the hint about a typo
+	if s.Gap != "" {
+		named, err := q.Query(`select distinct trim(pa.actor_name, ' '||char(9,10,13)) name from placeables p join permission_actor pa on pa.actor_id=p.id
+			where lower(p.building_type)=? order by 1`, strings.ToLower(devStorageType))
+		if err != nil {
+			return ReserveBoxScan{}, err
+		}
+		for _, r := range named {
+			n, _ := r["name"].(string)
+			if n == "" || n == "None" || strings.HasPrefix(n, "##") || isReserveBoxName(n) {
+				continue
+			}
+			if len(s.Other) < 30 {
+				s.Other = append(s.Other, n)
+			} else {
+				s.OtherMore++
+			}
+		}
+	}
+	return s, nil
+}
+
+// isReserveBoxName says whether n is exactly DD-1 ... DD-6.
+func isReserveBoxName(n string) bool {
+	for i := 1; i <= MaxReserveBoxes; i++ {
+		if n == ReserveBoxName(i) {
+			return true
+		}
+	}
+	return false
+}
+
+// wrongBoxRefusal is the refusal of a box of the scan that no Developer storage box can be found by.
+func wrongBoxRefusal(name, why string) error {
+	return apierr.Newf(apierr.ErrConflict, "The container named %q %s, so it cannot receive the Reserve, and the boxes after it are not used in its place. Rename it in the game, then try again. Nothing was changed.", name, why)
+}
+
+// DetectReserveBoxes says which boxes DD-1 ... DD-6 a move would use now (the line "Storage boxes" of the editor). It reads and changes nothing. A box named DD-n that a move would refuse
+// (a duplicate, a hologram, on the Deep Desert, not yours, of another kind ...) is not counted as found: it is named with the reason.
+func (o *Ops) DetectReserveBoxes() (any, error) {
+	s, err := scanReserveBoxes(o.S)
+	if err != nil {
+		return nil, err
+	}
+	pl, perr := o.player()
+	for _, n := range s.Found {
+		if why, bad := s.Wrong[n]; bad {
+			s.Unusable = append(s.Unusable, ReserveBoxProblem{n, "it " + why + "."})
+			continue
+		}
+		if perr != nil || pl.Controller <= 0 {
+			continue // no character in this save: the boxes are listed, but their owner cannot be judged
+		}
+		if _, err := resolveMoveBox(o.S, pl, n, nil); err != nil {
+			if !(errors.Is(err, apierr.ErrConflict) || errors.Is(err, apierr.ErrNotFound) || errors.Is(err, apierr.ErrBadArgument)) {
+				return nil, err
+			}
+			s.Unusable = append(s.Unusable, ReserveBoxProblem{n, strings.TrimSuffix(err.Error(), " Nothing was changed.")})
+		}
+	}
+	found, ignored, unusable := s.usable(), s.Ignored, s.Unusable
+	if found == nil {
+		found = []string{}
+	}
+	if ignored == nil {
+		ignored = []string{}
+	}
+	if unusable == nil {
+		unusable = []ReserveBoxProblem{}
+	}
+	text := s.Words()
+	if len(s.Found) == 0 {
+		if h := s.Hint(); h != "" {
+			text += " " + h
+		}
+	}
+	return map[string]any{"found": found, "ignored": ignored, "unusable": unusable, "gap": s.Gap, "max": MaxReserveBoxes, "text": text}, nil
+}
 
 // MoveReserveOptions are the choices of one move.
 type MoveReserveOptions struct {
@@ -110,6 +334,13 @@ type moveReservePlan struct {
 	Digest   string
 	Warnings []string
 	Dry      bool // a preview: the summary says what would be done
+
+	// the boxes were found by the scan (no names given): what it found and what it ignored (#1214)
+	Auto    bool
+	Ignored []string
+	Hint    string // the Developer storage boxes with other names (a typo shows), for the refusals about a missing number
+	Gap     string
+	Notes   []string // said in the summary: which boxes were found, and which were ignored
 }
 
 func (p *moveReservePlan) fingerprint() string {
@@ -152,7 +383,7 @@ func ownedByCharacter(q baseQ, totem, controller int64) (bool, error) {
 // resolveMoveBox finds the one Developer storage container the person named, or says why there is not exactly one usable.
 func resolveMoveBox(q baseQ, pl player, name string, exclude map[int64]bool) (*moveBox, error) {
 	if name == "" || name == "None" || strings.HasPrefix(name, "##") || len(name) > 200 {
-		return nil, apierr.Newf(apierr.ErrBadArgument, "%q is not a name a box can be found by (a box that was never renamed has none). Name the two boxes in the game first. Nothing was changed.", name)
+		return nil, apierr.Newf(apierr.ErrBadArgument, "%q is not a name a box can be found by (a box that was never renamed has none). Name the boxes in the game first. Nothing was changed.", name)
 	}
 	rows, err := q.Query(`select p.id actor_id, coalesce(a.map,'') map, a.state state, p.is_hologram holo,
 		(select afe.actor_id from actor_fgl_entities afe join totems t on t.id=afe.actor_id where afe.entity_id=p.owner_entity_id and afe.slot_name='Actor' order by afe.actor_id limit 1) base_id,
@@ -353,8 +584,21 @@ func contentDigest(rows []save.Row) string {
 const moveItemColumns = `id, template_id, stack_size, position_index, is_new, acquisition_time, stats, quality_level, volume_override`
 
 func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions) (*moveReservePlan, error) {
-	if len(names) == 0 {
-		return nil, apierr.New(apierr.ErrBadArgument, "Name the storage boxes first (one or more names). Nothing was changed.")
+	var scan ReserveBoxScan
+	auto := len(names) == 0
+	if auto {
+		// no names given: the boxes are DD-1, DD-2 ... as far as they run in a row (#1214)
+		var err error
+		if scan, err = scanReserveBoxes(q); err != nil {
+			return nil, err
+		}
+		if len(scan.Found) == 0 {
+			return nil, apierr.Newf(apierr.ErrNotFound, "%s %s Nothing was changed.", scan.Words(), namesRead(q))
+		}
+		names = scan.Found
+	}
+	if len(names) > MaxReserveBoxes {
+		return nil, apierr.Newf(apierr.ErrBadArgument, "%d boxes are named; a move uses at most %d (%s to %s). Nothing was changed.", len(names), MaxReserveBoxes, ReserveBoxName(1), ReserveBoxName(MaxReserveBoxes))
 	}
 	seen := map[string]bool{}
 	clean := make([]string, len(names))
@@ -370,8 +614,14 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 	for _, b := range opt.ExcludeBases {
 		exclude[b] = true
 	}
-	p := &moveReservePlan{}
+	p := &moveReservePlan{Auto: auto, Ignored: scan.Ignored, Gap: scan.Gap, Hint: scan.Hint()}
+	if auto {
+		p.Notes = append(p.Notes, scan.Words())
+	}
 	for _, n := range clean {
+		if why, bad := scan.Wrong[n]; auto && bad {
+			return nil, wrongBoxRefusal(n, why)
+		}
 		b, err := resolveMoveBox(q, pl, n, exclude)
 		if err != nil {
 			return nil, err
@@ -424,6 +674,12 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 		p.Stacks = append(p.Stacks, s)
 	}
 	if len(p.Stacks) == 0 {
+		for _, b := range p.Boxes {
+			b.FreeSlots, b.FreeVolume = b.Free0, -1
+			if b.VolLimit > 0 {
+				b.FreeVolume = b.VolLimit - b.UsedVol
+			}
+		}
 		return p, nil
 	}
 	// first fit: each row, in the Reserve's order, goes into the first box with a free slot (the give's count) and room by volume (the give's count, for the whole stack). Units with
@@ -488,8 +744,25 @@ func moveShortfall(p *moveReservePlan, left []reserveStack) error {
 		}
 		parts = append(parts, fmt.Sprintf("%q has %s slots free and %s", b.Name, commas(fs), fv))
 	}
-	return apierr.Wrap(apierr.ErrNoRoom, fmt.Sprintf("The Reserve does not fit into the boxes, so nothing was changed. Needed: %s stacks (%s items, volume %s). Free: %s (%s slots in all). Short by %s stacks (volume %s) that fit in neither box. Free room in the boxes in the game, or name boxes with more room.",
-		commas(int64(len(p.Stacks))), commas(p.Units), fmtVol(p.Volume), strings.Join(parts, "; "), commas(freeSlots), commas(int64(len(left))), fmtVol(lv)), ErrMoveReserveNoRoom)
+	fits := "that fit in none of the boxes"
+	if len(p.Boxes) == 1 {
+		fits = "that do not fit in the box"
+	}
+	advice := "Free room in the boxes in the game, or name boxes with more room."
+	if p.Auto {
+		advice = fmt.Sprintf("Free room in the boxes in the game, or add %s: place another Developer storage container and name it %s.", ReserveBoxName(len(p.Boxes)+1), ReserveBoxName(len(p.Boxes)+1))
+		if len(p.Boxes) >= MaxReserveBoxes {
+			advice = fmt.Sprintf("All six boxes (%s to %s) are in use, which is the most a move uses: free room in them in the game.", ReserveBoxName(1), ReserveBoxName(MaxReserveBoxes))
+		}
+		if len(p.Ignored) > 0 {
+			advice += fmt.Sprintf(" Ignored: %s (%s is missing, and the boxes are used in a row without a gap).", strings.Join(p.Ignored, ", "), p.Gap)
+		}
+		if p.Hint != "" && len(p.Boxes) < MaxReserveBoxes {
+			advice += " " + p.Hint
+		}
+	}
+	return apierr.Wrap(apierr.ErrNoRoom, fmt.Sprintf("The Reserve does not fit into the boxes, so nothing was changed. Needed: %s stacks (%s items, volume %s). Free: %s (%s slots in all). Short by %s stacks (volume %s) %s. %s",
+		commas(int64(len(p.Stacks))), commas(p.Units), fmtVol(p.Volume), strings.Join(parts, "; "), commas(freeSlots), commas(int64(len(left))), fmtVol(lv), fits, advice), ErrMoveReserveNoRoom)
 }
 
 // PreviewMoveReserve says what moving the Reserve into the named boxes would do and the fingerprint the write must be sent. It does the whole edit, reads it back, runs the save
@@ -555,7 +828,10 @@ func boxNamesWords(p *moveReservePlan) string {
 	for _, b := range p.Boxes {
 		n = append(n, `"`+importLabel(b.Name)+`"`)
 	}
-	return strings.Join(n, " and ")
+	if len(n) > 1 {
+		return strings.Join(n[:len(n)-1], ", ") + " and " + n[len(n)-1]
+	}
+	return strings.Join(n, "")
 }
 
 func moveMismatch(what string, got, want int64) error {
@@ -563,6 +839,18 @@ func moveMismatch(what string, got, want int64) error {
 }
 
 func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
+	names := []string{}
+	for _, b := range p.Boxes {
+		names = append(names, b.Name)
+	}
+	ignored := p.Ignored
+	if ignored == nil {
+		ignored = []string{}
+	}
+	boxInfo := func(r map[string]any) map[string]any {
+		r["boxNames"], r["autoDetected"], r["ignoredBoxes"] = names, p.Auto, ignored
+		return r
+	}
 	boxOut := func() []map[string]any {
 		out := []map[string]any{}
 		for _, b := range p.Boxes {
@@ -573,8 +861,23 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 		return out
 	}
 	if len(p.Stacks) == 0 {
-		return map[string]any{"ok": true, "changed": false, "nothingToDo": true, "stacks": 0, "items": 0, "boxes": boxOut(), "reserveInventory": p.Reserve,
-			"summary": []string{"The Reserve is empty. Nothing was moved and nothing was written."}, "warnings": []string{}, "fingerprint": p.fingerprint()}, nil
+		// with the boxes found by the scan, the answer also says what each has free: the preflight of the layout roll and the dry run show it even when there is nothing to move
+		summary := append([]string{}, p.Notes...)
+		if p.Auto {
+			for _, b := range p.Boxes {
+				free := fmt.Sprintf("%s slots free", commas(b.FreeSlots))
+				if b.FreeVolume >= 0 {
+					free += fmt.Sprintf(", volume %s free", fmtVol(b.FreeVolume))
+				}
+				where := b.BaseName
+				if where == "" {
+					where = fmt.Sprintf("base %d", b.Base)
+				}
+				summary = append(summary, fmt.Sprintf("Box %q (in %q): %s stacks there; %s.", b.Name, importLabel(where), commas(b.Before), free))
+			}
+		}
+		return boxInfo(map[string]any{"ok": true, "changed": false, "nothingToDo": true, "stacks": 0, "items": 0, "boxes": boxOut(), "reserveInventory": p.Reserve,
+			"summary": append(summary, "The Reserve is empty. Nothing was moved and nothing was written."), "warnings": []string{}, "fingerprint": p.fingerprint()}), nil
 	}
 
 	// 1. the rows move: only inventory_id and position_index change
@@ -683,6 +986,7 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 		moved, in, was, afterwards = "Would move", "would go in", "are", "afterwards there would be"
 	}
 	summary := []string{fmt.Sprintf("%s: %s item stacks (%s items) from the Reserve into storage, whole and unchanged. Only the place of each stack changes.", moved, commas(int64(len(p.Stacks))), commas(p.Units))}
+	summary = append(summary, p.Notes...)
 	for _, b := range p.Boxes {
 		free := fmt.Sprintf("%s slots free", commas(b.FreeSlots))
 		if b.FreeVolume >= 0 {
@@ -699,6 +1003,6 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 	} else {
 		summary = append(summary, "The Reserve is empty afterwards.")
 	}
-	return map[string]any{"ok": true, "changed": true, "nothingToDo": false, "stacks": len(p.Stacks), "items": p.Units, "volume": p.Volume, "boxes": boxOut(), "reserveInventory": p.Reserve,
-		"summary": summary, "warnings": p.Warnings, "fingerprint": p.fingerprint()}, nil
+	return boxInfo(map[string]any{"ok": true, "changed": true, "nothingToDo": false, "stacks": len(p.Stacks), "items": p.Units, "volume": p.Volume, "boxes": boxOut(), "reserveInventory": p.Reserve,
+		"summary": summary, "warnings": p.Warnings, "fingerprint": p.fingerprint()}), nil
 }

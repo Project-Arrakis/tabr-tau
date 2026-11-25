@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -25,14 +26,16 @@ insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,a
   (9001,12,30,0,'Stone',0,1790000001,'{}',0),(9002,12,20,1,'Stone',0,1790000002,'{}',0),(9003,12,10,2,'ScrapMetal',0,1790000003,'{}',0),(9004,7001,5,0,'Stone',0,1790000004,'{}',0);
 insert into totems(id) values (601);`
 
-func moveReserveServer(t *testing.T) *Server {
+func moveReserveServer(t *testing.T) *Server { return moveReserveServerWith(t, "") }
+
+func moveReserveServerWith(t *testing.T, extra string) *Server {
 	t.Helper()
-	s := backupServer(t, moveReserveRouteWorld)
+	s := backupServer(t, moveReserveRouteWorld+extra)
 	s.KeepPendingEdits(t.TempDir())
 	return s
 }
 
-const moveReserveQuery = "box1=Box%20A&box2=Box%20B"
+const moveReserveQuery = "boxes=Box%20A,Box%20B"
 
 func TestMoveReservePreviewChangesNothingAndTheWriteNeedsItsFingerprint(t *testing.T) {
 	s := moveReserveServer(t)
@@ -46,13 +49,13 @@ func TestMoveReservePreviewChangesNothingAndTheWriteNeedsItsFingerprint(t *testi
 	if string(before) != string(after) || len(s.Save.Pending()) != 0 {
 		t.Fatal("a preview changed or queued something")
 	}
-	if w := postEdit(t, s, "/api/bases/move-reserve", `{"box1":"Box A","box2":"Box B"}`); w.Code != 422 || !strings.Contains(w.Body.String(), "fingerprint is missing") {
+	if w := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":"Box A,Box B"}`); w.Code != 422 || !strings.Contains(w.Body.String(), "fingerprint is missing") {
 		t.Fatalf("no fingerprint: %d %s", w.Code, w.Body.String())
 	}
-	if w := postEdit(t, s, "/api/bases/move-reserve", `{"box1":"Box A","box2":"Box B","fingerprint":"nope"}`); w.Code != 409 {
+	if w := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":"Box A,Box B","fingerprint":"nope"}`); w.Code != 409 {
 		t.Fatalf("wrong fingerprint: %d %s", w.Code, w.Body.String())
 	}
-	ok := postEdit(t, s, "/api/bases/move-reserve", `{"box1":"Box A","box2":"Box B","fingerprint":"`+pv["fingerprint"].(string)+`"}`)
+	ok := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":"Box A,Box B","fingerprint":"`+pv["fingerprint"].(string)+`"}`)
 	m := decodeBody(t, ok)
 	if ok.Code != 200 || m["outcome"] != "written" || m["stacks"] != float64(3) {
 		t.Fatalf("write: %d %s", ok.Code, ok.Body.String())
@@ -76,7 +79,7 @@ func TestMoveReservePreviewChangesNothingAndTheWriteNeedsItsFingerprint(t *testi
 		t.Fatalf("asking again: %v", again)
 	}
 	n := len(s.Save.Backups())
-	w2 := postEdit(t, s, "/api/bases/move-reserve", `{"box1":"Box A","box2":"Box B","fingerprint":"`+again["fingerprint"].(string)+`"}`)
+	w2 := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":"Box A,Box B","fingerprint":"`+again["fingerprint"].(string)+`"}`)
 	if m2 := decodeBody(t, w2); w2.Code != 200 || m2["outcome"] != nil || m2["nothingToDo"] != true || len(s.Save.Backups()) != n {
 		t.Fatalf("nothing to do writes nothing: %d %s", w2.Code, w2.Body.String())
 	}
@@ -85,13 +88,14 @@ func TestMoveReservePreviewChangesNothingAndTheWriteNeedsItsFingerprint(t *testi
 func TestMoveReserveRefusesABoxItCannotFindAndWritesNothing(t *testing.T) {
 	s := moveReserveServer(t)
 	before, _ := os.ReadFile(s.Save.Path)
-	if w := kitGet(t, s, "/api/bases/move-reserve-preview?box1=Box%20A&box2=Nowhere"); w.Code != 404 || !strings.Contains(w.Body.String(), `named \"Nowhere\"`) {
+	if w := kitGet(t, s, "/api/bases/move-reserve-preview?boxes=Box%20A,Nowhere"); w.Code != 404 || !strings.Contains(w.Body.String(), `named \"Nowhere\"`) {
 		t.Fatalf("no such box: %d %s", w.Code, w.Body.String())
 	}
-	if w := kitGet(t, s, "/api/bases/move-reserve-preview?box1=Box%20A"); w.Code != 422 {
-		t.Fatalf("one name missing: %d %s", w.Code, w.Body.String())
+	// no names: the boxes DD-1, DD-2 ... are looked for, and this world has none
+	if w := kitGet(t, s, "/api/bases/move-reserve-preview"); w.Code != 404 || !strings.Contains(w.Body.String(), "No Developer storage box named DD-1") {
+		t.Fatalf("no box named DD-1: %d %s", w.Code, w.Body.String())
 	}
-	if w := postEdit(t, s, "/api/bases/move-reserve", `{"box1":"Box A","box2":"Box A","fingerprint":"x"}`); w.Code != 422 {
+	if w := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":"Box A,Box A","fingerprint":"x"}`); w.Code != 422 {
 		t.Fatalf("the same box twice: %d %s", w.Code, w.Body.String())
 	}
 	after, _ := os.ReadFile(s.Save.Path)
@@ -106,7 +110,7 @@ func TestMoveReserveWhileAGameProcessExistsIsQueuedAsOneEditAndWritesNothing(t *
 	before, _ := os.ReadFile(s.Save.Path)
 	restore := save.ActiveSessionForTests()
 	defer restore()
-	w := postEdit(t, s, "/api/bases/move-reserve", `{"box1":"Box A","box2":"Box B","fingerprint":"`+pv["fingerprint"].(string)+`"}`)
+	w := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":"Box A,Box B","fingerprint":"`+pv["fingerprint"].(string)+`"}`)
 	m := decodeBody(t, w)
 	if w.Code != 200 || m["outcome"] != "queued" {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
@@ -117,5 +121,84 @@ func TestMoveReserveWhileAGameProcessExistsIsQueuedAsOneEditAndWritesNothing(t *
 	}
 	if p := s.Save.Pending(); len(p) != 1 || !strings.HasPrefix(p[0], "Move the Reserve into storage") {
 		t.Fatalf("queued as one edit: %v", p)
+	}
+}
+
+// The boxes are found by the editor (#1214): the line "Storage boxes" reads them, the preview and the write take no names, the box that stands behind a gap is ignored, and a write
+// carries only the fingerprint.
+func TestMoveReserveRoutesFindTheBoxesDD1ToDD6Themselves(t *testing.T) {
+	s := moveReserveServerWith(t, `update permission_actor set actor_name='DD-1' where actor_id=701; update permission_actor set actor_name='DD-3' where actor_id=702;`)
+	d := decodeBody(t, kitGet(t, s, "/api/bases/move-reserve-boxes"))
+	if fmt.Sprint(d["found"]) != "[DD-1]" || fmt.Sprint(d["ignored"]) != "[DD-3]" || d["gap"] != "DD-2" || !strings.Contains(d["text"].(string), "Ignored: DD-3") {
+		t.Fatalf("the line: %v", d)
+	}
+	editsBefore := len(s.Save.Pending())
+	if editsBefore != 0 {
+		t.Fatal("reading the boxes queued something")
+	}
+	// DD-2 is named: both boxes are found, and the Reserve (3 stacks) needs both (DD-1 has 3 slots and 1 stack in it)
+	s2 := moveReserveServerWith(t, `update permission_actor set actor_name='DD-1' where actor_id=701; update permission_actor set actor_name='DD-2' where actor_id=702;`)
+	d2 := decodeBody(t, kitGet(t, s2, "/api/bases/move-reserve-boxes"))
+	if fmt.Sprint(d2["found"]) != "[DD-1 DD-2]" || d2["max"] != float64(6) {
+		t.Fatalf("the line: %v", d2)
+	}
+	w := kitGet(t, s2, "/api/bases/move-reserve-preview")
+	pv := decodeBody(t, w)
+	if w.Code != 200 || pv["stacks"] != float64(3) || fmt.Sprint(pv["boxNames"]) != "[DD-1 DD-2]" || pv["autoDetected"] != true {
+		t.Fatalf("preview: %d %s", w.Code, w.Body.String())
+	}
+	ok := postEdit(t, s2, "/api/bases/move-reserve", `{"fingerprint":"`+pv["fingerprint"].(string)+`"}`)
+	if m := decodeBody(t, ok); ok.Code != 200 || m["outcome"] != "written" || m["stacks"] != float64(3) {
+		t.Fatalf("write: %d %s", ok.Code, ok.Body.String())
+	}
+	chk, err := save.Open(s2.Save.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer chk.Close()
+	r, _ := chk.One(`select (select count(*) from items where inventory_id=12) reserve, (select count(*) from items where inventory_id=7001) a, (select count(*) from items where inventory_id=7002) b`)
+	if r["reserve"] != int64(0) || r["a"] != int64(3) || r["b"] != int64(1) {
+		t.Fatalf("written rows: %v", r)
+	}
+}
+
+// "boxes" that is given but names no box, and the old box1 / box2, are refused with a plain 422 and write nothing; "boxes" as a list of names works, as the comma text does.
+func TestMoveReserveRoutesRefuseAnEmptyBoxesAndTheOldBox1Box2(t *testing.T) {
+	s := moveReserveServer(t)
+	before, _ := os.ReadFile(s.Save.Path)
+	for _, q := range []string{"boxes=", "boxes=,", "boxes=%20", "boxes=%20,%20", "box1=Box%20A&box2=Box%20B", "boxes=Box%20A&box1=Box%20A", "box1=Box%20A"} {
+		w := kitGet(t, s, "/api/bases/move-reserve-preview?"+q)
+		if w.Code != 422 || !strings.Contains(w.Body.String(), "Nothing was changed") {
+			t.Errorf("preview ?%s: %d %s", q, w.Code, w.Body.String())
+		}
+	}
+	for _, body := range []string{`{"boxes":"","fingerprint":"x"}`, `{"boxes":",","fingerprint":"x"}`, `{"boxes":" ","fingerprint":"x"}`, `{"boxes":[],"fingerprint":"x"}`, `{"boxes":["",""," "],"fingerprint":"x"}`,
+		`{"boxes":null,"fingerprint":"x"}`, `{"boxes":7,"fingerprint":"x"}`, `{"boxes":[3],"fingerprint":"x"}`,
+		`{"box1":"Box A","box2":"Box B","fingerprint":"x"}`, `{"boxes":"Box A,Box B","box2":"Box B","fingerprint":"x"}`, `{"box1":"Box A","fingerprint":"x"}`} {
+		w := postEdit(t, s, "/api/bases/move-reserve", body)
+		if w.Code != 422 || !strings.Contains(w.Body.String(), "Nothing was changed") {
+			t.Errorf("write %s: %d %s", body, w.Code, w.Body.String())
+		}
+	}
+	after, _ := os.ReadFile(s.Save.Path)
+	if string(before) != string(after) || len(s.Save.Pending()) != 0 {
+		t.Fatal("a refusal wrote or queued something")
+	}
+	// no boxes at all still means "find DD-1 ... DD-6" (this world has none, so it is a not-found, not a 422 of the argument)
+	if w := kitGet(t, s, "/api/bases/move-reserve-preview"); w.Code != 404 {
+		t.Fatalf("no boxes given: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestMoveReserveRoutesTakeBoxesAsAListOrAsCommaText(t *testing.T) {
+	s := moveReserveServer(t)
+	w := kitGet(t, s, "/api/bases/move-reserve-preview?boxes=Box%20A&boxes=Box%20B")
+	pv := decodeBody(t, w)
+	if w.Code != 200 || fmt.Sprint(pv["boxNames"]) != "[Box A Box B]" || pv["autoDetected"] != false {
+		t.Fatalf("repeated boxes: %d %s", w.Code, w.Body.String())
+	}
+	ok := postEdit(t, s, "/api/bases/move-reserve", `{"boxes":["Box A"," Box B "],"fingerprint":"`+pv["fingerprint"].(string)+`"}`)
+	if m := decodeBody(t, ok); ok.Code != 200 || m["outcome"] != "written" || fmt.Sprint(m["boxNames"]) != "[Box A Box B]" {
+		t.Fatalf("write with a list: %d %s", ok.Code, ok.Body.String())
 	}
 }

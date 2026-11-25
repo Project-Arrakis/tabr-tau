@@ -10,21 +10,17 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-// The move of the Reserve into the two storage boxes between the bases of a run (#1191 wired into #1167). A recycle sends everything to the Reserve and no further recycle can happen
-// until it is empty, so after each base (and before a base, when an earlier run left the Reserve full) the whole Reserve is moved, whole and unchanged, into the two storage boxes the
-// operator named DD-1 and DD-2, by the editor's own move (ops.PreviewMoveReserve, then ops.MoveReserve with the fingerprint the preview gave) on the SAME working copy as the recycles.
+// The move of the Reserve into the storage boxes between the bases of a run (#1191 wired into #1167). A recycle sends everything to the Reserve and no further recycle can happen
+// until it is empty, so after each base (and before a base, when an earlier run left the Reserve full) the whole Reserve is moved, whole and unchanged, into the storage boxes the
+// operator named DD-1, DD-2 ... DD-6 (as many as run in a row from DD-1, #1214), by the editor's own move (ops.PreviewMoveReserve, then ops.MoveReserve with the fingerprint the preview gave) on the SAME working copy as the recycles.
 // Nothing reaches the file before the one write of the run.
 
-// The names of the two storage boxes. They are matched exactly, capitals included, as the move does. They are constants: a run of the roll never takes other names.
-const (
-	boxOneName = "DD-1"
-	boxTwoName = "DD-2"
-)
-
-func reserveBoxNames() []string { return []string{boxOneName, boxTwoName} }
+// The storage boxes are named DD-1, DD-2 ... DD-6, matched exactly, capitals included, as the move does. The run never takes other names: reserveBoxNames is nil, which asks the move to
+// find the boxes itself (ops.ReserveBoxScan: one detection for the command, the editor and this roll), as many as run in a row from DD-1 and at least DD-1.
+func reserveBoxNames() []string { return nil }
 
 // boxesWords names the boxes in a sentence.
-const boxesWords = boxOneName + " and " + boxTwoName
+const boxesWords = "DD-1, DD-2 ... DD-6 (as many as run in a row from DD-1)"
 
 // cannotMove is the refusal of a move that left the working copy as it was: no box of that name, a box that is refused, or no room in them. The run does not fail on it: it stops
 // like a run that is out of room (the bases done stay done, the rest is left for the next run). Any other error of the move fails the whole run, with the file untouched.
@@ -124,6 +120,36 @@ func moveReserveIntoBoxes(s *save.Save, exclude []int64, previewOnly bool) (move
 	}
 	done.itemIDs = ids
 	return done, nil
+}
+
+// boxNamesWords names the boxes a move used ("DD-1, DD-2 and DD-3"); the general words when it names none.
+func boxNamesWords(bs []boxState) string {
+	var n []string
+	for _, b := range bs {
+		n = append(n, b.Name)
+	}
+	switch len(n) {
+	case 0:
+		return boxesWords
+	case 1:
+		return n[0]
+	}
+	return strings.Join(n[:len(n)-1], ", ") + " and " + n[len(n)-1]
+}
+
+// movedBoxNamesWords names the boxes the moves of a run used, each once, in the order they first appear.
+func movedBoxNamesWords(moves []reserveMoveRecord) string {
+	var all []boxState
+	seen := map[string]bool{}
+	for _, m := range moves {
+		for _, b := range m.Boxes {
+			if !seen[b.Name] {
+				seen[b.Name] = true
+				all = append(all, b)
+			}
+		}
+	}
+	return boxNamesWords(all)
 }
 
 // movedFrom reads the answer of the preview or of the move.

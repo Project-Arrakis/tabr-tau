@@ -83,7 +83,7 @@ func TestTwoBasesTwoBoxesEveryStackLandsInABoxInOrder(t *testing.T) {
 
 // The names of the boxes and the bases left out of them are exactly these, on every call.
 func TestTheMoveIsAskedWithTheTwoBoxNamesAndEveryBaseOfTheRun(t *testing.T) {
-	if fmt.Sprint(reserveBoxNames()) != "[DD-1 DD-2]" {
+	if reserveBoxNames() != nil {
 		t.Fatalf("%v", reserveBoxNames())
 	}
 	e, o := mvEnv(t, rcWorld(ddBases(3)...)+rcBoxes(10, 10))
@@ -166,7 +166,7 @@ func TestABoxThatIsFullAfterBase1StopsTheRunWithBase2LeftAndAReRunContinues(t *t
 	if err == nil || r.Wrote || e.ini() != iniWith("11") {
 		t.Fatalf("it should stop before the roll: %v\n%s", err, lines(r))
 	}
-	mustContain(t, err.Error(), "1 of 2 base(s) recycled", "base 1020", "does not fit into the boxes", "DD-1 and DD-2", "Not rolled", "the remaining base(s) (base 1020", "NOTE: 1 base(s) WERE recycled")
+	mustContain(t, err.Error(), "1 of 2 base(s) recycled", "base 1020", "does not fit into the boxes", "DD-1, DD-2 ... DD-6", "Not rolled", "the remaining base(s) (base 1020", "NOTE: 1 base(s) WERE recycled")
 	if got := standingIDs(t, e.save); fmt.Sprint(got) != "[1020]" {
 		t.Fatalf("standing %v", got)
 	}
@@ -218,23 +218,37 @@ func TestNoBoxesGiveZeroOfNAndChangeNothing(t *testing.T) {
 	if err == nil || r.Wrote || e.ini() != iniWith("11") || sha(t, e.save) != before {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, err.Error(), "0 of 3 base(s) can be recycled now", `No Developer storage container in this save is named "DD-1"`, "Nothing was recycled and nothing was exported")
+	mustContain(t, err.Error(), "0 of 3 base(s) can be recycled now", "No Developer storage box named DD-1", "Nothing was recycled and nothing was exported")
 	if got := standingIDs(t, e.save); fmt.Sprint(got) != "[1010 1020 1030]" {
 		t.Fatalf("standing %v", got)
 	}
 	noExportFolder(t, e)
 }
 
-// A box that is misnamed (names are matched exactly) is the same: 0 of N, nothing changed.
-func TestAMisnamedBoxGivesZeroOfNAndChangesNothing(t *testing.T) {
-	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+"update permission_actor set actor_name='dd-2' where actor_id=3002;")
+// DD-1 misnamed (names are matched exactly) is the same: 0 of N, nothing changed, and DD-2 is not taken in its place.
+func TestAMisnamedFirstBoxGivesZeroOfNAndChangesNothing(t *testing.T) {
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+"update permission_actor set actor_name='dd-1' where actor_id=3001;")
 	before := sha(t, e.save)
 	_, err := Roll(o)
 	if err == nil || sha(t, e.save) != before || e.ini() != iniWith("11") {
 		t.Fatalf("%v", err)
 	}
-	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", `named "DD-2"`)
+	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", "No Developer storage box named DD-1")
 	noExportFolder(t, e)
+}
+
+// The minimum is DD-1 alone (#1214): with DD-2 misnamed ("dd-2": names are matched exactly, capitals included) the run still goes on and uses DD-1 only, and nothing stops it. The run says so in
+// plain words (only DD-1 was found; DD-2 .. DD-6 are optional) and lists the Developer storage box with the other name, so that a typo shows.
+func TestAMisnamedSecondBoxLeavesTheRunWithTheFirstBoxOnly(t *testing.T) {
+	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+"update permission_actor set actor_name='dd-2' where actor_id=3002;")
+	r, err := Roll(o)
+	if err != nil || !r.Wrote {
+		t.Fatalf("%v\n%s", err, lines(r))
+	}
+	if inInv(t, e.save, 7301) != 6 || inInv(t, e.save, 7302) != 0 || inInv(t, e.save, 12) != 0 {
+		t.Fatalf("DD-1 %d, the misnamed box %d, Reserve %d", inInv(t, e.save, 7301), inInv(t, e.save, 7302), inInv(t, e.save, 12))
+	}
+	mustContain(t, lines(r), "The Reserve moved into the boxes DD-1 ", "only DD-1 was found; DD-2 .. DD-6 are optional", `Developer storage boxes with other names: "dd-2"`)
 }
 
 // With only one base left and boxes that cannot take its Reserve, the base is recycled and the roll goes on (nothing is left to hold back); the Reserve stays full, the run says so,
@@ -245,7 +259,7 @@ func TestTheLastBaseIsRecycledAndRolledEvenWhenTheReserveCannotBeMoved(t *testin
 	if err != nil || !r.Wrote || e.ini() == iniWith("11") {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, lines(r), "Warning: after the last base the Reserve still holds 3 stack(s)", "make room in the boxes DD-1 and DD-2")
+	mustContain(t, lines(r), "Warning: after the last base the Reserve still holds 3 stack(s)", "make room in the boxes DD-1, DD-2 ... DD-6")
 	if inInv(t, e.save, 12) != 3 {
 		t.Fatal("the Reserve was emptied although the boxes had no room")
 	}

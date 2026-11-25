@@ -348,7 +348,7 @@ func TestMoveReserveRefusesBoxesItCannotFindOrMayNotUse(t *testing.T) {
 		{"a box in a base that is not in the normal state", []string{"Box A", "TotemState"}, MoveReserveOptions{}, apierr.ErrConflict, "base 641, which is not in the normal state"},
 		{"a box in a base that is part of a base backup", []string{"Box A", "TotemLinked"}, MoveReserveOptions{}, apierr.ErrConflict, "base 651, which is not in the normal state"},
 		{"a box with no slot count", []string{"Box A", "Uncapped"}, MoveReserveOptions{}, apierr.ErrConflict, "no slot count above 0"},
-		{"no names at all", nil, MoveReserveOptions{}, apierr.ErrBadArgument, "Name the storage boxes"},
+		{"no names at all and no box named DD-1", nil, MoveReserveOptions{}, apierr.ErrNotFound, "No Developer storage box named DD-1"},
 		{"a name is case sensitive", []string{"Box A", "box b"}, MoveReserveOptions{}, apierr.ErrNotFound, `named "box b"`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -528,9 +528,6 @@ func TestMoveReserveNoMatchListsTheNamesTheEditorRead(t *testing.T) {
 		if !strings.Contains(err.Error(), w) {
 			t.Errorf("the refusal lacks %q: %v", w, err)
 		}
-	}
-	if len(DefaultReserveBoxes) != 2 || DefaultReserveBoxes[0] != "DD-1" || DefaultReserveBoxes[1] != "DD-2" {
-		t.Fatalf("the default names: %v", DefaultReserveBoxes)
 	}
 }
 

@@ -63,7 +63,7 @@ func TestMoveReserveDryRunWritesNothingAndSaysWhatItWouldDo(t *testing.T) {
 	p := moveSavePath(t)
 	before, _ := os.ReadFile(p)
 	var out bytes.Buffer
-	if err := runMoveReserve([]string{"--dry-run"}, p, &out, moveEnv(false)); err != nil { // no --boxes: the default names DD-1 and DD-2
+	if err := runMoveReserve([]string{"--dry-run"}, p, &out, moveEnv(false)); err != nil { // no --boxes: the boxes DD-1, DD-2 ... are found
 		t.Fatal(err)
 	}
 	after, _ := os.ReadFile(p)
@@ -160,7 +160,7 @@ func TestMoveReserveWhenTheWriteFailsNothingIsLeftQueued(t *testing.T) {
 
 func TestMoveReserveChecksItsArguments(t *testing.T) {
 	var out bytes.Buffer
-	for _, args := range [][]string{{"--boxes", ""}, {"--boxes", "A,B,C"}, {"--boxes", "A,B", "extra"}, {"--bogus"}} {
+	for _, args := range [][]string{{"--boxes", ""}, {"--boxes", "A,B,C,D,E,F,G"}, {"--boxes", "A,B", "extra"}, {"--bogus"}} {
 		if err := runMoveReserve(args, "x.db", &out, moveEnv(false)); err == nil || !strings.Contains(err.Error(), "usage: move-reserve") {
 			t.Errorf("%v: %v", args, err)
 		}
