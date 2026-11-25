@@ -313,7 +313,7 @@ test('Give Intel posts the amount and reports what was applied, including the ca
   ui.dom.window.close();
 });
 
-test('Admin: the actions tabr-tau has post, nothing is shown disabled, server-only ones are absent, repair is a link to its home', async () => {
+test('Admin: the actions tabr-tau has post, nothing is shown disabled, server-only ones are absent, repair is not on this page', async () => {
   const ui = await boot({});
   ui.click('[data-tab="player"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('[data-act="teleport"]'), null, 'Teleport is on Admin, not on Character > Overview');
@@ -325,12 +325,13 @@ test('Admin: the actions tabr-tau has post, nothing is shown disabled, server-on
   assert.ok(!text.includes('Not in tabr-tau yet') && !text.includes('Danger'), 'no stub and no empty Danger zone');
   assert.equal([...ui.doc.querySelectorAll('#main button')].filter((x) => x.disabled).length, 0, 'no disabled button stands in for a feature that is not built');
   for (const serverOnly of ['Kick Player', 'Ban Player', 'Repair Login Queue', 'Recover Character']) assert.ok(!text.includes(serverOnly), `${serverOnly} does not apply to single-player`);
-  ui.click('[data-goto="character:inventory"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#invq'), 'the link opens Character > Inventory');
+  assert.equal(ui.doc.querySelector('#main [data-goto]'), null, 'no card that only links to the repair pages (#1232)');
+  assert.ok([...ui.doc.querySelectorAll('#main h3')].every((h) => h.textContent !== 'Repair'), 'no Repair card');
+  ui.click('[data-sub="player:character"]'); await ui.settle();
+  ui.click('[data-sub="char:inventory"]'); await ui.settle();
   ui.click('[data-act="repair"]'); await ui.settle();
-  ui.click('[data-sub="player:admin"]'); await ui.settle();
-  ui.click('[data-goto="vehicles"]'); await ui.settle();
-  assert.ok(ui.doc.querySelector('#rvPct'), 'the link opens Vehicles, which holds the repair-below box');
+  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#rvPct'), 'Vehicles holds the repair-below box');
   ui.click('[data-sub="player:admin"]'); await ui.settle();
   ui.click('[data-act="teleport"]'); await ui.settle();
   for (const path of ['/api/player/repair', '/api/player/teleport']) assert.equal(ui.posted.filter((x) => x.path === path).length, 1, path);

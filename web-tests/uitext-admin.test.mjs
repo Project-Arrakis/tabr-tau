@@ -19,7 +19,9 @@ test('Admin: the card that only pointed to other pages is gone; the explanations
     assert.ok(!shown.includes(s), 'still shown: ' + s);
     assert.ok(moved.includes(s), 'lost, not moved: ' + s);
   }
-  for (const s of ['Faction assignment', 'Change faction', 'Teleport to', 'Teleport', 'Go to a place', 'Reset all vendors', 'Open Character > Inventory', 'Open Vehicles']) assert.ok(shown.includes(s), 'missing from the default view: ' + s);
+  for (const s of ['Faction assignment', 'Change faction', 'Teleport to', 'Teleport', 'Go to a place', 'Reset all vendors']) assert.ok(shown.includes(s), 'missing from the default view: ' + s);
+  for (const s of ['Open Character > Inventory', 'Open Vehicles']) assert.ok(!shown.includes(s) && !moved.includes(s), 'the Repair card is gone (#1232): ' + s);
+  assert.ok([...main.querySelectorAll('h3')].every((h) => h.textContent !== 'Repair'), 'no Repair card');
   for (const id of ['tztip', 'tyawtip', 'tmaptip', 'factip', 'vendtip']) assert.ok(ui.doc.getElementById(id).classList.contains('tipbox'), id);
   assert.equal(ui.doc.querySelector('#tz').getAttribute('aria-describedby'), 'tztip');
   ui.dom.window.close();
