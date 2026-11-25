@@ -197,7 +197,7 @@ func (p *recyclePlan) fingerprint() string {
 
 // refundPercent is the share of the table cost that a recycle gives back: all of it, on every map, the Deep Desert included (operator decision, #1211). The game's map table gives the
 // Deep Desert a placement cost multiplier of 0.5 (catalog.PlacementCostPercent); the refund does not use it.
-const refundPercent = 100
+const refundPercent int64 = 100
 
 // addCost adds what n units of one type give back to the refund: each item of the type's cost, in full.
 func addCost(total, cost map[string]int64, n int64) {

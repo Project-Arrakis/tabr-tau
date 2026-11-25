@@ -258,7 +258,7 @@ update markers set map_name='DeepDesert' where marker_hash_id=111; update player
 		t.Fatalf("Deep Desert refund: %s, want %s (the same as outside)", got, want)
 	}
 	words := strings.Join(r["summary"].([]string), "\n")
-	if r["costPercent"] != int64(100) || strings.Contains(words, "table cost") || !strings.Contains(words, "Refund (100% of the building cost,") || r["markerRemoved"] != true {
+	if r["costPercent"] != int64(100) || strings.Contains(words, "which is") || !strings.Contains(words, "Refund (100% of the building cost,") || r["markerRemoved"] != true {
 		t.Fatalf("%v", r)
 	}
 	// no base backup: the Deep Desert never has one
