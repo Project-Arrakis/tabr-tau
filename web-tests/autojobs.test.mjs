@@ -123,6 +123,21 @@ test('Turning the master switch on still asks first, and the question names the 
   assert.deepEqual(posts(ui)[0].body, { autoRefillOnOpen: true });
 });
 
+test('The turn-on question says the blood fill is unchecked in the game only when that job would run (#1240)', async () => {
+  const said = 'The fill of blood sacks has not been checked in the game yet.';
+  for (const [ready, on, want] of [[true, true, true], [true, false, false], [false, true, false]]) {
+    const jobs = JOBS.map((j) => (j.key === 'autoFillBloodSacks' ? { ...j, ready, on } : j));
+    const ui = await boot({ get: { '/api/settings': prefs({ autoRefillOnOpen: false, jobs }) } });
+    await openBases(ui);
+    ui.click('[data-act="autoref"]'); await ui.settle();
+    const ask = ui.doc.querySelector('#ask').textContent;
+    assert.equal(ask.includes(said), want, `ready ${ready}, on ${on}: ${ask}`);
+    ui.click('[data-act="askNo"]'); await ui.settle();
+    assert.equal(posts(ui).length, 0);
+    ui.dom.window.close();
+  }
+});
+
 test('A server that sends no job list still shows the master switch (an older answer)', async () => {
   const ui = await boot({ get: { '/api/settings': { autoRefillOnOpen: false } } });
   await openBases(ui);

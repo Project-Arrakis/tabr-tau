@@ -1653,8 +1653,8 @@ async function basesView() {
 }
 
 // ---------- VEHICLES
-// The player's own vehicles as in the console's Vehicles tab: type, lowest condition, fuel and location per vehicle, and under the open
-// one its components with their condition and its cargo hold.
+// The player's own vehicles as in the console's Vehicles tab: type, durability of the weakest part, fuel and location per vehicle, and under
+// the open one its components with their durability and its cargo hold.
 let vhOpen = null; // the one vehicle whose details are open (#1230); none on a fresh page
 const pctCell = (v) => (v == null ? html`<span class="mut">-</span>` : html`<span class="${v < 30 ? 'bad' : v < 60 ? 'warn' : 'ok'}">${Math.round(v)}%</span>`);
 const compName = (t) => String(t || '').replace(/_\d+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -1890,7 +1890,7 @@ function vehicleRow(r, on) {
   const cell = (label, content) => html`<td data-label="${label}"><span class="vtap" data-vhtap="${r.id}" data-l="${label}">${content}</span></td>`;
   return html`<tr class="vrow ${on ? 'on' : ''}"><td><button type="button" class="vopen" data-vhopen="${r.id}" aria-expanded="${on ? 'true' : 'false'}" aria-controls="vdetail${r.id}"><span class="vchev" aria-hidden="true"></span><span id="vname${r.id}"><b title="${r.name}">${name}</b> <span class="mut">${r.map}</span><span class="sr"> vehicle number ${r.id}</span></span></button>${r.stored ? html`<span class="vsub"><span class="vtap" data-vhtap="${r.id}"><span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">Stored</span> <span class="mut" id="vstored${r.id}">${r.storedLabel}. Take it out of storage in the game first.</span></span></span>` : ''}</td>
     <td class="vtype"><span class="vtap" data-vhtap="${r.id}">${r.type}</span></td>
-    ${cell('Lowest condition', pctCell(r.condition))}
+    ${cell('Durability (weakest part)', pctCell(r.condition))}
     ${cell('Fuel', r.fuel == null ? '-' : r.fuelMax ? html`${Number(r.fuel).toFixed(1)} of ${Number(r.fuelMax).toLocaleString()} <span class="mut">(${Math.round(r.fuelPercent)}%)</span>` : Number(r.fuel).toFixed(1))}
     ${cell('Location', html`${fix(r.x)}, ${fix(r.y)}${r.place ? html` <span class="mut">${r.place}</span>` : r.region ? html` <span class="mut">near ${r.region}</span>` : ''}`)}
     <td class="vactcell"><div class="vacts"><button class="b sm d-btn primary sm" data-act="repairOne" data-id="${r.id}" aria-describedby="${named}">Repair</button><button class="b sm d-btn primary sm" data-act="bring" data-id="${r.id}" aria-describedby="${offBy}" ${off} title="${why}">Bring to me</button><button class="b sec sm d-btn sm" data-act="dupV" data-id="${r.id}" data-name="${name}" aria-label="Duplicate ${name} ${r.id}" aria-describedby="${offBy}" ${off} title="${why}">Duplicate</button></div></td></tr>`;
@@ -1921,8 +1921,8 @@ function vehicleDetail(open, cat) {
   const cargo = open.cargo, hold = `${open.type || open.name} cargo hold`;
   const n = cargo ? cargo.items.length : 0, noHold = !!(cargo && cargo.noHold);
   return html`<div class="vpane"><h4>${open.type || open.name}: ${(open.components || []).length} components</h4>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
-      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
-      ${about('vehicles.components', 'Components', html`<p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The tank size is not stored in the save; the Fuel column takes it from the vehicle's chassis in the game's module table.</p>`)}</div>
+      { k: 'percent', label: 'Durability %', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
+      ${about('vehicles.components', 'Components', html`<p class="mut">Durability % is each module's current durability against its full durability, the value Repair raises it to, so a maximum worn down by workbench repairs shows as wear. A module whose full durability is not known shows only its value. The tank size is not stored in the save; the Fuel column takes it from the vehicle's chassis in the game's module table.</p>`)}</div>
     <div class="vpane"><h4>Cargo hold</h4>${cargo ? html`<p class="vcargo" id="cargoroom">${cargoRoom(cargo)}</p>${n ? tbl([{ k: 'position_index', label: 'Slot' },
       { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Quantity of ${itemName(r.template_id)}">` },
       { k: 'quality_level', label: 'Grade' }], cargo.items, { actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` }) : noHold ? '' : html`<p class="mut">The cargo hold is empty.</p>`}
@@ -1931,7 +1931,7 @@ function vehicleDetail(open, cat) {
 // One list of the character's vehicles, a stored one too (#1230). Each row has its details row under it, filled only for the open one.
 function vehicleList(list, open, cat) {
   if (!list.length) return html`<p class="mut">You have no vehicles in this save yet.</p>`;
-  return html`<div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Lowest condition</th><th>Fuel</th><th>Location</th><th></th></tr></thead><tbody>${
+  return html`<div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Durability <br class="vbreak">(weakest part)</th><th>Fuel</th><th>Location</th><th></th></tr></thead><tbody>${
     list.map((r) => html`${vehicleRow(r, r === open)}<tr class="vdetail" id="vdetail${r.id}" ${r === open ? '' : 'hidden'}><td colspan="6">${r === open ? vehicleDetail(r, cat) : ''}</td></tr>`)}</tbody></table></div>`;
 }
 // Every stored vehicle that is not in the list above, whatever its kind: none is hidden (#1230). Most wait to be recovered; one of another kind says the server's label under its
@@ -2169,8 +2169,9 @@ function lbRemoveLine(t) {
     default: return 'click removes it; no reward waits';
   }
 }
-// the last words of a one-House tooltip, by the test lbGo makes: a click that grants LB_ASK_MISSIONS missions or more asks first, and so does one on the board that takes another faction's win (replaces)
-const lbHow = (g, replaces) => ((g && !g.problem && g.missions >= LB_ASK_MISSIONS) || replaces ? 'Asks first.' : 'Written at once.');
+// the last words of a one-House tooltip, by the test lbGo makes: a click that grants LB_ASK_MISSIONS missions or more asks first, and so does one on the board that takes another faction's win (replaces).
+// A click the tip says will be refused and that does not ask has no such words: nothing is written (#1240)
+const lbHow = (g, replaces) => ((g && !g.problem && g.missions >= LB_ASK_MISSIONS) || replaces ? 'Asks first.' : g && g.problem ? '' : 'Written at once.');
 // what a tier click does. withGrant: the sentence that says what a raise grants goes into the tip too (the tier box shows it as text, so its accessible name carries it as well)
 // what the Command Center board says when a click on a lower reached tier cannot remove it: the board removes tiers with Set tier and Apply tier, one at a time, the highest first
 const lbBoardRemove = (h) => 'choose tier ' + (h.reached - 1) + ' in Set tier and press Apply tier: tiers come off one at a time, the highest first.';
@@ -2179,7 +2180,7 @@ function lbTierTip(h, t, i, can, l, withGrant, F, board) {
   const n = h.reached;
   if (!can) return 'Your character is in no faction, so there is no contribution of yours to change.';
   if (!lbOwnF(l, F)) return `Off while ${lbFacName(l, F)} is chosen. Tiers change your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}: choose ${lbFacName(l, l.character.faction_id)} above.`;
-  if (i > n) return `Give tier ${i}: your contribution goes to ${lbF(t.th)}, so ${i === 1 ? 'tier 1 is' : 'tiers 1 to ' + i + ' are'} reached (contribution is cumulative). ${withGrant ? lbGrantSay(lbGrantOf(h, l, h.mine, t.th)) + ' ' : ''}${lbHow(lbGrantOf(h, l, h.mine, t.th))}`;
+  if (i > n) return `Give tier ${i}: your contribution goes to ${lbF(t.th)}, so ${i === 1 ? 'tier 1 is' : 'tiers 1 to ' + i + ' are'} reached (contribution is cumulative). ${withGrant ? lbGrantSay(lbGrantOf(h, l, h.mine, t.th)) + ' ' : ''}${lbHow(lbGrantOf(h, l, h.mine, t.th))}`.trimEnd();
   return i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}. ${lbBackSay(t)} ${LB_REMOVE_NOTE}`
     : board ? `Tier ${i} is reached. To remove tiers, ${lbBoardRemove(h)}` : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
 }
@@ -2304,10 +2305,10 @@ function lbPlaceDetails(h) {
 function lbQa(h, l, F) {
   const can = lbCan(l), fn = lbFacName(l, F), ownF = can && F == l.character.faction_id;
   const fillOff = lbFillOffF(h, l, F), fillGr = fillOff ? null : lbGrantOf(h, l, h.mine, lbTop(h)), nextGr = ownF && h.reached < h.tiers.length ? lbGrantOf(h, l, h.mine, h.tiers[h.reached].th) : null;
-  const fillTip = fillOff ?(!can ? 'Your character is in no faction, so there is no contribution of yours to fill' : !ownF ? `Off while ${fn} is chosen: Fill raises your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}. Complete or Fill faction goal act for ${fn}.` : 'Nothing to change: your contribution is already at the top tier') : 'Fill: raises your contribution to the top tier (never lowered). ' + lbGrantSay(fillGr) + ' ' + lbHow(fillGr);
+  const fillTip = fillOff ?(!can ? 'Your character is in no faction, so there is no contribution of yours to fill' : !ownF ? `Off while ${fn} is chosen: Fill raises your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}. Complete or Fill faction goal act for ${fn}.` : 'Nothing to change: your contribution is already at the top tier') : ('Fill: raises your contribution to the top tier (never lowered). ' + lbGrantSay(fillGr) + ' ' + lbHow(fillGr)).trimEnd();
   const doneF = lbDoneFor(h, F), goalOff = (fillOff || !ownF) && doneF;
   const goalReplaces = lbBoardOn() && !doneF && h.win != null && h.win != F;
-  const goalTip = goalOff ? 'Nothing to change for ' + fn : `Fill faction goal for ${fn}: progress to the goal, house taken by ${fn}` + (ownF ? ', your contribution to the top tier. ' + lbGrantSay(fillGr) + ' ' + lbHow(fillGr, goalReplaces) : '; your own contribution row is skipped');
+  const goalTip = goalOff ? 'Nothing to change for ' + fn : `Fill faction goal for ${fn}: progress to the goal, house taken by ${fn}` + (ownF ? (', your contribution to the top tier. ' + lbGrantSay(fillGr) + ' ' + lbHow(fillGr, goalReplaces)).trimEnd() : '; your own contribution row is skipped');
   const crTip = h.taken ? LB_REOPEN_TIP : `Complete for ${fn}: taken by ${fn}, progress to the goal`;
   return { can, fn, ownF, fillOff, fillGr, nextGr, fillTip, doneF, goalOff, goalTip, crTip };
 }
@@ -2747,7 +2748,7 @@ function lbAskOf(act_, items, hs, F, i, one) {
   const what = one ? (act_ === 'tier' ? (removal ? 'Remove tier ' + i + ' on House ' + h1.name : 'Give tier ' + i + ' on House ' + h1.name) : act_ === 'fillgoal' ? 'Fill faction goal on House ' + h1.name : LB_BULK[act_][1] + ' House ' + h1.name) : LB_BULK[act_][1] + ' ' + nn(n, 'house', 'houses');
   const g = lbGrantOfItems(items, hs), raises = !!LD.grant && items.some((it) => it.mine_to !== undefined);
   const unf = act_ === 'unfill', cf = act_ === 'cfill';
-  const q = what + (act_ === 'complete' || act_ === 'fillgoal' || cf ? ' for ' + lbFacName(LD, F) : '') + '?' + (removal && rt ? ' ' + lbBackSay(rt) + ' ' + LB_REMOVE_NOTE : '') + (unf ? ' ' + lbUnfillSay(items, hs) + ' ' + LB_REMOVE_NOTE : '') + (cf ? ' ' + lbCfillSay(items, F) : '') + (raises && !unf ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() || unf || cf ? lbBoardAsk(items, hs, F, one) : '') + ' Written at once, with a backup first.';
+  const q = what + (act_ === 'complete' || act_ === 'fillgoal' || cf ? ' for ' + lbFacName(LD, F) : '') + '?' + (removal && rt ? ' ' + lbBackSay(rt) + ' ' + LB_REMOVE_NOTE : '') + (unf ? ' ' + lbUnfillSay(items, hs) + ' ' + LB_REMOVE_NOTE : '') + (cf ? ' ' + lbCfillSay(items, F) : '') + (raises && !unf ? ' ' + lbGrantSay(g) : '') + (lbBoardOn() || unf || cf ? lbBoardAsk(items, hs, F, one) : '') + (raises && !unf && g.problem ? '' : ' Written at once, with a backup first.'); // a request the question says will be refused is not written (#1240)
   return { yes: what, q, missions: g.problem ? 0 : g.missions, removal: unf || (removal && lbBackAsks(rt)) }; // an unfill always asks: it takes rewards back
 }
 // The houses of a request whose win is taken from another faction: Complete (or Fill faction goal) for F on a house that another faction took.
@@ -3684,8 +3685,9 @@ const A = {
     const c = LC.claim, cells = [...LC.sel].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
     const body = { totem_id: c.totem_id, cells };
     if (LC.level !== c.level) body.level = LC.level;
-    if (!(await ask({ title: 'Edit land claim?', body: `Add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}${LC.level !== c.level ? ` and raise the vertical level from ${c.level} to ${LC.level}` : ''}. It is written at once, after the usual backup; the game loads it next time. ${STAKING_WARN}`, ok: 'Apply changes' }))) return;
-    act(async () => { const r = await api('/api/bases/claim/apply', body); LC = null; toast(`Land claim: ${r.added} cell${r.added === 1 ? '' : 's'} added` + (r.levelRaised ? `, vertical level ${r.level}` : '') + NOT_SAVED); }, null);
+    const what = [cells.length ? `add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}` : '', LC.level !== c.level ? `raise the vertical level from ${c.level} to ${LC.level}` : ''].filter(Boolean).join(' and '); // a change of the level alone names no cells (#1240)
+    if (!(await ask({ title: 'Edit land claim?', body: `${what.charAt(0).toUpperCase() + what.slice(1)}. It is written at once, after the usual backup; the game loads it next time. ${STAKING_WARN}`, ok: 'Apply changes' }))) return;
+    act(async () => { const r = await api('/api/bases/claim/apply', body); LC = null; toast((r.levelRaised && !r.added ? `Land claim: vertical level raised to ${r.level}` : `Land claim: ${r.added} cell${r.added === 1 ? '' : 's'} added` + (r.levelRaised ? `, vertical level ${r.level}` : '')) + NOT_SAVED); }, null);
   },
   rsfilter: () => { rsQ = val('rsq'); researchList(); },
   rsclear: () => { rsQ = ''; rsGroup = ''; researchList(); },
@@ -3700,7 +3702,8 @@ const A = {
   launchOff: () => act(async () => { await api('/api/settings', { autoRefillOnOpen: false }); await launchPoll(); toast('Automatic refill when the editor opens is now off'); }, null, true, true),
   autoNow: () => act(async () => { launchHide(); const r = await api('/api/autopass/run', {}); await launchPoll(); if (r.note) { const q = !r.warn && String(r.note).startsWith(PASS_QUEUED); toast(r.note, !!r.warn, q ? 6000 : 15000, null, q ? { queued: true } : null); } }, null, true, true),
   autoref: async (d) => {
-    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while the game is open, not even at its menu (it runs when the game has closed). It runs on the game\'s own save only, never on a copy.', ok: 'Turn on' }))) return;
+    const blood = $('input[data-autojob="autoFillBloodSacks"]'); // said only when the pass would fill blood sacks (#1240)
+    if (!d.on && !(await ask({ title: 'Turn on automatic refill and repair?', body: 'From now on, opening the editor runs the jobs that are ticked on the card (refills water storage and power buildings, repairs your vehicles and your worn equipment and loadout, fills your water containers and your water, and so on) as one edit and saves to your game file immediately, like every other change. The previous file is backed up each time, and nothing happens while the game is open, not even at its menu (it runs when the game has closed). It runs on the game\'s own save only, never on a copy.' + (blood && blood.checked && !blood.disabled ? BLOOD_UNCHECKED : ''), ok: 'Turn on' }))) return;
     act(async () => { const r = await api('/api/settings', { autoRefillOnOpen: !d.on }); toast('Automatic refill when the editor opens is now ' + (r.autoRefillOnOpen ? 'on' : 'off')); }, null);
   },
   claimShrink: async (d) => {
@@ -3715,8 +3718,8 @@ const A = {
     if (rings > 0) body.rings = rings;
     if (level > +d.level) body.level = level;
     if (body.rings === undefined && body.level === undefined) { toast('Nothing to change: pick a bigger size or a higher level', true); return; }
-    const what = [body.rings ? `every missing cell up to a ${2 * rings + 1} x ${2 * rings + 1} square around the totem` : '', body.level !== undefined ? `the vertical level raised to ${level}` : ''].filter(Boolean).join(' and ');
-    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It is written at once, after the usual backup. ${STAKING_WARN}`, ok: 'Expand claim' }))) return;
+    const what = [body.rings ? `adds every missing cell up to a ${2 * rings + 1} x ${2 * rings + 1} square around the totem` : '', body.level !== undefined ? `raises the vertical level to ${level}` : ''].filter(Boolean).join(' and ');
+    if (!(await ask({ title: 'Expand this land claim?', body: `${what.charAt(0).toUpperCase() + what.slice(1)}. It is written at once, after the usual backup. ${STAKING_WARN}`, ok: 'Expand claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/expand', body); toast(`Claim now ${r.totalCells} cells, level ${r.level} (+${r.added} cells)` + NOT_SAVED); });
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; fillToast('refillWater', r.filled > 0, (r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),
