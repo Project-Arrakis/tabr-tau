@@ -101,7 +101,7 @@ func AutoJobs() []AutoJob {
 				return "your water filled (" + w.describe() + ")", "", nil
 			}},
 		{ID: "fill-blood", Label: "Fill blood sacks", Key: "autoFillBloodSacks", Default: true, Ready: true, noun: "blood sacks",
-			Desc: "Fills the blood sacks you carry.",
+			Desc: "Fills the blood sacks you carry. Not yet checked in the game.",
 			run: func(m *save.Mut, c player) (string, string, error) {
 				st, err := fillBloodSacksTx(m, c.Pawn)
 				if err != nil || len(st.todo) == 0 {

@@ -998,3 +998,36 @@ test('Yes does not write a House the board stopped showing after the question wa
   click(ui, '[data-fk="c-yes"]'); await ui.settle();
   assert.ok(sentIds(ui).length > 0 && !sentIds(ui).includes(900), 'the second Yes writes the others only: ' + sentIds(ui));
 });
+
+test('a one-House tooltip says Asks first, not Written at once, exactly when the click asks (#1238)', async () => {
+  const ends = (s, how) => assert.ok(s.includes(how) && !s.includes(how === 'Asks first.' ? 'Written at once.' : 'Asks first.'), how + ' expected: ' + s);
+  // a step of 500: Alexin 0 to 6,000 is 12 missions (asks); tier 1 is 3 missions (writes)
+  const ui = await open(withGrant({ step: 500 }), {});
+  ends(act(ui, 'Alexin', 'fill').title, 'Asks first.');
+  ends(act(ui, 'Alexin', 'fillgoal').title, 'Asks first.');
+  ends(ttl(ui, tier(ui, 'Alexin', 5)), 'Asks first.');
+  assert.ok(tier(ui, 'Alexin', 5).getAttribute('aria-label').includes('Asks first.'));
+  ends(ttl(ui, tier(ui, 'Alexin', 1)), 'Written at once.');
+  closeAll();
+  // the threshold: a step of 600 makes 10 missions (asks), a step of 667 makes 9 (writes at once)
+  for (const [step, how, asks] of [[600, 'Asks first.', true], [667, 'Written at once.', false]]) {
+    const u = await open(withGrant({ step }), { '/api/landsraad/apply': GRANTED });
+    const b = act(u, 'Alexin', 'fill');
+    ends(b.title, how);
+    click(u, b); await u.settle();
+    assert.equal(!!u.doc.querySelector('#lsb-confirm'), asks, 'step ' + step);
+    assert.equal(writes(u).length, asks ? 0 : 1, 'step ' + step);
+    closeAll();
+  }
+});
+
+test('Fill faction goal that takes another faction\'s win says Asks first, as its click asks (#1238)', async () => {
+  // Hurata was taken by Harkonnen: few missions, but the click asks
+  const ui = await open(withGrant({}), {});
+  const b = act(ui, 'Hurata', 'fillgoal');
+  assert.ok(b.title.includes('Asks first.') && !b.title.includes('Written at once.'), b.title);
+  assert.ok(act(ui, 'Hurata', 'fill').title.includes('Written at once.'), 'Fill takes no win');
+  click(ui, b); await ui.settle();
+  assert.ok(ui.doc.querySelector('#lsb-confirm'));
+  assert.deepEqual(writes(ui), []);
+});
