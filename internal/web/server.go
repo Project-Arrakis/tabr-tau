@@ -1007,7 +1007,11 @@ func (s *Server) routes() {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"ok": true, "name": b.Name, "size": b.Size, "sha256": b.SHA256, "at": b.At.Format(time.RFC3339)}, nil
+		out := map[string]any{"ok": true, "name": b.Name, "size": b.Size, "sha256": b.SHA256, "at": b.At.Format(time.RFC3339)}
+		if len(b.Pruned) > 0 { // older manual backups beyond the newest 8 that this one made room for (#1227): said in the answer so the page can tell the person
+			out["pruned"] = b.Pruned
+		}
+		return out, nil
 	})
 	s.post("/api/save/restore", func(a ops.Args) (any, error) {
 		err := s.Save.Restore(a.Str("name"))

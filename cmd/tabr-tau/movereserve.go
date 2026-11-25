@@ -104,7 +104,10 @@ func runMoveReserve(args []string, savePath string, out io.Writer, env moveReser
 	if err != nil {
 		return fmt.Errorf("not changed: the backup copy of the save could not be taken: %v", err)
 	}
-	say("Backup copy of the save: %s (%d bytes, SHA-256 %s), verified. It stays in the save's backup folder.", cp.Name, cp.Size, cp.SHA256)
+	say("Backup copy of the save: %s (%d bytes, SHA-256 %s), verified. It is in the save's backup folder (the newest 8 manual backups are kept, older ones over 7 days old are removed).", cp.Name, cp.Size, cp.SHA256)
+	if len(cp.Pruned) > 0 {
+		say("Removed %d older manual backup(s) beyond the newest 8: %s", len(cp.Pruned), strings.Join(cp.Pruned, ", "))
+	}
 	r, err := o.MoveReserve(names, pv.(map[string]any)["fingerprint"].(string), opt)
 	if err != nil {
 		return fmt.Errorf("not changed: %v", err)

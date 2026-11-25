@@ -36,7 +36,7 @@ test('the button asks first, says that the game may be running and that the save
   const ui = await openBackups();
   ui.click('[data-act="backupNow"]'); await ui.settle();
   const q = text(ui.doc.querySelector('#ask'));
-  assert.ok(q.includes('as it is now') && q.includes('the game is running') && q.includes('what the game last wrote') && q.includes('Nothing in the save is changed'), q);
+  assert.ok(q.includes('as it is now') && q.includes('the game is running') && q.includes('what the game last wrote') && q.includes('Nothing in the save is changed') && q.includes('newest 8 manual backups are kept') && q.includes('over 7 days old are removed'), q);
   assert.equal(sent(ui).length, 0, 'nothing is sent by the first press');
   ui.doc.dispatchEvent(new ui.w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await ui.settle();
   assert.equal(sent(ui).length, 0, 'Cancel sends nothing');
@@ -67,4 +67,16 @@ test('a refused backup shows the reason as an error and sends one request', asyn
   ui.click('[data-act="backupNow"]'); await ui.settle();
   ui.click('[data-act="askOk"]'); await ui.settle();
   assert.equal(sent(ui).length, 2);
+});
+
+test('the toast says how many older manual backups were removed beyond the newest 8, and says nothing when none was', async () => {
+  const ui = await openBackups({ post: { '/api/save/backup-now': { ...ANSWER, pruned: ['game-20261001-100000Z-000000001-manual.db', 'game-20261002-100000Z-000000001-manual.db'] } } });
+  ui.click('[data-act="backupNow"]'); await ui.settle();
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  const t = text(ui.doc.querySelector('#toast'));
+  assert.ok(t.includes('Removed 2 older manual backups beyond the newest 8'), t);
+  const none = await openBackups({ post: { '/api/save/backup-now': ANSWER } });
+  none.click('[data-act="backupNow"]'); await none.settle();
+  none.click('[data-act="askOk"]'); await none.settle();
+  assert.ok(!text(none.doc.querySelector('#toast')).includes('Removed'), 'no removal is mentioned');
 });

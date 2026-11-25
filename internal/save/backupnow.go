@@ -18,6 +18,8 @@ type ManualBackup struct {
 	Size   int64     `json:"size"`
 	SHA256 string    `json:"sha256"`
 	At     time.Time `json:"at"`
+	// Pruned is the names of the older backups of the same kind that this one made room for and removed (the newest 8 of each kind are kept); empty when none was removed.
+	Pruned []string `json:"pruned,omitempty"`
 }
 
 // afterManualCopy is called by BackupNow once the copy is written and verified against the bytes that were read, before the file is read again to see that it did not change.
@@ -28,11 +30,12 @@ var afterManualCopy = func() {}
 // It is the backup every write takes (backupNamed: the same folder, the same plain-folder check, the same durable write and read-back, the same name with the time in it), tagged
 // "-manual" so the list can say it was taken by hand. It reads the save file and writes nothing to it: no gate, no queue, no working copy is touched, so it works while the game
 // is running (it copies what the game last wrote). The copy is verified by its size and its SHA-256 against the bytes that were read, and the save file is read once more after the
-// copy: if the game wrote to it in between, the copy may be of neither state, so it is removed and nothing is kept. The pruning never counts or removes a manual backup.
+// copy: if the game wrote to it in between, the copy may be of neither state, so it is removed and nothing is kept. The pruning of the automatic backups never counts or removes a manual
+// one; after this one is taken, pruneTagged keeps the newest 8 manual backups and removes older ones that are over 7 days old.
 func (s *Save) BackupNow() (ManualBackup, error) { return s.backupTagged(manualTag) }
 
 // BackupCheckpoint is BackupNow for the weekly layout roll (#1167): the same copy, the same checks and the same read-back, tagged "-layoutroll" instead of "-manual" so that the
-// list of backups can tell the checkpoint of a roll from one taken by hand. The pruning never counts or removes it (only "-auto" backups are ever removed).
+// list of backups can tell the checkpoint of a roll from one taken by hand. The pruning of the automatic backups never counts or removes it; pruneTagged keeps the newest 8 checkpoints and removes older ones that are over 7 days old.
 func (s *Save) BackupCheckpoint() (ManualBackup, error) { return s.backupTagged(checkpointTag) }
 
 func (s *Save) backupTagged(tag string) (ManualBackup, error) {
@@ -58,7 +61,8 @@ func (s *Save) backupTagged(tag string) (ManualBackup, error) {
 	if err != nil || hashOf(now) != sum || len(now) != len(back) {
 		return fail("the save file changed while it was being copied (the game wrote to it); nothing was kept, try again")
 	}
-	return ManualBackup{Name: filepath.Base(dest), Path: dest, Size: int64(len(back)), SHA256: hex.EncodeToString(sum[:]), At: time.Now()}, nil
+	pruned := s.pruneTagged(tag, dest) // the backup is kept and verified; removing older ones of its kind cannot fail it (see prunetagged.go)
+	return ManualBackup{Name: filepath.Base(dest), Path: dest, Size: int64(len(back)), SHA256: hex.EncodeToString(sum[:]), At: time.Now(), Pruned: pruned}, nil
 }
 
 // isManualBackup says whether a name in the backup folder is one BackupNow made: a backup of this save with a time in its name and the manual tag before the extension.

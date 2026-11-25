@@ -97,7 +97,7 @@ Developer storage container holds 1,000 slots in every save seen, so a box witho
 row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count, and no box that received a stack with a volume is over its volume limit (the volume of what each such box holds is added up again from its rows with the same count as Give item, units with no known volume as none). Any difference fails the whole edit and nothing changes. The save layer
 then runs its reference check and its check of stored JSON, as for a recycle. The write must be sent the **fingerprint** the question showed (the Reserve, the boxes and the plan), and
 is refused when anything changed in between. A backup of the save is taken first, as for every write. A real run from the command line takes **one more** backup first: a verified
-copy named `-manual`, which the editor never prunes (the write path then takes its own automatic backup as well, so a real run leaves two copies). While a game process exists the edit is only queued, put back onto the save the
+copy named `-manual`, of which the editor keeps the newest 8 and removes older ones over 7 days old (the write path then takes its own automatic backup as well, so a real run leaves two copies). While a game process exists the edit is only queued, put back onto the save the
 game wrote last, and **dropped, not written**, when the game saved a change to anything it read (a stack of the Reserve, a box, its contents).
 
 **An empty Reserve** is not an error: the answer says so and nothing is written (the boxes are still checked first, so a wrong name is always said).
@@ -116,7 +116,7 @@ game wrote last, and **dropped, not written**, when the game saved a change to a
    dry run reads the save and **writes nothing**; it prints how many stacks and items move, into which box, and how much room is left. A name it cannot find, a box it may not use or
    a Reserve that does not fit is printed as a refusal, and nothing was changed.
 3. **Run it.** The same line without `--dry-run`. **Close the editor window first**: a real run refuses while the game runs and while the editor holds the save open. It takes a verified
-   backup copy of the save (named in its output; kept, never pruned), moves the Reserve, writes the save through the editor's own write path (which takes its own automatic backup too), then opens the written
+   backup copy of the save (named in its output; the newest 8 manual backups are kept, older ones over 7 days old are removed), moves the Reserve, writes the save through the editor's own write path (which takes its own automatic backup too), then opens the written
    file again and checks that the Reserve is empty. If the write cannot be made it says "not changed" and leaves nothing queued. It ends with the lines of the move.
 4. **Check in the game.** Start the game, load the save, open the Reserve (it should be empty) and the boxes (the stacks are in them). If anything looks wrong, close the game and
    restore the backup copy from **Database > Save backups** (see [Undo](#undo-restore-the-save)).
