@@ -586,6 +586,10 @@ test('a setting the editor cannot use, or a house with no line, is said before t
   const ui2 = await open(b2, {});
   const cap = act(ui2, 'Alexin', 'fill').title;
   assert.ok(cap.includes('has no specialization line in the editor') && cap.includes('use Complete for this one'), cap);
+  // a refused click does not also say it is written (#1240): the Fill and Fill faction goal mouse-overs and the tier box
+  for (const s of [act(ui, 'Alexin', 'fill').title, act(ui, 'Alexin', 'fillgoal').title, ttl(ui, tier(ui, 'Alexin', 5)), cap]) {
+    assert.ok(s.includes('Will be refused: ') && !s.includes('Written at once') && !s.includes('Asks first') && s === s.trimEnd(), s);
+  }
 });
 
 test('a click on one house that would grant ten missions or more asks first, with the totals and a button named for the action; Cancel writes nothing and returns the focus', async () => {
@@ -634,6 +638,7 @@ test('the bulk question carries the totals of the raise and names its button by 
   const ui2 = await open(bad, {});
   pickFour(ui2); bulk(ui2, 'fill'); await ui2.settle();
   assert.ok(questionText(ui2.doc).includes('Will be refused: LandsraadContributionMultiplier is 0.'), questionText(ui2.doc));
+  assert.ok(!questionText(ui2.doc).includes('Written at once'), 'a refused request is not said to be written (#1240): ' + questionText(ui2.doc));
 });
 
 test('the bulk question says it will be refused when the houses together stand for more missions than one change may write', async () => {
@@ -643,6 +648,7 @@ test('the bulk question says it will be refused when the houses together stand f
   bulk(ui, 'fill'); await ui.settle();
   const q = questionText(ui.doc);
   assert.ok(q.includes('Will be refused: This request stands for') && q.includes('more than the 1,000 one change may grant') && q.includes('Fill fewer houses at once'), q);
+  assert.ok(!q.includes('Written at once'), q);
   assert.deepEqual(writes(ui), []);
 });
 

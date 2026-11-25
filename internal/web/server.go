@@ -1222,6 +1222,9 @@ const (
 	passNotRunOnCopyWhy = "This is a copy, not the game's save: the automatic pass only runs on the game's own save."
 )
 
+// What the result of a pass adds when the pass filled blood sacks (#1240): the same words the page adds after Fill blood sacks.
+const passBloodUnchecked = " The fill of blood sacks has not been checked in the game yet."
+
 // What "Run the automatic pass now" says when the gate blocks it: it is queued, and the card and the queue view carry the reason (#1135).
 const passQueuedByHand = "Queued: runs by itself when the save is free."
 
@@ -1357,12 +1360,18 @@ func (s *Server) runPassGuarded(manual, guarded bool, gen uint64) {
 		return
 	}
 	filledText := pass.Summary()
+	unchecked := ""
+	for _, d := range pass.Done {
+		if d.ID == "fill-blood" {
+			unchecked = passBloodUnchecked
+		}
+	}
 	res := s.Save.Flush()
 	if !res.Saved {
-		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why)+notes+off, true)
+		set(fmt.Sprintf("Automatic refill prepared %s but could not save it yet: %s. It is queued and is written as soon as the file can be.", filledText, res.Why)+unchecked+notes+off, true)
 		return
 	}
-	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, filepath.Base(res.Backup)) + off
+	msg := fmt.Sprintf("Automatic refill saved %s to the game (the previous file is backed up as %s).", filledText, filepath.Base(res.Backup)) + unchecked + off
 	warn := false
 	if res.Warning != "" { // written, but the editor could not reload the file
 		msg += " Warning: " + res.Warning

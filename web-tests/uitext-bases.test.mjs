@@ -162,7 +162,52 @@ test('a vertical level change alone shows the staking warning, and the Apply que
   assert.ok(warn && warn.textContent.includes('normal staking checks'), 'the warning is drawn for a level change');
   ui.click('[data-act="lcApply"]'); await ui.settle();
   const q = ui.doc.querySelector('#ask').textContent;
-  assert.ok(q.includes('raise the vertical level from 1 to 3') && q.includes(STAKING), q);
+  assert.ok(q.includes('Raise the vertical level from 1 to 3.') && q.includes(STAKING), q);
   ui.click('[data-act="askNo"]'); await ui.settle();
   assert.equal(ui.posted.length, 0);
+});
+
+test('a vertical level change alone names no cells, in the Apply question and in its result (#1240)', async () => {
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': CLAIM }, post: { '/api/bases/claim/apply': { ok: true, added: 0, level: 3, levelRaised: true } } });
+  await bases(ui, 'claim');
+  const sel = ui.doc.querySelector('#lcLvl');
+  sel.value = '3'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  ui.click('[data-act="lcApply"]'); await ui.settle();
+  const q = ui.doc.querySelector('#ask').textContent;
+  assert.ok(!q.includes('horizontal') && !q.includes('Add '), q);
+  ui.click('[data-act="askOk"]'); await ui.settle();
+  assert.deepEqual(ui.posted[0].body, { totem_id: 7, cells: [], level: 3 }, 'the request is as before');
+  const toast = ui.doc.querySelector('#toast').textContent;
+  assert.ok(toast.includes('Land claim: vertical level raised to 3') && !toast.includes('0 cells'), toast);
+});
+
+test('the Apply question with cells chosen, alone and with a level change (#1240)', async () => {
+  for (const [level, want] of [[null, 'Add 1 horizontal cell.'], ['3', 'Add 1 horizontal cell and raise the vertical level from 1 to 3.']]) {
+    const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': CLAIM } });
+    await bases(ui, 'claim');
+    const cell = ui.doc.querySelector('[data-cell="-1,0"]');
+    cell.dispatchEvent(new ui.w.MouseEvent('click', { bubbles: true })); await ui.settle();
+    if (level) { const sel = ui.doc.querySelector('#lcLvl'); sel.value = level; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle(); }
+    ui.click('[data-act="lcApply"]'); await ui.settle();
+    const q = ui.doc.querySelector('#ask').textContent;
+    assert.ok(q.includes(want), q);
+    ui.click('[data-act="askNo"]'); await ui.settle();
+    assert.equal(ui.posted.length, 0);
+    ui.dom.window.close();
+  }
+});
+
+test('the Expand question reads as a sentence for a square, a level and both (#1240)', async () => {
+  for (const [rings, level, want] of [['2', '1', 'Adds every missing cell up to a 5 x 5 square around the totem.'], ['0', '3', 'Raises the vertical level to 3.'], ['2', '3', 'Adds every missing cell up to a 5 x 5 square around the totem and raises the vertical level to 3.']]) {
+    const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': GROW } });
+    await bases(ui, 'claim');
+    ui.doc.querySelector('#cr7').value = rings;
+    ui.doc.querySelector('#cv7').value = level;
+    ui.click('[data-act="claimGrow"]'); await ui.settle();
+    const q = ui.doc.querySelector('#ask').textContent;
+    assert.ok(q.includes(want), `${want} :: ${q}`);
+    ui.click('[data-act="askNo"]'); await ui.settle();
+    assert.equal(ui.posted.length, 0);
+    ui.dom.window.close();
+  }
 });
