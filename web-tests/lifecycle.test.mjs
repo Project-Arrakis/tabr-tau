@@ -79,6 +79,22 @@ test('a vehicle waiting for recovery has its own section; the backed-up and the 
   assert.equal(waiting.querySelector('button'), null, 'nothing to press');
 });
 
+test('a stored vehicle that is not in the list is never hidden: one not waiting for recovery says its label, and the title says so', async () => {
+  const stored = [sv(301, 'recovery'), sv(302, 'backup', { type: 'LightOrnithopter' }), sv(304, 'other', { type: 'Sandbike', label: 'A label of the server <b>' })];
+  const ui = await openVehicles([veh(1)], stored);
+  const section = card(ui, 'Waiting for recovery');
+  assert.equal(section.querySelector('h3').textContent, 'Waiting for recovery and stored');
+  const names = [...section.querySelectorAll('tbody tr td:first-child')].map((c) => [...c.children].map((n) => n.textContent));
+  assert.deepEqual(names, [['Buggy'], ['LightOrnithopter', 'In the vehicle backup'], ['Sandbike', 'A label of the server <b>']], 'each once; the label under the name only where the kind is not recovery');
+  assert.deepEqual([...section.querySelectorAll('th')].map((h) => h.textContent), ['Vehicle', 'Chassis durability', 'Stored at']);
+  assert.equal(section.querySelectorAll('.vkind.mut').length, 2);
+  ui.dom.window.close();
+  // a backup alone is shown too, under the same title
+  const alone = await openVehicles([], [sv(302, 'backup')]);
+  assert.equal(card(alone, 'Waiting for recovery').querySelector('h3').textContent, 'Waiting for recovery and stored');
+  assert.ok(card(alone, 'Waiting for recovery').textContent.includes('In the vehicle backup'));
+});
+
 test('the waiting section is not drawn, and says nothing, when no vehicle waits', async () => {
   for (const stored of [[], undefined, [sv(1, 'backup')], [sv(1, 'recovery')]]) {
     const ui = await openVehicles([veh(1)], stored);

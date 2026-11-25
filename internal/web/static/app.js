@@ -1934,14 +1934,15 @@ function vehicleList(list, open, cat) {
   return html`<div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Lowest condition</th><th>Fuel</th><th>Location</th><th></th></tr></thead><tbody>${
     list.map((r) => html`${vehicleRow(r, r === open)}<tr class="vdetail" id="vdetail${r.id}" ${r === open ? '' : 'hidden'}><td colspan="6">${r === open ? vehicleDetail(r, cat) : ''}</td></tr>`)}</tbody></table></div>`;
 }
-// A vehicle waiting to be recovered is not in the list above: the entries of kind "recovery" (the server's one label function, as the list uses, #528) whose vehicle is not
-// listed. The card is drawn only when there is one (#1230).
+// Every stored vehicle that is not in the list above, whatever its kind: none is hidden (#1230). Most wait to be recovered; one of another kind says the server's label under its
+// name (the one label function, as the list uses, #528), and the title then says so too. The card is drawn only when there is such a vehicle.
 function recoveryCard(stored, list) {
-  const waiting = (stored || []).filter((s) => s.kind === 'recovery' && !list.some((r) => r.id === s.vehicle_id));
+  const waiting = (stored || []).filter((s) => !list.some((r) => r.id === s.vehicle_id));
   if (!waiting.length) return '';
   const val = (x) => (x == null ? '-' : x);
-  return html`<div class="card d-panel"><h3>Waiting for recovery</h3><div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Chassis durability</th><th>Stored at</th></tr></thead><tbody>${
-    waiting.map((s) => html`<tr class="vrow"><td><span title="Vehicle number ${s.vehicle_id}">${s.type || '-'}</span></td><td data-label="Chassis durability">${val(s.chassis_durability)}</td><td data-label="Stored at">${s.time_stored == null ? '-' : fmtEpoch(s.time_stored)}</td></tr>`)}</tbody></table></div></div>`;
+  const title = waiting.every((s) => s.kind === 'recovery') ? 'Waiting for recovery' : 'Waiting for recovery and stored';
+  return html`<div class="card d-panel"><h3>${title}</h3><div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Chassis durability</th><th>Stored at</th></tr></thead><tbody>${
+    waiting.map((s) => html`<tr class="vrow"><td><span title="Vehicle number ${s.vehicle_id}">${s.type || '-'}</span>${s.kind === 'recovery' ? '' : html`<span class="vkind mut">${s.label}</span>`}</td><td data-label="Chassis durability">${val(s.chassis_durability)}</td><td data-label="Stored at">${s.time_stored == null ? '-' : fmtEpoch(s.time_stored)}</td></tr>`)}</tbody></table></div></div>`;
 }
 // A tap on a row's name or text opens its details, a second one closes them. A double click, or the end of marking text (to copy a place), is not a tap.
 function vhToggle(el, e) {
