@@ -2712,7 +2712,6 @@ body.no-kept .kept{display:none}
 .rvp{margin-top:-4px}
 .helprow{margin:10px 0 0}
 .helpref{display:inline-flex;align-items:center;min-height:28px;color:var(--acc);font-size:var(--t-sm);font-weight:600;letter-spacing:.04em;text-decoration:underline;text-underline-offset:3px}
-.helpref:focus-visible,.hxnav a:focus-visible,.helpbody a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .kept{margin:10px 0 0;max-width:78ch}
 .warn-line{padding-left:10px;border-left:3px solid var(--c-warn)}
 .hxgrid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:24px;align-items:start;margin-top:8px}
@@ -2727,6 +2726,7 @@ nav.hxnav{display:block;padding:0 0 8px;background:none;border:0;overflow:visibl
 .hxnav a[aria-current]{background:color-mix(in srgb,var(--acc) 14%,var(--panel2));box-shadow:inset 3px 0 0 var(--acc)}
 /* app.css already keeps clear of the sticky header (scroll-padding): only a little air is added here */
 .helpbody h3.helph,.helpbody h4.helph{scroll-margin-top:12px}
+.helpbody h4.helph{font-size:var(--t-lg)}
 .helpbody .arrived{padding-left:10px;border-left:3px solid var(--acc)}
 .helpbody.came{padding-bottom:45vh}
 .helpbody a.helplink{color:var(--acc)}
@@ -2782,8 +2782,8 @@ nav.hxnav{display:block;padding:0 0 8px;background:none;border:0;overflow:visibl
       <div class="row"><label>Chassis <select data-vcslot="Chassis"><option value="example_chassis" selected="">Sandbike Chassis Mk6</option></select></label></div><div class="row"><label>Engine <select data-vcslot="Engine"><option value="example_engine" selected="">Sandbike Engine Mk6</option></select></label></div>
     </details>
     <p class="mut" id="vcnohold">These parts give no cargo hold; pick a storage part under Change parts to put items in.</p>
-    <div class="row"><span class="tip"><button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button><span class="tipbox" role="tooltip" id="vcpreviewtip">Shows the rows that would be written. Nothing is changed.</span></span><span class="tip"><button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip vckept">Create</button><span class="tipbox" role="tooltip" id="vccreatetip">Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.</span></span><button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
     <p class="kept warn-line" id="vckept">The editor cannot see the terrain or the rocks, so face open ground before you quit to the menu. A vehicle made this way has not been loaded in the game yet, so check it on a copy of your save first. <span class="rv">proposed: stays on the card (not checked in the game)</span></p>
+    <div class="row"><span class="tip"><button class="b sec d-btn" data-act="vcPreview" aria-describedby="vcpreviewtip">Preview</button><span class="tipbox" role="tooltip" id="vcpreviewtip">Shows the rows that would be written. Nothing is changed.</span></span><span class="tip"><button class="b d-btn primary" data-act="vcCreate" aria-describedby="vccreatetip vckept">Create</button><span class="tipbox" role="tooltip" id="vccreatetip">Writes the vehicle to the save now, after a backup, or queues it while the game is running. Nothing asks first.</span></span><button class="b sec d-btn" data-act="vcCancel">Cancel</button></div>
     <p class="helprow"><a class="helpref" data-from="vehicles.create" href="#help/vehicles/create">Help<span class="sr"> (Create a vehicle)</span></a></p></div></div><div class="card d-panel"><h3>Sandbike: 4 components</h3><div class="scroll"><table class="sortd"><thead><tr><th tabindex="0" aria-sort="none">Component</th><th tabindex="0" aria-sort="none">Condition</th><th tabindex="0" aria-sort="none">Durability</th></tr></thead><tbody><tr><td class=""><span title="SandbikeChassis_4">Sandbike Chassis</span></td><td class=""><span class="ok">82%</span></td><td class="">410 / 500</td></tr><tr><td class=""><span title="SandbikeEngine_4">Sandbike Engine</span></td><td class=""><span class="ok">91%</span></td><td class="">273 / 300</td></tr><tr><td class=""><span title="SandbikeGenerator_4">Sandbike Generator</span></td><td class=""><span class="ok">100%</span></td><td class="">200 / 200</td></tr><tr><td class=""><span title="SandbikeLocomotion_4">Sandbike Locomotion</span></td><td class=""><span class="ok">88%</span></td><td class="">220 / 250</td></tr></tbody></table></div>
       <p class="helprow"><a class="helpref" data-from="vehicles.components" href="#help/vehicles/components">Help<span class="sr"> (Components)</span></a></p></div><div class="card d-panel"><h3 class="d-head">Cargo hold</h3><p class="mut">This vehicle has no cargo hold.</p></div><div class="card d-panel"><h3>Recovered and stored vehicles (1)</h3><div class="scroll"><table class="sortd"><thead><tr><th tabindex="0" aria-sort="none">Kind</th><th tabindex="0" aria-sort="none">Vehicle</th><th tabindex="0" aria-sort="none">Name</th><th tabindex="0" aria-sort="none">Chassis durability</th><th tabindex="0" aria-sort="none">Stored at</th><th tabindex="0" aria-sort="none">Reason code</th></tr></thead><tbody><tr><td class=""><span title="Vehicle number 104">In the vehicle backup</span></td><td class="">Buggy</td><td class="">Example name</td><td class="">900</td><td class="">-</td><td class="">-</td></tr></tbody></table></div></div></div>
 </div>
@@ -2867,7 +2867,7 @@ nav.hxnav{display:block;padding:0 0 8px;background:none;border:0;overflow:visibl
     const back = $('.hxback', sec);
     if (back && from && from.section === id && parts[2]) {
       back.hidden = false;
-      $('button', back).textContent = 'Back to the ' + from.title + ' card';
+      $('button', back).textContent = 'Back to the card';
       target.after(back); // under the heading the person arrived at, so it is on screen after the scroll
     }
     if (parts[2]) { target.classList.add('arrived'); target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'start' }); }
@@ -2876,7 +2876,8 @@ nav.hxnav{display:block;padding:0 0 8px;background:none;border:0;overflow:visibl
   document.addEventListener('click', (e) => {
     const t = e.target.closest ? e.target.closest('a,button') : null;
     if (!t) return;
-    if (t.matches('.helpref')) { from = { link: t, y: window.scrollY, section: 'vehicles', title: t.querySelector('.sr').textContent.replace(/[()]/g, '').trim() }; return; }
+    if (t.matches('.helpref')) { from = { link: t, y: window.scrollY, section: 'vehicles' }; return; }
+    if (t.matches('#view-help a') && t.getAttribute('href') === location.hash) { e.preventDefault(); route(false); return; }
     if (t.closest('.hxnav')) from = null;
     if (t.closest('.hxback')) { location.hash = '#vehicles'; return; }
     if (t.dataset.tab === 'help') location.hash = '#help';

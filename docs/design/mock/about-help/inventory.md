@@ -31,8 +31,8 @@ The target is the Help section (one per page) and the heading inside it (the car
 | 10 | Player > Journey | Journey browser | `journey.card` | always | Journey > Journey browser | **KEEP** | "Completing a node completes its children; resetting clears it and its children." The row buttons Complete and Reset ask nothing and have no tooltip |
 | 11 | Player > Bases > Power, Water | Automatic refill and repair | `bases.autorefill` | always (one card, on two pages) | Bases > Automatic refill and repair | **KEEP** | "The previous file is backed up first." Already there: the Waiting line, the not-run-on-a-copy line, the countdown's Skip, the title of Run now |
 | 12 | Player > Bases > Inventory | Inventory | `bases.inventory` | always | Bases > Inventory | no | |
-| 13 | Player > Bases > Land claim editor | Land claim editor | `bases.claim` | the base has a claim | Bases > Land claim editor | covered | Backup: the Apply and Remove questions. Staking checks: the line drawn while cells are chosen. The axes and yaw sentence is live (question 1) |
-| 14 | Player > Bases > Land claim editor | Resize by square | `bases.resize` | the base has a claim | Bases > Resize by square | **KEEP** | "This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there." Expand claim does not show it, on the card or in its question (the question does name the backup) |
+| 13 | Player > Bases > Land claim editor | Land claim editor | `bases.claim` | the base has a claim | Bases > Land claim editor | **KEEP** | The staking-check warning: the card draws it only while new cells are chosen. A change of the vertical level alone turns Apply changes on without it, and the Apply question never says it. Already there: backup, in the Apply and Remove questions. The axes and yaw sentence is live (question 1) |
+| 14 | Player > Bases > Land claim editor | Resize by square | `bases.resize` | the base has a claim | Bases > Resize by square | **KEEP** | "This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there." Expand claim does not show it, on its card or in its question (the question does name the backup). It is on the same page only while new cells are chosen in the editor above |
 | 15 | Player > Bases > Structures | Structures | `bases.structures` | always | Bases > Structures | no | Scope: the button labels and the tooltips of the repair buttons |
 | 16 | Player > Bases (every sub-page) | Base backups | `bases.backups` | always | Bases > Base backups | **KEEP** | Beside Import: "Import then writes it as one edit, after a backup (or queued while the game runs)." Beside Export for console: "whether a game accepts it can only be tried in a game". Already there: own self-hosted server only (tooltip) |
 | 17 | Player > Vehicles | Your vehicles | `vehicles.list` | other vehicles are hidden | Vehicles > Your vehicles | no | A live count: keep it as a state line (question 1) |
@@ -48,7 +48,7 @@ The target is the Help section (one per page) and the heading inside it (the car
 | 27 | Database > Tables | Tables | `db.tables` | the table has some read-only columns | Database > Tables | no | Each read-only value keeps its title |
 | 28 | Database > Save backups | Save backups | `db.backups` | always | Database > Save backups | **KEEP** | "One backup covers the changes made within two minutes." (how far an undo reaches). Already there: backup before changes and restores, and the manual-backup pruning in the tooltip of Back up now |
 
-Totals: **7 KEEP** (10, 11, 14, 16, 19, 21, 28), 3 covered (1, 7, 13), 18 no.
+Totals: **8 KEEP** (10, 11, 13, 14, 16, 19, 21, 28), 2 covered (1, 7), 18 no.
 
 Reputation and Research have no disclosure, so they get no Help section.
 
@@ -57,9 +57,9 @@ Reputation and Research have no disclosure, so they get no Help section.
 | # | Question | Recommendation |
 |---|---|---|
 | 1 | Some texts hold live values, and the Help tab reads nothing from the save: the hidden-vehicle count, the claim's axes and yaw, the kit limits, the game build. | Values from the save (count, axes and yaw) stay on the card as state lines. Program constants (kit limits, game build) are written into the Help page, with a test that compares them with the program. Then Your vehicles has nothing left to explain: drop its Help link and its Help heading (the mock still shows both). |
-| 2 | Do the seven KEEP texts go on the card, when the decision allows "one click away"? | Yes, next to the button they concern and only while it is on screen. A Help link is easy to miss at the moment of a write. On Vehicles that is 42 words, drawn only in the open Create form, under the limit of 45 for one block. The other six need the same count check. |
+| 2 | Do the eight KEEP texts go on the card, when the decision allows "one click away"? | Yes, at the button they concern and only while it is on screen. A Help link is easy to miss at the moment of a write. Where a button already asks first (13 and 14), put the sentence in that question and add no standing line. On Vehicles that is 42 words above the buttons of the open Create form, under the limit of 45 for one block. The others need the same count check. |
 | 3 | One long Help page, or one section at a time? | One section at a time (one Markdown file per app page, a heading per card), as the Help tab works today. The link opens the file, scrolls to the heading and gives it the focus. |
-| 4 | How does one get back? | A **Back to the ... card** button under the heading, only after arriving from a card; it restores the scroll position and the focus on the Help link. |
+| 4 | How does one get back? | A **Back to the card** button under the heading, only after arriving from a card; it restores the scroll position and the focus on the Help link. |
 | 5 | The Inventory text holds a button, which the Help renderer cannot draw. | Move the sentence and drop the button: it names the page, and the page is two presses away. |
 | 6 | Where do today's topic pages go? | Under their tab (three under Landsraad, Specializations inside Specialization), and Checked in the game and the Deep Desert layout under General, as in the mock. |
 | 7 | Words such as "in the box above", "this tab", "The same card is on the Power and Water tabs" and "The last card" read wrong in the Help tab. | Move them as they are, as decided, and list them for the shortening pass. |
@@ -71,5 +71,10 @@ Reputation and Research have no disclosure, so they get no Help section.
 - `app.css` styles every `nav` element as the tab bar, so the section index needs its own rule (the mock has one).
 - The page already sets a scroll padding for the sticky header; the heading needs no second offset.
 - The Help renderer gives headings no id today; the link needs one per card heading.
+- A disclosure opens in place; the Help link leaves the page. Today a move to another tab draws the page anew, which empties the cells chosen in the claim editor, closes an open base container and resets typed values (**Only modules below** goes back to 100, so **Repair all my vehicles** would repair more than was typed). The way back must put all of these back; test it.
+- The Help link is drawn again with its page, so the way back finds it by its card id, not by keeping the element.
+- A card heading in Help is smaller than the text under it today (13 px against 14 px); the mock draws it at 15 px.
+- The Help link and the section index use the design module's own focus ring.
+- A tooltip of the Create button covered the kept line when the line was under the buttons; keep the line above them.
 - The `about.<id>` keys in the browser's storage go away with the disclosure.
 - To update with the change: the README row for **About this**, `docs/help/README.md`, and the web tests that find or open a disclosure.
