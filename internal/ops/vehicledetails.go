@@ -21,16 +21,18 @@ func vehicleType(name string) string {
 
 // vehicleDetails adds what the console's vehicle row and its expanded view show, all read from the save and never guessed:
 //
-//	condition  the lowest module condition in percent (current / its decayed maximum), nil when no module has a known maximum
+//	condition  the durability of the weakest module in percent (current / full durability), nil when no module has a known full durability
 //	fuel       the current fuel from the vehicle component, nil when there is none; fuelMax and fuelPercent (never above 100) come from the tank of the chassis (tankOf)
-//	components every module with its durability; percent only where the maximum is known
+//	components every module with its durability: current (0 when the record leaves it out; nil without a durability record), max (the full
+//	           durability a repair raises it to, moduleMaxSQL; nil when unknown) and percent only where both are known
 //	cargo      the cargo hold, the inventory with inventory_type 0 (a vehicle's other inventories are per-component holds with no
 //	           capacity), with its items and its room (slots, volume, slots used, volume used, and noHold when the vehicle has no storage part: cargolimits.go); nil when the
 //	           vehicle has none
 func (o *Ops) vehicleDetails(v map[string]any) {
+	// max is the rule a repair uses, so the figures here and a repair agree: a maximum worn down below the full durability shows as wear
 	mods, _ := o.S.Query(`select id, template_id,
-			json_extract(stats,'`+schema.VehicleModuleCurrentDurability+`') current,
-			coalesce(json_extract(stats,'`+schema.VehicleModuleDecayedMaxDurability+`'), json_extract(stats,'`+schema.VehicleModuleMaxDurability+`')) max
+			case when json_type(stats,'`+schema.VehicleModuleDurabilityKey+`') is not null then coalesce(`+moduleCurrent+`,0) end current,
+			`+moduleMaxSQL()+` max
 		from vehicle_modules where vehicle_id=? order by id`, v["id"])
 	var lowest *float64
 	comps := make([]map[string]any, 0, len(mods))

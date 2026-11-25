@@ -59,6 +59,18 @@ test('the row button opens and closes the details, one row at a time, and keeps 
   assert.equal(ui.posted.length, 0, 'opening a row writes nothing');
 });
 
+test('the figure is labelled Durability: the list head, the narrow layout labels and the parts table (#1243)', async () => {
+  const ui = await open();
+  const heads = () => [...ui.doc.querySelectorAll('#main .vlist > table > thead th')].map((h) => h.textContent);
+  assert.equal(heads()[2], 'Durability (weakest part)');
+  const cell = ui.doc.querySelector('#main [data-vhtap="41"][data-l^="Durability"]');
+  assert.equal(cell.dataset.l, 'Durability (weakest part)');
+  assert.equal(cell.closest('td').dataset.label, 'Durability (weakest part)');
+  ui.click('[data-vhopen="41"]'); await ui.settle();
+  assert.deepEqual([...ui.doc.querySelectorAll('#vdetail41 .vpane th')].map((h) => h.textContent).slice(0, 3), ['Component', 'Durability %', 'Durability']);
+  assert.ok(!/condition/i.test(ui.doc.querySelector('#main .vlist').textContent), 'no cell or text of the list says condition');
+});
+
 test('a tap on the text of any cell opens the row, the Stored line too', async () => {
   const ui = await open();
   assert.equal(ui.doc.querySelectorAll('#main [data-vhtap="41"]').length, 4, 'type, condition, fuel, location');
@@ -106,14 +118,14 @@ test('sorting moves each details row with its vehicle, and the open row survives
   const pairs = () => [...ui.doc.querySelector('#main .vlist > table').tBodies[0].rows].map((r) => (r.classList.contains('vdetail') ? 'd' + r.id.slice(7) : 'r' + r.querySelector('[data-vhopen]').dataset.vhopen));
   const th = (name) => [...ui.doc.querySelectorAll('#main .vlist > table > thead th')].find((h) => h.textContent === name);
   assert.deepEqual(pairs(), ['r41', 'd41', 'r42', 'd42', 'r43', 'd43']);
-  th('Lowest condition').click();
+  th('Durability (weakest part)').click();
   assert.deepEqual(pairs(), ['r42', 'd42', 'r43', 'd43', 'r41', 'd41']);
-  th('Lowest condition').click();
+  th('Durability (weakest part)').click();
   assert.deepEqual(pairs(), ['r41', 'd41', 'r43', 'd43', 'r42', 'd42']);
   ui.click('[data-vhopen="43"]'); await ui.settle(); // drawn again with the sort kept
   assert.deepEqual(pairs(), ['r41', 'd41', 'r43', 'd43', 'r42', 'd42']);
   assert.deepEqual(opened(ui), [43]);
-  th('Lowest condition').click();
+  th('Durability (weakest part)').click();
   assert.deepEqual(pairs(), ['r41', 'd41', 'r42', 'd42', 'r43', 'd43'], 'back to the original order');
 });
 
