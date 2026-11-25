@@ -44,12 +44,57 @@ const MaxReserveBoxes = 6
 func ReserveBoxName(n int) string { return fmt.Sprintf("DD-%d", n) }
 
 // ReserveBoxScan is what the one detection of the boxes found (#1214): a move that is given no names, the editor's line "Storage boxes" and the layout roll all use it. The boxes must be
-// consecutive from DD-1, used in that order: the scan stops at the first number no Developer storage container carries, and a higher one that exists is ignored (and said so, so that a
+// consecutive from DD-1, used in that order: the scan stops at the first number no container carries, and a higher one that exists is ignored (and said so, so that a
 // typo cannot silently skip a box).
 type ReserveBoxScan struct {
-	Found   []string // DD-1 ... DD-n, the boxes of the move, in order
+	Found   []string // DD-1 ... DD-n, the boxes of the move, in order (a container of that name that cannot be used is in here too: the move refuses it by name)
 	Ignored []string // higher boxes that exist behind a gap (DD-5 when DD-4 is missing)
 	Gap     string   // the first number with no box ("DD-3"), empty when all MaxReserveBoxes were found
+
+	// Wrong says, for a name of Found, why no Developer storage box can be found by it: a container of another kind carries the name, alone or beside a Developer box.
+	Wrong map[string]string
+	// Other are the names of the Developer storage containers that are not DD-1 ... DD-6 ("D-3", "dump box"), for the hint when a number is missing; OtherMore counts those left out of the list.
+	Other     []string
+	OtherMore int
+	// Unusable is filled by the editor's line only (DetectReserveBoxes): the boxes of Found that a move would refuse, each with the reason.
+	Unusable []ReserveBoxProblem
+}
+
+// ReserveBoxProblem is a box named DD-n that cannot be used, and why.
+type ReserveBoxProblem struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
+// Hint lists the Developer storage boxes that have other names, so that a typo ("D-3", "dd-3", "DD-03") shows; empty when there are none.
+func (s ReserveBoxScan) Hint() string {
+	if len(s.Other) == 0 {
+		return ""
+	}
+	q := make([]string, len(s.Other))
+	for i, n := range s.Other {
+		q[i] = fmt.Sprintf("%q", importLabel(n))
+	}
+	out := "Developer storage boxes with other names: " + strings.Join(q, ", ")
+	if s.OtherMore > 0 {
+		out += fmt.Sprintf(" and %d more", s.OtherMore)
+	}
+	return out + "."
+}
+
+// usable is Found without the boxes that cannot be used.
+func (s ReserveBoxScan) usable() []string {
+	bad := map[string]bool{}
+	for _, u := range s.Unusable {
+		bad[u.Name] = true
+	}
+	var out []string
+	for _, n := range s.Found {
+		if !bad[n] {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // Words says in plain words what was found.
@@ -57,37 +102,79 @@ func (s ReserveBoxScan) Words() string {
 	if len(s.Found) == 0 {
 		return "No Developer storage box named " + ReserveBoxName(1) + " was found. Name a Developer storage container " + ReserveBoxName(1) + " in the game (capitals and the hyphen exactly), then DD-2, DD-3 ... for more room."
 	}
-	out := fmt.Sprintf("Storage boxes: %s ... %s, used in that order (found %d: %s).", ReserveBoxName(1), ReserveBoxName(MaxReserveBoxes), len(s.Found), strings.Join(s.Found, ", "))
+	use := s.usable()
+	list := ""
+	if len(use) > 0 {
+		list = ": " + strings.Join(use, ", ")
+	}
+	out := fmt.Sprintf("Storage boxes: %s ... %s, used in that order (found %d usable%s).", ReserveBoxName(1), ReserveBoxName(MaxReserveBoxes), len(use), list)
+	for _, u := range s.Unusable {
+		out += fmt.Sprintf(" %s cannot be used: %s", u.Name, u.Reason)
+	}
 	if len(s.Ignored) > 0 {
 		out += fmt.Sprintf(" Ignored: %s (%s is missing, and the boxes are used in a row from %s without a gap). Name a box %s in the game, or rename the ignored ones.", strings.Join(s.Ignored, ", "), s.Gap, ReserveBoxName(1), s.Gap)
+	}
+	if s.Gap != "" {
+		if h := s.Hint(); h != "" {
+			out += " " + h
+		}
+	}
+	if len(s.Found) == 1 && s.Gap == ReserveBoxName(2) && len(s.Ignored) == 0 {
+		out += fmt.Sprintf(" Warning: only %s was found; %s .. %s are optional. If you named more boxes, check their names (capitals and the hyphen exactly).", ReserveBoxName(1), ReserveBoxName(2), ReserveBoxName(MaxReserveBoxes))
 	}
 	return out
 }
 
-// scanReserveBoxes looks for the Developer storage containers named DD-1 ... DD-6 and keeps them in a row from DD-1. A box that exists but cannot be used (a duplicate name, one in a
-// vehicle, one that is refused) still counts as found here: the move refuses it by name, and is not silently passed over.
+// scanReserveBoxes looks for the containers named DD-1 ... DD-6 and keeps them in a row from DD-1. The name is trimmed and matched exactly (DD-10, DD-0, dd-3, DD-03 are not DD-n). A container
+// with such a name counts as found whatever it is: one that cannot be used (a duplicate name, one of another kind than a Developer storage box, one in a vehicle or in a refused place) is
+// refused by the move, by name, and is never silently passed over.
 func scanReserveBoxes(q baseQ) (ReserveBoxScan, error) {
-	args := []any{strings.ToLower(devStorageType)}
+	args := make([]any, 0, MaxReserveBoxes+1)
 	marks := make([]string, MaxReserveBoxes)
 	for i := range marks {
 		marks[i] = "?"
 		args = append(args, ReserveBoxName(i+1))
 	}
-	rows, err := q.Query(`select distinct trim(pa.actor_name, ' '||char(9,10,13)) name from placeables p join permission_actor pa on pa.actor_id=p.id
-		where lower(p.building_type)=? and trim(pa.actor_name, ' '||char(9,10,13)) in (`+strings.Join(marks, ",")+`)`, args...)
+	args = append(args, strings.ToLower(devStorageType))
+	rows, err := q.Query(`select trim(pa.actor_name, ' '||char(9,10,13)) name, p.building_type bt, count(*) n from placeables p join permission_actor pa on pa.actor_id=p.id
+		where trim(pa.actor_name, ' '||char(9,10,13)) in (`+strings.Join(marks, ",")+`)
+		and (lower(p.building_type)=? or exists (select 1 from inventories i where i.actor_id=p.id and i.item_id is null))
+		group by 1, 2 order by 1, 2`, args...)
 	if err != nil {
 		return ReserveBoxScan{}, err
 	}
 	has := map[string]bool{}
+	dev := map[string]int64{}
+	other := map[string][]string{}
 	for _, r := range rows {
 		n, _ := r["name"].(string)
+		bt, _ := r["bt"].(string)
+		c, _ := toInt(r["n"])
 		has[n] = true
+		if strings.EqualFold(bt, devStorageType) {
+			dev[n] += c
+		} else {
+			if bt == "" {
+				bt = "unknown"
+			}
+			other[n] = append(other[n], fmt.Sprintf("%q", importLabel(bt)))
+		}
 	}
 	var s ReserveBoxScan
 	for i := 1; i <= MaxReserveBoxes; i++ {
 		n := ReserveBoxName(i)
 		if s.Gap == "" && has[n] {
 			s.Found = append(s.Found, n)
+			if kinds := other[n]; len(kinds) > 0 {
+				if s.Wrong == nil {
+					s.Wrong = map[string]string{}
+				}
+				if dev[n] == 0 {
+					s.Wrong[n] = "is a " + strings.Join(kinds, " and a ") + " container, not a Developer storage container"
+				} else {
+					s.Wrong[n] = "has the same name as a " + strings.Join(kinds, " and a ") + " container, so the name does not find one Developer storage container"
+				}
+			}
 			continue
 		}
 		if s.Gap == "" {
@@ -96,23 +183,83 @@ func scanReserveBoxes(q baseQ) (ReserveBoxScan, error) {
 			s.Ignored = append(s.Ignored, n)
 		}
 	}
+	// the Developer storage containers with other names, for the hint about a typo
+	if s.Gap != "" {
+		named, err := q.Query(`select distinct trim(pa.actor_name, ' '||char(9,10,13)) name from placeables p join permission_actor pa on pa.actor_id=p.id
+			where lower(p.building_type)=? order by 1`, strings.ToLower(devStorageType))
+		if err != nil {
+			return ReserveBoxScan{}, err
+		}
+		for _, r := range named {
+			n, _ := r["name"].(string)
+			if n == "" || n == "None" || strings.HasPrefix(n, "##") || isReserveBoxName(n) {
+				continue
+			}
+			if len(s.Other) < 30 {
+				s.Other = append(s.Other, n)
+			} else {
+				s.OtherMore++
+			}
+		}
+	}
 	return s, nil
 }
 
-// DetectReserveBoxes says which boxes DD-1 ... DD-6 a move would use now (the line "Storage boxes" of the editor). It reads and changes nothing.
+// isReserveBoxName says whether n is exactly DD-1 ... DD-6.
+func isReserveBoxName(n string) bool {
+	for i := 1; i <= MaxReserveBoxes; i++ {
+		if n == ReserveBoxName(i) {
+			return true
+		}
+	}
+	return false
+}
+
+// wrongBoxRefusal is the refusal of a box of the scan that no Developer storage box can be found by.
+func wrongBoxRefusal(name, why string) error {
+	return apierr.Newf(apierr.ErrConflict, "The container named %q %s, so it cannot receive the Reserve, and the boxes after it are not used in its place. Rename it in the game, then try again. Nothing was changed.", name, why)
+}
+
+// DetectReserveBoxes says which boxes DD-1 ... DD-6 a move would use now (the line "Storage boxes" of the editor). It reads and changes nothing. A box named DD-n that a move would refuse
+// (a duplicate, a hologram, on the Deep Desert, not yours, of another kind ...) is not counted as found: it is named with the reason.
 func (o *Ops) DetectReserveBoxes() (any, error) {
 	s, err := scanReserveBoxes(o.S)
 	if err != nil {
 		return nil, err
 	}
-	found, ignored := s.Found, s.Ignored
+	pl, perr := o.player()
+	for _, n := range s.Found {
+		if why, bad := s.Wrong[n]; bad {
+			s.Unusable = append(s.Unusable, ReserveBoxProblem{n, "it " + why + "."})
+			continue
+		}
+		if perr != nil || pl.Controller <= 0 {
+			continue // no character in this save: the boxes are listed, but their owner cannot be judged
+		}
+		if _, err := resolveMoveBox(o.S, pl, n, nil); err != nil {
+			if !(errors.Is(err, apierr.ErrConflict) || errors.Is(err, apierr.ErrNotFound) || errors.Is(err, apierr.ErrBadArgument)) {
+				return nil, err
+			}
+			s.Unusable = append(s.Unusable, ReserveBoxProblem{n, strings.TrimSuffix(err.Error(), " Nothing was changed.")})
+		}
+	}
+	found, ignored, unusable := s.usable(), s.Ignored, s.Unusable
 	if found == nil {
 		found = []string{}
 	}
 	if ignored == nil {
 		ignored = []string{}
 	}
-	return map[string]any{"found": found, "ignored": ignored, "gap": s.Gap, "max": MaxReserveBoxes, "text": s.Words()}, nil
+	if unusable == nil {
+		unusable = []ReserveBoxProblem{}
+	}
+	text := s.Words()
+	if len(s.Found) == 0 {
+		if h := s.Hint(); h != "" {
+			text += " " + h
+		}
+	}
+	return map[string]any{"found": found, "ignored": ignored, "unusable": unusable, "gap": s.Gap, "max": MaxReserveBoxes, "text": text}, nil
 }
 
 // MoveReserveOptions are the choices of one move.
@@ -191,6 +338,7 @@ type moveReservePlan struct {
 	// the boxes were found by the scan (no names given): what it found and what it ignored (#1214)
 	Auto    bool
 	Ignored []string
+	Hint    string // the Developer storage boxes with other names (a typo shows), for the refusals about a missing number
 	Gap     string
 	Notes   []string // said in the summary: which boxes were found, and which were ignored
 }
@@ -466,11 +614,14 @@ func planMoveReserve(q baseQ, pl player, names []string, opt MoveReserveOptions)
 	for _, b := range opt.ExcludeBases {
 		exclude[b] = true
 	}
-	p := &moveReservePlan{Auto: auto, Ignored: scan.Ignored, Gap: scan.Gap}
+	p := &moveReservePlan{Auto: auto, Ignored: scan.Ignored, Gap: scan.Gap, Hint: scan.Hint()}
 	if auto {
 		p.Notes = append(p.Notes, scan.Words())
 	}
 	for _, n := range clean {
+		if why, bad := scan.Wrong[n]; auto && bad {
+			return nil, wrongBoxRefusal(n, why)
+		}
 		b, err := resolveMoveBox(q, pl, n, exclude)
 		if err != nil {
 			return nil, err
@@ -605,6 +756,9 @@ func moveShortfall(p *moveReservePlan, left []reserveStack) error {
 		}
 		if len(p.Ignored) > 0 {
 			advice += fmt.Sprintf(" Ignored: %s (%s is missing, and the boxes are used in a row without a gap).", strings.Join(p.Ignored, ", "), p.Gap)
+		}
+		if p.Hint != "" && len(p.Boxes) < MaxReserveBoxes {
+			advice += " " + p.Hint
 		}
 	}
 	return apierr.Wrap(apierr.ErrNoRoom, fmt.Sprintf("The Reserve does not fit into the boxes, so nothing was changed. Needed: %s stacks (%s items, volume %s). Free: %s (%s slots in all). Short by %s stacks (volume %s) %s. %s",

@@ -111,7 +111,7 @@ func TestMoveReserveFindsAsManyBoxesAsRunInARowFromDD1(t *testing.T) {
 			if rmCount(t, o, `items where inventory_id=12`) != 0 {
 				t.Fatal("the Reserve is not empty")
 			}
-			if !strings.Contains(summaryOf(r), fmt.Sprintf("found %d: DD-1", n)) {
+			if !strings.Contains(summaryOf(r), fmt.Sprintf("found %d usable: DD-1", n)) {
 				t.Fatalf("the answer does not say what was found:\n%s", summaryOf(r))
 			}
 			if len(r["ignoredBoxes"].([]string)) != 0 {
@@ -131,7 +131,7 @@ func TestMoveReserveStopsAtTheFirstMissingBoxAndSaysWhatItIgnored(t *testing.T) 
 			t.Fatalf("found %v ignored %v", r["boxNames"], r["ignoredBoxes"])
 		}
 		s := summaryOf(r)
-		for _, w := range []string{"found 2: DD-1, DD-2", "Ignored: DD-4", "DD-3 is missing"} {
+		for _, w := range []string{"found 2 usable: DD-1, DD-2", "Ignored: DD-4", "DD-3 is missing"} {
 			if !strings.Contains(s, w) {
 				t.Errorf("the answer lacks %q:\n%s", w, s)
 			}
@@ -187,7 +187,7 @@ func TestDetectReserveBoxesSaysWhatItFoundAndIgnored(t *testing.T) {
 	if fmt.Sprint(m["found"]) != "[DD-1 DD-2 DD-3]" || fmt.Sprint(m["ignored"]) != "[DD-5]" || m["gap"] != "DD-4" || m["max"] != MaxReserveBoxes {
 		t.Fatalf("%v", m)
 	}
-	for _, w := range []string{"Storage boxes: DD-1 ... DD-6", "found 3: DD-1, DD-2, DD-3", "Ignored: DD-5", "DD-4 is missing"} {
+	for _, w := range []string{"Storage boxes: DD-1 ... DD-6", "found 3 usable: DD-1, DD-2, DD-3", "Ignored: DD-5", "DD-4 is missing"} {
 		if !strings.Contains(txt, w) {
 			t.Errorf("the line lacks %q: %s", w, txt)
 		}
@@ -423,7 +423,7 @@ func TestMoveReserveChangesNothingOutsideTheMovedRows(t *testing.T) {
 func TestMoveReserveEmptyReserveStillSaysWhichBoxesWereFound(t *testing.T) {
 	o := boxOps(t, ddBoxes(3, 10, 0))
 	r := movePreview(t, o, nil, MoveReserveOptions{})
-	if r["nothingToDo"] != true || !strings.Contains(summaryOf(r), "found 3: DD-1, DD-2, DD-3") || !strings.Contains(summaryOf(r), "The Reserve is empty") || !strings.Contains(summaryOf(r), `Box "DD-3" (in "My base"): 0 stacks there; 10 slots free.`) {
+	if r["nothingToDo"] != true || !strings.Contains(summaryOf(r), "found 3 usable: DD-1, DD-2, DD-3") || !strings.Contains(summaryOf(r), "The Reserve is empty") || !strings.Contains(summaryOf(r), `Box "DD-3" (in "My base"): 0 stacks there; 10 slots free.`) {
 		t.Fatalf("%v", r)
 	}
 }

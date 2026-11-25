@@ -237,7 +237,8 @@ func TestAMisnamedFirstBoxGivesZeroOfNAndChangesNothing(t *testing.T) {
 	noExportFolder(t, e)
 }
 
-// The minimum is DD-1 alone (#1214): with DD-2 misnamed the run uses DD-1 only, and the dry run says that DD-2 was not found.
+// The minimum is DD-1 alone (#1214): with DD-2 misnamed ("dd-2": names are matched exactly, capitals included) the run still goes on and uses DD-1 only, and nothing stops it. The run says so in
+// plain words (only DD-1 was found; DD-2 .. DD-6 are optional) and lists the Developer storage box with the other name, so that a typo shows.
 func TestAMisnamedSecondBoxLeavesTheRunWithTheFirstBoxOnly(t *testing.T) {
 	e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+"update permission_actor set actor_name='dd-2' where actor_id=3002;")
 	r, err := Roll(o)
@@ -247,7 +248,7 @@ func TestAMisnamedSecondBoxLeavesTheRunWithTheFirstBoxOnly(t *testing.T) {
 	if inInv(t, e.save, 7301) != 6 || inInv(t, e.save, 7302) != 0 || inInv(t, e.save, 12) != 0 {
 		t.Fatalf("DD-1 %d, the misnamed box %d, Reserve %d", inInv(t, e.save, 7301), inInv(t, e.save, 7302), inInv(t, e.save, 12))
 	}
-	mustContain(t, lines(r), "The Reserve moved into the boxes DD-1 ")
+	mustContain(t, lines(r), "The Reserve moved into the boxes DD-1 ", "only DD-1 was found; DD-2 .. DD-6 are optional", `Developer storage boxes with other names: "dd-2"`)
 }
 
 // With only one base left and boxes that cannot take its Reserve, the base is recycled and the roll goes on (nothing is left to hold back); the Reserve stays full, the run says so,

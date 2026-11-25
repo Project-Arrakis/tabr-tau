@@ -79,7 +79,7 @@ func TestTheDryRunNamesTheBoxesItFoundAndTheRollPreflightAcceptsThreeBoxes(t *te
 	if err != nil || r.Wrote || sha(t, e.save) != before {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, lines(r), "found 3: DD-1, DD-2, DD-3", "3 of 3 base(s) can be recycled")
+	mustContain(t, lines(r), "found 3 usable: DD-1, DD-2, DD-3", "3 of 3 base(s) can be recycled")
 	noExportFolder(t, e)
 }
 

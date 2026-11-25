@@ -18,6 +18,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -826,10 +827,18 @@ func (s *Server) routes() {
 	// DD-6 in the game, as many as run in a row from DD-1 (ops.ReserveBoxScan); "boxes" is an explicit comma list of up to six names. move-reserve-boxes says what the scan finds (read only).
 	s.get("/api/bases/move-reserve-boxes", func(r *http.Request) (any, error) { return o.DetectReserveBoxes() })
 	s.get("/api/bases/move-reserve-preview", func(r *http.Request) (any, error) {
-		return o.PreviewMoveReserve(boxNameList(r.URL.Query().Get("boxes")), ops.MoveReserveOptions{})
+		names, err := moveReserveBoxesQuery(r.URL.Query())
+		if err != nil {
+			return nil, err
+		}
+		return o.PreviewMoveReserve(names, ops.MoveReserveOptions{})
 	})
 	s.post("/api/bases/move-reserve", func(a ops.Args) (any, error) {
-		return o.MoveReserve(boxNameList(a.Str("boxes")), a.Str("fingerprint"), ops.MoveReserveOptions{})
+		names, err := moveReserveBoxesBody(a)
+		if err != nil {
+			return nil, err
+		}
+		return o.MoveReserve(names, a.Str("fingerprint"), ops.MoveReserveOptions{})
 	})
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
 	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
@@ -1433,13 +1442,61 @@ func (s *Server) specNums() map[string]int64 {
 	return ops.EffectiveTrackNumbers(settings.Load(s.SettingsPath).TrackNumbers)
 }
 
-// boxNameList reads a comma list of box names (the "boxes" of the move-reserve routes); an empty text gives none, which asks for the boxes DD-1, DD-2 ... to be found.
-func boxNameList(s string) []string {
+// boxNameList reads the "boxes" of the move-reserve routes: absent gives none, which asks for the boxes DD-1, DD-2 ... to be found; a comma list ("DD-1,DD-2") or a list of names gives those
+// names. A "boxes" that is given but names no box (an empty text, ",", a list with nothing in it) is refused, as the command refuses an empty --boxes: an empty list is never taken as "find them".
+// The old box1 and box2 are refused too, because a client that still sends them would otherwise get the boxes DD-1, DD-2 ... without knowing it.
+func boxNameList(vals []any, given bool, legacy bool) ([]string, error) {
+	if legacy {
+		return nil, apierr.New(apierr.ErrBadArgument, "box1 and box2 are no longer used: send \"boxes\" (a list of up to six names such as DD-1, DD-2), or nothing to use the boxes DD-1, DD-2 ... DD-6. Nothing was changed.")
+	}
+	if !given {
+		return nil, nil
+	}
 	var names []string
-	for _, n := range strings.Split(s, ",") {
-		if n = strings.TrimSpace(n); n != "" {
-			names = append(names, n)
+	var add func(v any) error
+	add = func(v any) error {
+		switch x := v.(type) {
+		case string:
+			for _, n := range strings.Split(x, ",") {
+				if n = strings.TrimSpace(n); n != "" {
+					names = append(names, n)
+				}
+			}
+		case []any:
+			for _, e := range x {
+				if err := add(e); err != nil {
+					return err
+				}
+			}
+		default:
+			return apierr.New(apierr.ErrBadArgument, "boxes must be a list of names (or one text with the names separated by commas). Nothing was changed.")
+		}
+		return nil
+	}
+	for _, v := range vals {
+		if err := add(v); err != nil {
+			return nil, err
 		}
 	}
-	return names
+	if len(names) == 0 {
+		return nil, apierr.New(apierr.ErrBadArgument, "boxes was given but names no box. Name the boxes (DD-1, DD-2 ...), or leave boxes out to use the boxes DD-1, DD-2 ... DD-6. Nothing was changed.")
+	}
+	return names, nil
+}
+
+// moveReserveBoxesQuery reads the boxes of a preview (the query) of the move-reserve routes.
+func moveReserveBoxesQuery(q url.Values) ([]string, error) {
+	var vals []any
+	for _, v := range q["boxes"] {
+		vals = append(vals, v)
+	}
+	return boxNameList(vals, q.Has("boxes"), q.Has("box1") || q.Has("box2"))
+}
+
+// moveReserveBoxesBody reads the boxes of the write of the move-reserve routes (a JSON body).
+func moveReserveBoxesBody(a ops.Args) ([]string, error) {
+	v, given := a["boxes"]
+	_, l1 := a["box1"]
+	_, l2 := a["box2"]
+	return boxNameList([]any{v}, given, l1 || l2)
 }
