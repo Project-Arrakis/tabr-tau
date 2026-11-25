@@ -1653,8 +1653,8 @@ async function basesView() {
 }
 
 // ---------- VEHICLES
-// The player's own vehicles as in the console's Vehicles tab: type, lowest condition, fuel and location per vehicle, and under the open
-// one its components with their condition and its cargo hold.
+// The player's own vehicles as in the console's Vehicles tab: type, durability of the weakest part, fuel and location per vehicle, and under
+// the open one its components with their durability and its cargo hold.
 let vhOpen = null; // the one vehicle whose details are open (#1230); none on a fresh page
 const pctCell = (v) => (v == null ? html`<span class="mut">-</span>` : html`<span class="${v < 30 ? 'bad' : v < 60 ? 'warn' : 'ok'}">${Math.round(v)}%</span>`);
 const compName = (t) => String(t || '').replace(/_\d+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
@@ -1890,7 +1890,7 @@ function vehicleRow(r, on) {
   const cell = (label, content) => html`<td data-label="${label}"><span class="vtap" data-vhtap="${r.id}" data-l="${label}">${content}</span></td>`;
   return html`<tr class="vrow ${on ? 'on' : ''}"><td><button type="button" class="vopen" data-vhopen="${r.id}" aria-expanded="${on ? 'true' : 'false'}" aria-controls="vdetail${r.id}"><span class="vchev" aria-hidden="true"></span><span id="vname${r.id}"><b title="${r.name}">${name}</b> <span class="mut">${r.map}</span><span class="sr"> vehicle number ${r.id}</span></span></button>${r.stored ? html`<span class="vsub"><span class="vtap" data-vhtap="${r.id}"><span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">Stored</span> <span class="mut" id="vstored${r.id}">${r.storedLabel}. Take it out of storage in the game first.</span></span></span>` : ''}</td>
     <td class="vtype"><span class="vtap" data-vhtap="${r.id}">${r.type}</span></td>
-    ${cell('Lowest condition', pctCell(r.condition))}
+    ${cell('Durability (weakest part)', pctCell(r.condition))}
     ${cell('Fuel', r.fuel == null ? '-' : r.fuelMax ? html`${Number(r.fuel).toFixed(1)} of ${Number(r.fuelMax).toLocaleString()} <span class="mut">(${Math.round(r.fuelPercent)}%)</span>` : Number(r.fuel).toFixed(1))}
     ${cell('Location', html`${fix(r.x)}, ${fix(r.y)}${r.place ? html` <span class="mut">${r.place}</span>` : r.region ? html` <span class="mut">near ${r.region}</span>` : ''}`)}
     <td class="vactcell"><div class="vacts"><button class="b sm d-btn primary sm" data-act="repairOne" data-id="${r.id}" aria-describedby="${named}">Repair</button><button class="b sm d-btn primary sm" data-act="bring" data-id="${r.id}" aria-describedby="${offBy}" ${off} title="${why}">Bring to me</button><button class="b sec sm d-btn sm" data-act="dupV" data-id="${r.id}" data-name="${name}" aria-label="Duplicate ${name} ${r.id}" aria-describedby="${offBy}" ${off} title="${why}">Duplicate</button></div></td></tr>`;
@@ -1921,8 +1921,8 @@ function vehicleDetail(open, cat) {
   const cargo = open.cargo, hold = `${open.type || open.name} cargo hold`;
   const n = cargo ? cargo.items.length : 0, noHold = !!(cargo && cargo.noHold);
   return html`<div class="vpane"><h4>${open.type || open.name}: ${(open.components || []).length} components</h4>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
-      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
-      ${about('vehicles.components', 'Components', html`<p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The tank size is not stored in the save; the Fuel column takes it from the vehicle's chassis in the game's module table.</p>`)}</div>
+      { k: 'percent', label: 'Durability %', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
+      ${about('vehicles.components', 'Components', html`<p class="mut">Durability % is each module's current durability against its full durability, the value Repair raises it to, so a maximum worn down by workbench repairs shows as wear. A module whose full durability is not known shows only its value. The tank size is not stored in the save; the Fuel column takes it from the vehicle's chassis in the game's module table.</p>`)}</div>
     <div class="vpane"><h4>Cargo hold</h4>${cargo ? html`<p class="vcargo" id="cargoroom">${cargoRoom(cargo)}</p>${n ? tbl([{ k: 'position_index', label: 'Slot' },
       { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Quantity of ${itemName(r.template_id)}">` },
       { k: 'quality_level', label: 'Grade' }], cargo.items, { actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` }) : noHold ? '' : html`<p class="mut">The cargo hold is empty.</p>`}
@@ -1931,7 +1931,7 @@ function vehicleDetail(open, cat) {
 // One list of the character's vehicles, a stored one too (#1230). Each row has its details row under it, filled only for the open one.
 function vehicleList(list, open, cat) {
   if (!list.length) return html`<p class="mut">You have no vehicles in this save yet.</p>`;
-  return html`<div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Lowest condition</th><th>Fuel</th><th>Location</th><th></th></tr></thead><tbody>${
+  return html`<div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Durability <br class="vbreak">(weakest part)</th><th>Fuel</th><th>Location</th><th></th></tr></thead><tbody>${
     list.map((r) => html`${vehicleRow(r, r === open)}<tr class="vdetail" id="vdetail${r.id}" ${r === open ? '' : 'hidden'}><td colspan="6">${r === open ? vehicleDetail(r, cat) : ''}</td></tr>`)}</tbody></table></div>`;
 }
 // Every stored vehicle that is not in the list above, whatever its kind: none is hidden (#1230). Most wait to be recovered; one of another kind says the server's label under its

@@ -9,11 +9,11 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
-// The owned vehicle of vehicleWorld (201, with a Hull_1 module at 100 of 250), plus a second module with no known maximum, its
+// The owned vehicle of vehicleWorld (201, with a Hull_1 module at 100 of 250), plus a module with no known maximum, an engine, its
 // fuel in the vehicle component, and a cargo hold with one stack. A vehicle's per-component holds have no inventory_type.
 const vehicleDetailsWorld = vehicleWorld + `
 insert into vehicle_modules(id,vehicle_id,template_id,stats) values
-  (11,201,'SandbikeChassis_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":2000.0}]}')),
+  (11,201,'Mystery_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":2000.0}]}')),
   (12,201,'SandbikeEngine_1',jsonb('{"FVehicleModuleDurabilityStats":[[],{"CurrentDurability":900.0,"DecayedMaxDurability":1000.0}]}'));
 insert into fgl_entities(entity_id,components) values (-201, jsonb('{"FVehicleComponent":[34,{"CurrentFuel":90.5,"RemainingTimeUntilDespawn":0.0}]}'));
 insert into actor_fgl_entities(actor_id,entity_id,slot_name) values (201,-201,'Actor');
@@ -34,7 +34,7 @@ func TestVehicleDetailsConditionFuelComponentsAndCargo(t *testing.T) {
 	if v["type"] != "Sandbike" {
 		t.Errorf("type: %v", v["type"])
 	}
-	// the lowest condition is the Hull at 100 of 250 = 40 %; the chassis has no known maximum and is not guessed
+	// the weakest part is the Hull at 100 of 250 = 40 %; the module with no known maximum is not guessed
 	if c, ok := v["condition"].(float64); !ok || c != 40 {
 		t.Errorf("condition: %v", v["condition"])
 	}
@@ -49,8 +49,8 @@ func TestVehicleDetailsConditionFuelComponentsAndCargo(t *testing.T) {
 	if e := by["SandbikeEngine_1"]; e["current"].(float64) != 900 || e["max"].(float64) != 1000 || e["percent"].(float64) != 90 {
 		t.Errorf("engine: %v", e)
 	}
-	if ch := by["SandbikeChassis_1"]; ch["current"].(float64) != 2000 || ch["max"] != nil || ch["percent"] != nil {
-		t.Errorf("a module with no known maximum shows its value and no percent: %v", ch)
+	if m := by["Mystery_1"]; m["current"].(float64) != 2000 || m["max"] != nil || m["percent"] != nil {
+		t.Errorf("a module with no known maximum shows its value and no percent: %v", m)
 	}
 	cargo := v["cargo"].(map[string]any)
 	items := cargo["items"].([]map[string]any)
