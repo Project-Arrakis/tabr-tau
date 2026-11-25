@@ -20,6 +20,11 @@ import (
 
 // settleIntents settles the unconfirmed entries of earlier runs. stopMsg is not empty when the run must stop now. Nothing is written in a dry run.
 func settleIntents(o Options, r *Result, st *state, now time.Time) (stopMsg string) {
+	if !o.DryRun && !o.lockHeld {
+		// never reached by Roll (a run with no lock is refused before this); settling writes the state file, so it is not done without the lock
+		r.say("Notes of earlier runs are not settled by a run that does not hold the lock of the save.")
+		return ""
+	}
 	changed := false
 	// a dry run settles nothing: it says what a real run would do
 	dropped, recorded := "the note is dropped", "It is recorded as written"
@@ -31,7 +36,7 @@ func settleIntents(o Options, r *Result, st *state, now time.Time) (stopMsg stri
 			continue
 		}
 		who := fmt.Sprintf("the run of %s (checkpoint %s)", e.At.Local().Format("2006-01-02 15:04"), e.Checkpoint)
-		back := fmt.Sprintf("The checkpoint %s holds the save as it was before that run (Database > Save backups, or Copy-Item -Force \"%s\" \"%s\" with the game closed). If you have looked at the save and want this note gone, remove the entry marked \"unconfirmed\" from recycleHistory in %s", e.Checkpoint, e.CheckpointPath, e.SaveFile, o.StatePath)
+		back := fmt.Sprintf("The checkpoint %s holds the save as it was before that run (Database > Save backups, or Copy-Item -Force \"%s\" \"%s\" with the game closed). If you have looked at the save and want this note gone, remove the entry marked \"unconfirmed\" from recycleHistory in %s (the run stops on this note every time until you do; --force does not bypass it)", e.Checkpoint, e.CheckpointPath, e.SaveFile, o.StatePath)
 		if e.ReadBackFailed {
 			return fmt.Sprintf("%s wrote the save and opened it again to check it, and the read-back FAILED: the file did not read back as the recycle that was planned. The save file cannot be accepted as written, so the note is not settled by looking at the same file again and this run changes nothing. Look at the save. %s", who, back)
 		}
@@ -70,7 +75,7 @@ func settleIntents(o Options, r *Result, st *state, now time.Time) (stopMsg stri
 		changed = true
 	}
 	// the note of an earlier vehicle step (#1201) is settled the same way, after the notes of the bases
-	msg, vchanged := settleVehicleNote(o, r, st)
+	msg, vchanged := settleVehicleNote(o, r, st, now)
 	if msg != "" {
 		return msg
 	}
@@ -91,7 +96,7 @@ const vehicleStoredState = 2
 // written, loudly; the file is different and no planned vehicle has left, so the write did not take effect (the file changed for another reason) and the note is dropped, loudly; anything
 // else (some taken out and some not, a vehicle that is neither where it was nor where the plan put it, a file that cannot be read, a note marked readBackFailed) stops the run, which
 // changes nothing. changed says that the state was altered and must be saved (not in a dry run).
-func settleVehicleNote(o Options, r *Result, st *state) (stopMsg string, changed bool) {
+func settleVehicleNote(o Options, r *Result, st *state, now time.Time) (stopMsg string, changed bool) {
 	n := st.VehicleNote
 	if n == nil {
 		return "", false
@@ -101,7 +106,7 @@ func settleVehicleNote(o Options, r *Result, st *state) (stopMsg string, changed
 		dropped, recorded = "the note would be dropped (a dry run changes nothing)", "It would be recorded as written (a dry run changes nothing)"
 	}
 	who := fmt.Sprintf("the run of %s (checkpoint %s), which was about to take your vehicles out of the Deep Desert,", n.At.Local().Format("2006-01-02 15:04"), n.Checkpoint)
-	back := fmt.Sprintf("The checkpoint %s holds the save as it was before that run (Database > Save backups, or Copy-Item -Force \"%s\" \"%s\" with the game closed). If you have looked at the save and want this note gone, remove \"vehicleNote\" from %s", n.Checkpoint, n.CheckpointPath, n.SaveFile, o.StatePath)
+	back := fmt.Sprintf("The checkpoint %s holds the save as it was before that run (Database > Save backups, or Copy-Item -Force \"%s\" \"%s\" with the game closed). If you have looked at the save and want this note gone, remove the whole \"vehicleNote\" key from %s (the run stops on this note every time until you do; --force does not bypass it)", n.Checkpoint, n.CheckpointPath, n.SaveFile, o.StatePath)
 	if n.ReadBackFailed {
 		return fmt.Sprintf("%s wrote the save and opened it again to check it, and the read-back FAILED: the file did not read back as the vehicles taken out. The save file cannot be accepted as written, so the note is not settled by looking at the same file again and this run changes nothing. Look at the save. %s", who, back), false
 	}
@@ -128,6 +133,7 @@ func settleVehicleNote(o Options, r *Result, st *state) (stopMsg string, changed
 			st.VehicleNote = nil
 		case taken == len(n.Vehicles):
 			r.say("WARNING: %s noted that it was about to write the save and did not record how that went. The save file is different from before that run, and every one of the %d planned vehicle(s) is out of the Deep Desert as planned: the write took effect and was never read back. %s. The way back is the checkpoint %s.", who, len(n.Vehicles), recorded, n.Checkpoint)
+			st.recordSettledVehicleNote(*n, now)
 			st.VehicleNote = nil
 		default:
 			return fmt.Sprintf("%s noted that it was about to write the save and did not record how that went, and the save file now holds a part of it: %d of the %d planned vehicle(s) are out and %d still stand where they were. Nothing is changed by this run. Look at the save. %s", who, taken, len(n.Vehicles), standing, back), false

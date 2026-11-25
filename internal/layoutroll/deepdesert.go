@@ -210,6 +210,11 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 			r.say("Dry run: it would stop here: %v.", e)
 			return true, nil
 		}
+		if !o.lockHeld {
+			// a real run that holds no lock (it has no save, so there is nothing to lock) reads layout-roll.json and never writes it (#1201): the refusal goes to the log beside it
+			noteRefusal(o, now, "layout roll refused: "+e.Error())
+			return true, e
+		}
 		if rec.written {
 			outcome += " (bases were recycled and written earlier in this run)"
 		}
@@ -237,12 +242,7 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 		}
 		return true, e
 	}
-	// an earlier run that noted it was about to write the save and did not record how that went is settled first, before anything else; one that cannot be settled stops this run
-	if msg := settleIntents(o, r, st, now); msg != "" {
-		rec.Blockers = []string{msg}
-		r.say("Stopped: %s.", msg)
-		return stop("stopped: an earlier run's write was not confirmed", errors.New("stopped: "+msg))
-	}
+	// A run with no save to check is refused BEFORE any note is settled (#1201): it has nothing to lock, so it must not settle (that writes the state file) nor write it at all.
 	if o.SavePath == "" {
 		why := o.SaveProblem
 		if why == "" {
@@ -250,7 +250,17 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 		}
 		rec.Blockers = []string{why}
 		r.say("Not changed: %s. The roll looks at the save first (a base, the character or a vehicle in the Deep Desert would be left inside new terrain), so it needs the save; pass --save with the save file or its folder.", why)
+		if !o.DryRun {
+			r.say("Notes of earlier runs are not settled and the state file is not written by a run that holds no lock on a save; the refusal is added to %s beside it.", LogName)
+		}
 		return stop("not changed: the save to check is not known", fmt.Errorf("not changed: %s", why))
+	}
+	// an earlier run that noted it was about to write the save and did not record how that went is settled first, before anything else; one that cannot be settled stops this run. A real
+	// run settles only while it holds the lock (always, here: a run with no save was refused above); a dry run only says what it would do.
+	if msg := settleIntents(o, r, st, now); msg != "" {
+		rec.Blockers = []string{msg}
+		r.say("Stopped: %s.", msg)
+		return stop("stopped: an earlier run's write was not confirmed", errors.New("stopped: "+msg))
 	}
 	s, err := openSave(o.SavePath)
 	if err != nil {

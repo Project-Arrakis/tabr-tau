@@ -347,6 +347,14 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	// write). A Reserve with a slot limit that the leftover fills no longer gives 0 of N when moving the leftover makes room.
 	if firstWhy == "" && firstRoom != nil {
 		d, err := firstAfterLeftoverMove(s, bases)
+		// The question threw the working copy away, and that read the file again: the file must still be the one the checkpoint of this run holds, or the run is on another save than the one
+		// it was told about (a dry run takes no checkpoint and asks nothing of the file).
+		if !o.DryRun && rec.CheckpointSHA256 != "" {
+			cur, ferr := fileSHA(s.Path)
+			if ferr != nil || cur != rec.CheckpointSHA256 {
+				return halt("not changed: the save file changed during the run", "the save file is not the one the checkpoint %s was taken of (it was read again after the first base was asked about: %v); 0 of %d base(s) can be recycled now, and nothing was recycled or exported. Close whatever writes to the save and run this again", rec.Checkpoint, fileChangedWhy(cur, ferr), len(bases))
+			}
+		}
 		switch {
 		case err == nil:
 			first = d
@@ -598,6 +606,13 @@ func firstAfterLeftoverMove(s *save.Save, bases []ops.HoldBase) (recycledRecord,
 		return d, fmt.Errorf("the working copy could not be reset after the question (%v)", derr)
 	}
 	return d, err
+}
+
+func fileChangedWhy(cur string, err error) string {
+	if err != nil {
+		return "it cannot be read now (" + err.Error() + ")"
+	}
+	return "its SHA-256 is now " + cur
 }
 
 func reserveWhy(i int, used int64) string {
