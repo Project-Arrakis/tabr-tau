@@ -79,11 +79,19 @@ give reads it): each stack counts its unit volume times its size, the unit volum
 they cost their slot and no volume, and the answer says how many units had no known volume (the same goes for such units already in a box). A stack with a volume of its own below 0 is
 refused. What is already in the box counts. If it does not fit, **nothing is changed**, and the message says what was needed, what each box has free (slots and volume), and the shortfall.
 The fit is worked out stack by stack in the order above, so a Reserve that would fit only with a different order is refused too: make room in the boxes or name boxes with more.
+A box whose free volume is exactly the volume of the stack (to the digit) takes it: the volume sums are floating-point numbers, so the move allows a slack of 1 part in 100 billion of
+the box's volume limit (far below the smallest volume in the game's item table, 0.001), and a stack that is short by one such smallest unit is still refused. The slack is in the move only; Give item is unchanged.
+Two more differences from Give item are on purpose and are safe (they refuse, they never overfill):
+
+- **A stack of the same item that is not full.** A give tops up a stack of the same item and grade that is in the box and not full, and needs no slot for those units. The move never tops
+  up, merges or splits a row: each stack of the Reserve goes into a slot of its own, so a box with no free slot is refused by the move even when it holds a stack of the same item that a give would have topped up.
+- **A box that already holds more than its volume limit.** Give item calls such a box full for every item that has a volume (it gives nothing) and still gives an item with no volume while a slot is free. The move does the same: the box takes no stack that has a volume,
+  a stack with no known volume still goes in, and when no box can take a stack with a volume the Reserve is refused as no room. The move does not call such a box wrong and does not change what is in it.
 One difference from a give is kept on purpose: a give treats a box whose slot count is -1, 0 or empty as having no limit, but the move refuses such a box (see the list above), because a
 Developer storage container holds 1,000 slots in every save seen, so a box without a count is something this version does not know, and a move cannot be undone in the game.
 
 **All or nothing.** One edit. Inside it the editor reads back what it wrote: the Reserve is empty, every stack is in the box and slot that was planned, no other column of any moved
-row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count. Any difference fails the whole edit and nothing changes. The save layer
+row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count, and no box that received a stack with a volume is over its volume limit (the volume of what each such box holds is added up again from its rows with the same count as Give item, units with no known volume as none). Any difference fails the whole edit and nothing changes. The save layer
 then runs its reference check and its check of stored JSON, as for a recycle. The write must be sent the **fingerprint** the question showed (the Reserve, the boxes and the plan), and
 is refused when anything changed in between. A backup of the save is taken first, as for every write. A real run from the command line takes **one more** backup first: a verified
 copy named `-manual`, which the editor never prunes (the write path then takes its own automatic backup as well, so a real run leaves two copies). While a game process exists the edit is only queued, put back onto the save the
