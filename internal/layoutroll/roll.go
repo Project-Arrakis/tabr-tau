@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is only read, apart from the vehicle step and, with RecycleBases, the recycle of the Deep Desert bases (deepdesert.go, recycle.go).
+	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is only read, apart from the vehicle step, the removal of the Deep Desert markers (markers.go) and, with RecycleBases, the recycle of the Deep Desert bases (deepdesert.go, recycle.go).
 	FileName = "Game.ini"
 	// KeepBackups is how many timestamped copies of Game.ini are kept beside it.
 	KeepBackups = 10
@@ -44,6 +44,8 @@ type Options struct {
 	Editor      string
 	// RecycleBases switches on the step that recycles the player's Deep Desert bases before the roll (#1167, recycle.go). Off, a standing base refuses the roll, as it always did.
 	RecycleBases bool
+	// KeepMarkers leaves the Deep Desert's markers in the save (#1216). Off, a real run removes them (markers.go) after the bases and vehicles and before Game.ini is changed.
+	KeepMarkers bool
 	// lockHeld is set by Roll on its own copy of the options once it holds the save's lock (#1201). Nothing reads or writes layout-roll.json's notes without it in a real run.
 	lockHeld bool
 	Now      func() time.Time
@@ -180,6 +182,13 @@ func Roll(o Options) (Result, error) {
 		return err
 	}
 
+	// the Deep Desert markers (#1216): counted in a dry run, removed in a real one right before Game.ini is written (below), so a run that stops earlier has not touched them
+	if o.DryRun {
+		if err := clearDeepDesertMarkers(o, &r, &st, now); err != nil {
+			return r, err
+		}
+	}
+
 	if o.DryRun {
 		pick := ""
 		if o.Set == nil {
@@ -211,6 +220,10 @@ func Roll(o Options) (Result, error) {
 	if err != nil || again != old {
 		return r, late(errors.New("not changed: Game.ini changed while this ran; run it again"))
 	}
+	// every write to the save is done before Game.ini is changed: the Deep Desert markers go now, in an edit of their own that is read back
+	if err := clearDeepDesertMarkers(o, &r, &st, now); err != nil {
+		return r, err
+	}
 	if mode == 0 {
 		mode = 0o644
 	}
@@ -238,6 +251,14 @@ func Roll(o Options) (Result, error) {
 				what = "the vehicles taken out of the Deep Desert"
 				if c.written {
 					what = "the recycled bases and the vehicles taken out of the Deep Desert"
+				}
+			}
+			if c.markersWritten {
+				switch {
+				case c.written || c.vehiclesWritten:
+					what += " and the removed Deep Desert markers"
+				default:
+					what = "the removed Deep Desert markers"
 				}
 			}
 			r.say("WARNING: the record of this roll and of %s could not be saved (%v); the roll itself is done. %s", what, err, c.writtenNote())
@@ -619,6 +640,9 @@ func saveRoll(path string, s state, now time.Time, from, to int) error {
 	// a warning of the recycle step that the person must still see the next day (the Reserve that could not be emptied after the last base) is part of the outcome
 	if c := s.LastCheck; c != nil && c.ReserveNote != "" {
 		outcome += "; WARNING: " + c.ReserveNote
+	}
+	if c := s.LastCheck; c != nil && c.Markers != "" {
+		outcome += "; removed the Deep Desert markers: " + c.Markers
 	}
 	s.LastRun = &runRecord{At: now, Outcome: outcome}
 	return writeStateFile(path, s)

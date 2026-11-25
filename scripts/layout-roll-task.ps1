@@ -18,6 +18,8 @@
   Recycle your Deep Desert bases before the roll (OFF unless you give it; read "Recycling the Deep Desert bases" in docs/help/deep-desert-layout-roll.md first, and run
              "tabr-tau layout-roll --dry-run --recycle-bases" by hand first):
              .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe" -RecycleBases
+  Keep your Deep Desert markers (a real run removes them from the save otherwise, so the map shows no places of earlier layouts; see "The Deep Desert markers" in docs/help/deep-desert-layout-roll.md):
+             .\layout-roll-task.ps1 -ExePath "C:\path\to\tabr-tau.exe" -KeepMarkers
   Remove:    .\layout-roll-task.ps1 -Remove
 
   The task belongs to the current user only, runs only while that user is logged on, has no password stored and asks for no elevation. tabr-tau.exe is a windowless program, so
@@ -44,6 +46,11 @@
   boxes are full) stops before the roll and says so in %APPDATA%\tabr-tau\layout-roll.json, and the next run continues. The task is given 30 minutes instead of 5. Without -RecycleBases
   the task is exactly what it was.
 
+.PARAMETER KeepMarkers
+  Optional, off by default. Adds --keep-markers to the task action (after the word layout-roll): the weekly run then leaves the Deep Desert markers in the save. Without it the run removes
+  the Deep Desert's markers, what your character discovered of them and its resource fields from the save before it changes Game.ini (single-player never clears them by itself, so the
+  game's map would still show places of earlier layouts); the game adds markers again as you discover places. Nothing else is touched; the checkpoint of the save holds them if you want them back.
+
 .PARAMETER Remove
   Remove the task instead of registering it.
 #>
@@ -52,6 +59,7 @@ param(
     [string]$ExePath,
     [string]$SavePath,
     [switch]$RecycleBases,
+    [switch]$KeepMarkers,
     [switch]$Remove
 )
 
@@ -77,6 +85,7 @@ if (-not (Test-Path -LiteralPath $ExePath -PathType Leaf)) { throw "There is no 
 
 $layoutRollWords = 'layout-roll'
 if ($RecycleBases) { $layoutRollWords = 'layout-roll --recycle-bases' }
+if ($KeepMarkers) { $layoutRollWords = $layoutRollWords + ' --keep-markers' }
 $taskArgument = $layoutRollWords
 if ($SavePath) {
     # The save must exist; the task runs from another folder, so the path is made a full one now.

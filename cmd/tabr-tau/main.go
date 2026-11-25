@@ -38,10 +38,10 @@ Usage:
   tabr-tau encode <in.sqlite> <out.db>  pack a SQLite file into the game's save format
   tabr-tau find                         list saves found on this machine
   tabr-tau licenses                     print the third-party licence notices
-  tabr-tau layout-roll [--dry-run] [--set N] [--force] [--recycle-bases]
+  tabr-tau layout-roll [--dry-run] [--set N] [--force] [--recycle-bases] [--keep-markers]
                                         change the single-player Deep Desert layout in the game's Game.ini (0 to 11; random unless --set; once per Tuesday-05:00 week
                                         unless --force; backs the file up first, refuses while the game runs; takes a checkpoint of the save and refuses while a base or the character of yours is in the Deep Desert
-                                        (exporting those bases first); stores or moves your vehicles out of the Deep Desert (writes the save); the game must be restarted; --config names the config folder, --save the save;
+                                        (exporting those bases first); stores or moves your vehicles out of the Deep Desert (writes the save); removes the Deep Desert markers from the save (the game adds them again as you discover places; --keep-markers leaves them); the game must be restarted; --config names the config folder, --save the save;
                                         --recycle-bases recycles your Deep Desert bases first, one at a time with a Solido each, instead of refusing while one stands: see docs/help/deep-desert-layout-roll.md)
   tabr-tau diff <before> <after> [--tables a,b] [--ignore-tables a,b] [--ignore-columns t.c,c] [--noise] [--float-eps E] [--max-rows N] [--no-redact]
                                         row- and JSON-path-level diff of two saves (read-only; ids redacted by default)
