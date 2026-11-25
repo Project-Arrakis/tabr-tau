@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -225,22 +226,29 @@ func templateLine(template string, idx int) (string, error) {
 	return t[:loc[4]] + strconv.Itoa(idx) + t[loc[5]:], nil
 }
 
-// Pick chooses the layout of a roll: a number from 0 to 11 that is never current. intn is the random source (intn(n) is in [0, n)); a test passes its own.
-func Pick(current int, intn func(n int) int) int {
+// Pick chooses the layout of a roll: one of the vetted layouts (#1219), never the current one and never one outside 0 to 11. intn is the random source (intn(n) is in [0, n)); a test passes
+// its own. It is an error when the vetted list has no layout left to pick.
+func Pick(current int, vetted []int, intn func(n int) int) (int, error) {
 	var cand []int
-	for i := MinIndex; i <= MaxIndex; i++ {
-		if i != current {
+	seen := map[int]bool{}
+	for _, i := range vetted {
+		if i >= MinIndex && i <= MaxIndex && i != current && !seen[i] {
+			seen[i] = true
 			cand = append(cand, i)
 		}
+	}
+	sort.Ints(cand)
+	if len(cand) == 0 {
+		return 0, fmt.Errorf("no vetted layout is left to pick (the layout set now, %d, is never picked)", current)
 	}
 	p := intn(len(cand))
 	if p < 0 || p >= len(cand) { // a broken source never gives a number outside the list
 		p = 0
 	}
-	return cand[p]
+	return cand[p], nil
 }
 
-// randomIntn is the random source of a real roll. A source that fails gives -1, which Pick turns into the first candidate: a legal layout, never a write outside 0 to 11.
+// randomIntn is the random source of a real roll. A source that fails gives -1, which Pick turns into the first candidate: a vetted layout, never a write outside 0 to 11.
 func randomIntn(n int) int {
 	v, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
 	if err != nil {

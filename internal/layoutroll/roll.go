@@ -48,6 +48,8 @@ type Options struct {
 	lockHeld bool
 	Now      func() time.Time
 	Intn     func(n int) int
+	// VettedFlag is the list given with --vetted (#1219): when set (even empty, which is refused) it is used instead of layout-roll-vetted.txt for this run. A random roll picks only from the vetted list.
+	VettedFlag *string
 	// GameRunning says whether the game may be running and, if so, why (the process found, or that the check could not be made: a check that cannot run counts as running).
 	GameRunning func() (bool, string)
 }
@@ -124,6 +126,25 @@ func Roll(o Options) (Result, error) {
 		r.say("Dry run: the lock on the save, which a real run holds from before it reads this record until it has ended (a second layout roll is refused while it is held), is not taken: a dry run writes nothing.")
 	}
 
+	// the vetted list (#1219): a random roll picks only from it. A list that cannot be used refuses the run here and writes nothing but the note of the refusal. --set is the person's own choice.
+	var vet vettedChoice
+	if o.Set == nil {
+		var verr error
+		if vet, verr = chooseVetted(o, old, cur); verr != nil {
+			if !o.DryRun {
+				if o.lockHeld {
+					saveRun(o.StatePath, st, now, "not changed: "+verr.Error())
+				} else {
+					noteRefusal(o, now, "layout roll refused: "+verr.Error())
+				}
+			}
+			return r, fmt.Errorf("not changed: %v", verr)
+		}
+		for _, l := range vet.lines(cur) {
+			r.say("%s", l)
+		}
+	}
+
 	// guard 1: once per Tuesday-05:00 week (not for a chosen layout, and not with --force)
 	ws := WeekStart(now)
 	if o.Set == nil && !o.Force && st.LastRoll != nil && !st.LastRoll.At.Before(ws) {
@@ -140,7 +161,9 @@ func Roll(o Options) (Result, error) {
 			return r, nil
 		}
 	} else {
-		next = Pick(cur, o.Intn)
+		if next, err = Pick(cur, vet.list, o.Intn); err != nil {
+			return r, fmt.Errorf("not changed: %v", err)
+		}
 	}
 	text, err := SetIndex(old, next)
 	if err != nil {
@@ -230,7 +253,11 @@ func Roll(o Options) (Result, error) {
 	r.Wrote = true
 	r.say("Changed Game.ini from layout %d to layout %d (%s) and read it back to check it.", cur, next, describe(present, existed))
 	r.say("Restart the game for it to apply. A base stands on different terrain on each layout.")
-	if err := saveRoll(o.StatePath, st, now, cur, next); err != nil {
+	pickNote := ""
+	if o.Set == nil {
+		pickNote = vet.note()
+	}
+	if err := saveRoll(o.StatePath, st, now, cur, next, pickNote); err != nil {
 		if c := st.LastCheck; c != nil && c.savedChanged() {
 			// bases were recycled or vehicles taken out and written in this run: the state file is where the way back is kept, so a failure to write it is said loudly
 			what := "the recycled bases"
@@ -613,9 +640,12 @@ func writeState(path string, s state) error {
 	return durable.WriteFile(path, append(b, '\n'), 0o600, o)
 }
 
-func saveRoll(path string, s state, now time.Time, from, to int) error {
+func saveRoll(path string, s state, now time.Time, from, to int, pickNote string) error {
 	s.LastRoll = &rollRecord{At: now, From: from, To: to}
 	outcome := fmt.Sprintf("rolled layout %d -> %d", from, to)
+	if pickNote != "" {
+		outcome += " (" + pickNote + ")"
+	}
 	// a warning of the recycle step that the person must still see the next day (the Reserve that could not be emptied after the last base) is part of the outcome
 	if c := s.LastCheck; c != nil && c.ReserveNote != "" {
 		outcome += "; WARNING: " + c.ReserveNote
