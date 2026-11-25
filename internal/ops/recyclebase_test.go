@@ -267,6 +267,23 @@ update markers set map_name='DeepDesert' where marker_hash_id=111; update player
 	}
 }
 
+// The question put before the write (the preview) gives the same refund in the Deep Desert as outside it, and it is what the write then gives (#1211).
+func TestThePreviewOfADeepDesertBaseShowsTheFullRefund(t *testing.T) {
+	refundOfPreview := func(o *Ops) string {
+		pv, err := o.PreviewBaseRecycle(601)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return refundOf(pv.(map[string]any))
+	}
+	outside := refundOfPreview(recycleOps(t, ``))
+	o := recycleOps(t, `update actors set map='DeepDesert' where id in (601,602,701,702,703,704,705,706);
+update markers set map_name='DeepDesert' where marker_hash_id=111; update player_markers set map_name='DeepDesert' where marker_hash_id=111;`)
+	if got := refundOfPreview(o); got != outside || got != refundOf(recycle(t, o, 601)) {
+		t.Fatalf("Deep Desert preview refund %s, outside %s", got, outside)
+	}
+}
+
 func TestTheRefundIsWrittenAsStacksOfTheItemsOwnSize(t *testing.T) {
 	// 120 more foundations: Stone 15 x 121 + 20 + 7 + 10 = 1,852, which is three stacks of 500 and one of 352
 	var b strings.Builder

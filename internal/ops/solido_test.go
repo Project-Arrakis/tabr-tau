@@ -420,6 +420,10 @@ update markers set map_name='DeepDesert' where marker_hash_id=111; update player
 	if s := r["solido"].(map[string]any); s["pieces"] != int64(3) || s["placeables"] != int64(6) || r["costPercent"] != int64(100) {
 		t.Fatalf("%v", r)
 	}
+	// the refund of the same base with a Solido outside the Deep Desert is the same (#1211)
+	if outside := recycleWithSolido(t, recycleOps(t, solidoWorld(blankDevice))); refundOf(r) != refundOf(outside) {
+		t.Fatalf("Deep Desert refund %s, outside %s", refundOf(r), refundOf(outside))
+	}
 }
 
 // The doors the Solido leaves out include the gate that is a door's sibling (Gate_M_SquishUp_Placeable beside Door_S_SquishUp_Placeable), with or without an owner's prefix;
