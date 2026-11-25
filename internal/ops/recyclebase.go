@@ -410,6 +410,15 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 		return nil, apierr.Newf(apierr.ErrConflict, "The character has %d Reserve inventories in this save, not one, so there is nowhere certain to put what the base returns. Nothing was changed.", len(res))
 	}
 	p.Reserve, _ = toInt(res[0]["id"])
+	// The game allows one Reserve, so no base is recycled while it holds any stack (#1202). This runs in the plan, so the question (rolled back edit) and the write (which plans again
+	// inside its own transaction, on the save as it is then) both refuse, and a Reserve change the game saved between the two is caught by the write.
+	held, err := q.One(`select count(*) n from items where inventory_id=?`, p.Reserve)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := toInt(held["n"]); n > 0 && opt.RequireEmptyReserve {
+		return nil, ReserveNotEmptyRefusal(n)
+	}
 
 	// What is stored: every item row of every inventory of the base's actors.
 	invs, err := q.Query(`select id from inventories where actor_id in (` + all + `)`)
@@ -530,12 +539,15 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 // refuses, a base whose read back differs and a base whose edit would leave a dangling reference or a JSON cell the game may not read are all refused here, and nothing in the
 // save changes. What a preview cannot see is anything that changes in the save between the question and the answer; that is what the fingerprint is for.
 func (o *Ops) PreviewBaseRecycle(totem int64) (any, error) {
-	return o.recycleBase(totem, "", true, RecycleOptions{})
+	return o.recycleBase(totem, "", true, RecycleOptions{RequireEmptyReserve: true})
 }
 
 // RecycleOptions are the choices of a recycle. Solido makes the game's own Solido of the base first (#1187), in the same edit.
 type RecycleOptions struct {
 	Solido bool
+	// RequireEmptyReserve makes the question and the write refuse while the Reserve holds any stack (#1202: the game allows one Reserve). The manual Recycle base sets it. The layout roll does not: it has its own rule
+	// (it moves the Reserve into the boxes before and between its bases, #1191) and asks about its bases before that move, so it keeps its own check for now.
+	RequireEmptyReserve bool
 }
 
 // PreviewBaseRecycleWith is PreviewBaseRecycle with options.
@@ -546,7 +558,7 @@ func (o *Ops) PreviewBaseRecycleWith(totem int64, opt RecycleOptions) (any, erro
 // RecycleBase recycles the standing base with this totem: the base is deleted, what it stored and what it cost go to the character's Reserve. fingerprint is the one the
 // preview gave.
 func (o *Ops) RecycleBase(totem int64, fingerprint string) (any, error) {
-	return o.RecycleBaseWith(totem, fingerprint, RecycleOptions{})
+	return o.RecycleBaseWith(totem, fingerprint, RecycleOptions{RequireEmptyReserve: true})
 }
 
 // RecycleBaseWith is RecycleBase with options; a fingerprint that was made with an option is only good with the same option.

@@ -30,7 +30,7 @@ test('every standing base has Recycle base next to the other actions, a base the
   assert.equal(buttons[0].textContent.trim(), 'Recycle base');
   assert.deepEqual([buttons[0].dataset.id, buttons[0].dataset.name], ['7', 'Home']);
   const tipBox = main.querySelector('#' + buttons[0].getAttribute('aria-describedby'));
-  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('Reserve') && tipBox.textContent.includes('cannot be undone') && tipBox.textContent.includes('No base backup is made'));
+  assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('Reserve') && tipBox.textContent.includes('cannot be undone') && tipBox.textContent.includes('No base backup is made') && tipBox.textContent.includes('Your Reserve must be empty first') && tipBox.textContent.includes('Move the Reserve into storage'));
   const cell = buttons[0].closest('td');
   assert.deepEqual([...cell.querySelectorAll('button')].map((b) => b.textContent.trim()).slice(-3), ['Export for console', 'Back up and remove', 'Recycle base']);
   assert.equal(main.querySelectorAll('[data-act="baseRemove"]').length, 1);
@@ -202,4 +202,16 @@ test('a new device is named as a new device in the backpack, and a Solido refuse
   assert.ok(!ui2.doc.querySelector('#ask').textContent.includes('Recycle "Home"'), 'no question');
   assert.equal(ui2.posted.length, 0);
   ui2.dom.window.close();
+});
+
+test('a Reserve that is not empty refuses the question with the message of the editor and nothing is posted (#1202)', async () => {
+  const msg = 'The Reserve is not empty (it holds 2 stack(s)) and no recycle can happen until it is empty. Use Move the Reserve into storage (Player > Bases) to empty it into your two storage boxes, then ask again. Nothing was changed.';
+  const ui = await boot({ get: { '/api/bases/list': [HOME], '/api/bases/backups': [], '/api/bases/recycle-preview': { __fail: msg, __code: 'conflict', __status: 409 } } });
+  await openBases(ui);
+  ui.click('[data-act="baseRecycle"]'); await ui.settle();
+  const t = ui.doc.querySelector('#toast').textContent;
+  assert.ok(t.includes('The Reserve is not empty (it holds 2 stack(s))') && t.includes('Move the Reserve into storage'), t);
+  assert.ok(!ui.doc.querySelector('#ask').textContent.includes('Recycle "Home"'), 'no question');
+  assert.equal(ui.posted.length, 0);
+  ui.dom.window.close();
 });
