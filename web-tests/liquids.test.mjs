@@ -68,3 +68,9 @@ test('Fill all liquids: nothing to fill says so, a refusal shows the editor\'s w
   assert.ok(err && err.textContent.includes('Edits are held until the queue is looked at.'));
   ui.dom.window.close();
 });
+
+test('the Fill all liquids tooltip says the blood fill is not checked in the game (#1238)', async () => {
+  const ui = await boot_({ '/api/player/liquids': STATUS }, {});
+  await openInventory(ui);
+  assert.ok(ui.doc.getElementById('liqtip').textContent.includes('The blood fill has not been checked in the game yet.'));
+});

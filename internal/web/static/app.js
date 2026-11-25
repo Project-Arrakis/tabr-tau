@@ -937,7 +937,7 @@ function liquidsRow(l) {
   const n = (k, f) => (l && l[k] ? Number(l[k][f]) || 0 : 0);
   const waterN = n('water', 'notFull'), bloodN = n('bloodSacks', 'notFull'), vehN = n('vehicles', 'notFull');
   const count = !l ? 'The containers could not be counted.' : `Not full: ${nn(waterN, 'water container', 'water containers')}, ${nn(bloodN, 'blood sack', 'blood sacks')}, ${nn(vehN, 'vehicle', 'vehicles')}.`;
-  return html`<div class="row">${tip('liqtip', 'Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted.', html`<button class="b d-btn primary" data-act="fillLiquids" aria-describedby="liqnote liqtip">Fill all liquids</button>`)}<label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count}</span></div>`;
+  return html`<div class="row">${tip('liqtip', 'Fills your Literjons, stillsuits and other water containers, your blood sacks and (with the box ticked) the fuel of your own vehicles, as one edit with one backup, by the same rules as the three buttons (Refill Literjons, Fill blood sacks, Refuel all my vehicles). Kinds whose size is not known are left alone and counted. The blood fill has not been checked in the game yet.', html`<button class="b d-btn primary" data-act="fillLiquids" aria-describedby="liqnote liqtip">Fill all liquids</button>`)}<label><input type="checkbox" id="liqVeh" ${liqVeh ? 'checked' : ''}> Also refuel my vehicles</label><span class="mut" id="liqnote">${count}</span></div>`;
 }
 async function fillCard() {
   const get = async (path) => { try { return await api(path); } catch (e) { return null; } };
@@ -1414,6 +1414,8 @@ function lcCellClick(k) {
   if (existing.has(k)) { if (LC.rm.has(k)) LC.rm.delete(k); else LC.rm.add(k); return; }
   lcToggle(k);
 }
+// said where a claim can be made bigger or higher: the Resize by square card, its question and the question of Apply changes
+const STAKING_WARN = "Bypasses the game's staking checks. Building there is not guaranteed.";
 function claimEditorDraw(focusKey) {
   const host = $('#lced');
   if (!host || !LC) return;
@@ -1466,7 +1468,7 @@ function claimEditorDraw(focusKey) {
       <div class="kv"><b>Marked for removal</b><span>${LC.rm.size}</span></div>
       ${cutOff.length ? html`<p class="bad">Removing those would cut ${cutOff.length} cell${cutOff.length === 1 ? '' : 's'} that stay off from the totem; the game needs the claim connected edge to edge. Mark them too, or unmark a cell.</p>` : ''}
       <div class="row"><button class="b d-btn primary" data-act="lcRemove" ${LC.rm.size && !cutOff.length ? '' : 'disabled'}>Remove marked cells</button></div>
-      ${LC.sel.size ? html`<p class="mut" id="lcbypass">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p>` : ''}</div></div>
+      ${LC.sel.size || LC.level !== c.level ? html`<p class="mut" id="lcbypass">This editor bypasses the game's normal staking checks. Claiming a protected area does not guarantee that the game lets you build there.</p>` : ''}</div></div>
     ${about('bases.claim', 'Land claim editor', html`<p class="mut">Click a dotted cell to add it. New cells must stay connected edge to edge. A number is how many building pieces a cell holds.</p>
       <p class="mut">North is up. Column <b>+x</b> runs <b>${dirX}</b>, row <b>+y</b> runs <b>${dirY}</b> (the base's yaw is ${Math.round(yaw * 10) / 10}°). World-oriented view: north stays at the top and the grid is turned by the base's original yaw; the saved cell coordinates are not changed.</p>
       <p class="mut">Click an existing cell to mark it. A cell with building pieces or placeables in it (its number is shown) cannot be removed, and neither can the totem's own cell.</p>
@@ -1632,7 +1634,7 @@ async function basesView() {
       const claims = (await api('/api/bases/claim')).filter((c) => c.totem_id == id);
       LC = claims.length ? { claim: claims[0], sel: new Set(), rm: new Set(), level: claims[0].level } : null;
       if (LC) h.push(html`<div id="lced"></div>`);
-      h.push(html`${claims.length ? html`<div class="card d-panel"><h3 class="d-head">Resize by square</h3>${claims.map((c) => html`<div class="row"><b title="Totem ${c.totem_id}">Claim</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
+      h.push(html`${claims.length ? html`<div class="card d-panel"><h3 class="d-head">Resize by square</h3><p class="mut" id="rsbypass">${STAKING_WARN}</p>${claims.map((c) => html`<div class="row"><b title="Totem ${c.totem_id}">Claim</b><span>${c.cells} cell${c.cells == 1 ? '' : 's'}${c.irregular ? ' (irregular shape)' : ` (${2 * c.rings + 1} x ${2 * c.rings + 1} square)`}, vertical level ${c.level}</span>
       Grow to <select id="cr${c.totem_id}"><option value="0">no change</option>${Array.from({ length: c.maxRings }, (_, i) => i + 1).filter((n) => n > c.rings).map((n) => html`<option value="${n}">${2 * n + 1} x ${2 * n + 1}</option>`)}</select>
       Level <select id="cv${c.totem_id}">${Array.from({ length: c.maxLevel + 1 }, (_, i) => i).filter((n) => n >= c.level).map((n) => html`<option value="${n}" ${n == c.level ? 'selected' : ''}>${n}</option>`)}</select>
       <button class="b d-btn primary" data-act="claimGrow" data-id="${c.totem_id}" data-level="${c.level}">Expand claim</button></div>
@@ -2113,6 +2115,8 @@ function lbRemoveLine(t) {
     default: return 'click removes it; no reward waits';
   }
 }
+// the last words of a one-House tooltip, by the test lbGo makes: a click that grants LB_ASK_MISSIONS missions or more asks first, and so does one on the board that takes another faction's win (replaces)
+const lbHow = (g, replaces) => ((g && !g.problem && g.missions >= LB_ASK_MISSIONS) || replaces ? 'Asks first.' : 'Written at once.');
 // what a tier click does. withGrant: the sentence that says what a raise grants goes into the tip too (the tier box shows it as text, so its accessible name carries it as well)
 // what the Command Center board says when a click on a lower reached tier cannot remove it: the board removes tiers with Set tier and Apply tier, one at a time, the highest first
 const lbBoardRemove = (h) => 'choose tier ' + (h.reached - 1) + ' in Set tier and press Apply tier: tiers come off one at a time, the highest first.';
@@ -2121,7 +2125,7 @@ function lbTierTip(h, t, i, can, l, withGrant, F, board) {
   const n = h.reached;
   if (!can) return 'Your character is in no faction, so there is no contribution of yours to change.';
   if (!lbOwnF(l, F)) return `Off while ${lbFacName(l, F)} is chosen. Tiers change your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}: choose ${lbFacName(l, l.character.faction_id)} above.`;
-  if (i > n) return `Give tier ${i}: your contribution goes to ${lbF(t.th)}, so ${i === 1 ? 'tier 1 is' : 'tiers 1 to ' + i + ' are'} reached (contribution is cumulative). ${withGrant ? lbGrantSay(lbGrantOf(h, l, h.mine, t.th)) + ' ' : ''}Written at once.`;
+  if (i > n) return `Give tier ${i}: your contribution goes to ${lbF(t.th)}, so ${i === 1 ? 'tier 1 is' : 'tiers 1 to ' + i + ' are'} reached (contribution is cumulative). ${withGrant ? lbGrantSay(lbGrantOf(h, l, h.mine, t.th)) + ' ' : ''}${lbHow(lbGrantOf(h, l, h.mine, t.th))}`;
   return i === n ? `Remove tier ${i}: your contribution drops to ${i > 1 ? lbF(h.tiers[i - 2].th) : 'none'}. ${lbBackSay(t)} ${LB_REMOVE_NOTE}`
     : board ? `Tier ${i} is reached. To remove tiers, ${lbBoardRemove(h)}` : `Tier ${i} is reached. To remove tiers, click the highest reached tier (tier ${n}).`;
 }
@@ -2246,9 +2250,10 @@ function lbPlaceDetails(h) {
 function lbQa(h, l, F) {
   const can = lbCan(l), fn = lbFacName(l, F), ownF = can && F == l.character.faction_id;
   const fillOff = lbFillOffF(h, l, F), fillGr = fillOff ? null : lbGrantOf(h, l, h.mine, lbTop(h)), nextGr = ownF && h.reached < h.tiers.length ? lbGrantOf(h, l, h.mine, h.tiers[h.reached].th) : null;
-  const fillTip = fillOff ?(!can ? 'Your character is in no faction, so there is no contribution of yours to fill' : !ownF ? `Off while ${fn} is chosen: Fill raises your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}. Complete or Fill faction goal act for ${fn}.` : 'Nothing to change: your contribution is already at the top tier') : 'Fill: raises your contribution to the top tier (never lowered). ' + lbGrantSay(fillGr) + ' Written at once.';
+  const fillTip = fillOff ?(!can ? 'Your character is in no faction, so there is no contribution of yours to fill' : !ownF ? `Off while ${fn} is chosen: Fill raises your own contribution, which counts for ${lbFacName(l, l.character.faction_id)}. Complete or Fill faction goal act for ${fn}.` : 'Nothing to change: your contribution is already at the top tier') : 'Fill: raises your contribution to the top tier (never lowered). ' + lbGrantSay(fillGr) + ' ' + lbHow(fillGr);
   const doneF = lbDoneFor(h, F), goalOff = (fillOff || !ownF) && doneF;
-  const goalTip = goalOff ? 'Nothing to change for ' + fn : `Fill faction goal for ${fn}: progress to the goal, house taken by ${fn}` + (ownF ? ', your contribution to the top tier. ' + lbGrantSay(fillGr) + ' Written at once.' : '; your own contribution row is skipped');
+  const goalReplaces = lbBoardOn() && !doneF && h.win != null && h.win != F;
+  const goalTip = goalOff ? 'Nothing to change for ' + fn : `Fill faction goal for ${fn}: progress to the goal, house taken by ${fn}` + (ownF ? ', your contribution to the top tier. ' + lbGrantSay(fillGr) + ' ' + lbHow(fillGr, goalReplaces) : '; your own contribution row is skipped');
   const crTip = h.taken ? LB_REOPEN_TIP : `Complete for ${fn}: taken by ${fn}, progress to the goal`;
   return { can, fn, ownF, fillOff, fillGr, nextGr, fillTip, doneF, goalOff, goalTip, crTip };
 }
@@ -3459,7 +3464,7 @@ const A = {
     const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be; the backup of the save is taken when it is written. If the game saves a change to your Reserve or to these boxes before then, the queued move is dropped and nothing is moved. Close the game first to be sure.' : 'A backup of the save is taken first, then it is written at once.';
     const names = (pv.boxNames || []).map((x) => `"${x}"`), boxWords = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names.join('');
     const ok = await ask({ title: `Move the Reserve into ${boxWords}?`, ok: 'Move the Reserve', gap: true, list: pv.summary.concat(pv.warnings || []), listLabel: 'What happens',
-      body: `Nothing is deleted or changed: only the place of each stack changes. It can be undone only by restoring a backup of the save. ${where}` });
+      body: `Nothing is deleted or changed: only the place of each stack changes. It can be undone only by restoring a backup of the save. Not yet tried in the game: keep your save backup. ${where}` });
     if (!ok) return;
     return act(async () => {
       const r = await api('/api/bases/move-reserve', { fingerprint: pv.fingerprint });
@@ -3625,7 +3630,7 @@ const A = {
     const c = LC.claim, cells = [...LC.sel].map(lcCoords).sort((p, q) => p[1] - q[1] || p[0] - q[0]).map(([x, y]) => ({ x, y }));
     const body = { totem_id: c.totem_id, cells };
     if (LC.level !== c.level) body.level = LC.level;
-    if (!(await ask({ title: 'Edit land claim?', body: `Add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}${LC.level !== c.level ? ` and raise the vertical level from ${c.level} to ${LC.level}` : ''}. It is written at once, after the usual backup; the game loads it next time.`, ok: 'Apply changes' }))) return;
+    if (!(await ask({ title: 'Edit land claim?', body: `Add ${cells.length} horizontal cell${cells.length === 1 ? '' : 's'}${LC.level !== c.level ? ` and raise the vertical level from ${c.level} to ${LC.level}` : ''}. It is written at once, after the usual backup; the game loads it next time. ${STAKING_WARN}`, ok: 'Apply changes' }))) return;
     act(async () => { const r = await api('/api/bases/claim/apply', body); LC = null; toast(`Land claim: ${r.added} cell${r.added === 1 ? '' : 's'} added` + (r.levelRaised ? `, vertical level ${r.level}` : '') + NOT_SAVED); }, null);
   },
   rsfilter: () => { rsQ = val('rsq'); researchList(); },
@@ -3657,7 +3662,7 @@ const A = {
     if (level > +d.level) body.level = level;
     if (body.rings === undefined && body.level === undefined) { toast('Nothing to change: pick a bigger size or a higher level', true); return; }
     const what = [body.rings ? `every missing cell up to a ${2 * rings + 1} x ${2 * rings + 1} square around the totem` : '', body.level !== undefined ? `the vertical level raised to ${level}` : ''].filter(Boolean).join(' and ');
-    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It is written at once, after the usual backup.`, ok: 'Expand claim' }))) return;
+    if (!(await ask({ title: 'Expand this land claim?', body: `Adds ${what}. It is written at once, after the usual backup. ${STAKING_WARN}`, ok: 'Expand claim' }))) return;
     act(async () => { const r = await api('/api/bases/claim/expand', body); toast(`Claim now ${r.totalCells} cells, level ${r.level} (+${r.added} cells)` + NOT_SAVED); });
   },
   refillWater: () => act(async () => { const r = await api('/api/bases/refill-water', {}); const sk = (r.skippedUnknown || []).length ? ` Left alone, capacity unknown: ${r.skippedUnknown.join(', ')}.` : ''; fillToast('refillWater', r.filled > 0, (r.filled ? `Refilled ${r.summary} (${r.alreadyFull} already full).` : `All ${r.alreadyFull} water buildings were already full.`) + sk + NOT_SAVED); }, null),

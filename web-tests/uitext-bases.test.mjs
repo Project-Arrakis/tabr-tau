@@ -136,3 +136,33 @@ test('Structures: both repair tips and the About text say that placeable hologra
   assert.ok(about.includes('both repairs leave placeable holograms (unfinished placements) as they are'), about);
   ui.dom.window.close();
 });
+
+const STAKING = 'Bypasses the game\'s staking checks. Building there is not guaranteed.';
+const GROW = [{ ...CLAIM[0], level: 1, rings: 0 }];
+
+test('Resize by square says on the card and in its question that the staking checks are bypassed (#1238)', async () => {
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': GROW } });
+  const main = await bases(ui, 'claim');
+  assert.ok(visibleText(main).includes(STAKING), 'on the card, outside About this');
+  const level = ui.doc.querySelector('#cv7');
+  level.value = '2';
+  ui.click('[data-act="claimGrow"]'); await ui.settle();
+  assert.ok(ui.doc.querySelector('#ask').textContent.includes(STAKING), ui.doc.querySelector('#ask').textContent);
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(ui.posted.length, 0);
+});
+
+test('a vertical level change alone shows the staking warning, and the Apply question says it (#1238)', async () => {
+  const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/claim': CLAIM } });
+  await bases(ui, 'claim');
+  assert.equal(ui.doc.querySelector('#lcbypass'), null, 'nothing pending: no warning');
+  const sel = ui.doc.querySelector('#lcLvl');
+  sel.value = '3'; sel.dispatchEvent(new ui.w.Event('change', { bubbles: true })); await ui.settle();
+  const warn = ui.doc.querySelector('#lcbypass');
+  assert.ok(warn && warn.textContent.includes('normal staking checks'), 'the warning is drawn for a level change');
+  ui.click('[data-act="lcApply"]'); await ui.settle();
+  const q = ui.doc.querySelector('#ask').textContent;
+  assert.ok(q.includes('raise the vertical level from 1 to 3') && q.includes(STAKING), q);
+  ui.click('[data-act="askNo"]'); await ui.settle();
+  assert.equal(ui.posted.length, 0);
+});

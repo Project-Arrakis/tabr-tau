@@ -107,3 +107,11 @@ test('a refusal of the preview is the message of the page and no question opens;
   assert.equal(ui2.posted.length, 0);
   ui2.dom.window.close();
 });
+
+test('the Move the Reserve question says it is not yet tried in the game (#1238)', async () => {
+  const ui = await boots();
+  await openBases(ui);
+  ui.click('[data-act="reserveMove"]'); await ui.settle();
+  const q = ui.doc.querySelector('#ask').textContent;
+  assert.ok(q.includes('Not yet tried in the game: keep your save backup.'), q);
+});
