@@ -101,6 +101,17 @@ func Roll(o Options) (Result, error) {
 			return r, fmt.Errorf("not changed: %s", lockRefusal(err))
 		}
 		defer release()
+		// The save's lock keeps runs on ONE save apart; layout-roll.json is one file for every save. A run given another save (--save) would take that save's free lock, find the first
+		// save unchanged, drop its note and write over its record, so the record is locked too, before it is read.
+		if o.StatePath != "" {
+			_ = os.MkdirAll(filepath.Dir(o.StatePath), 0o700) // the lock file cannot be made in a folder that is not there yet (the first run)
+			releaseState, err := lockState(o.StatePath)
+			if err != nil {
+				noteRefusal(o, now, "layout roll refused: another layout roll is running (it holds "+filepath.Base(o.StatePath)+"): nothing changed")
+				return r, fmt.Errorf("not changed: another layout roll is running (it holds the record %s). Nothing was changed, and this run did not wait for it. Wait until the other layout roll has ended and run this again", filepath.Base(o.StatePath))
+			}
+			defer releaseState()
+		}
 		o.lockHeld = true
 	}
 	st, err := loadState(o.StatePath)
