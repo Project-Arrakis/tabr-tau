@@ -23,15 +23,16 @@ import (
 //   - What moves: EVERY item row of the Reserve, each as it is. Only inventory_id and position_index of a row change (the same two columns a recycle changes when it moves what a base
 //     stored); a row is never split, merged, topped up, recreated or deleted. The rows go in their order in the Reserve (position, then id), each into the first box that has both a
 //     free slot and room by volume, into that box's lowest free position.
-//   - Room, by the give's own rules (giveupto.go: freeSlotsInTx, inventoryVolumeLimitInTx, inventoryVolumeUsedInTx, unitVolume, stackFitsByVolume), applied to whole stacks. Every stack
-//     takes one slot (cosmetics and uniques too). A box holds max_item_count stacks (the slots; a box with no count above 0 is refused although a give would call it unlimited: a Developer
-//     storage container holds 1,000 slots in every save seen, so such a box is unknown, and a move cannot be undone in the game) and max_item_volume of volume (a limit
-//     of 0 or none recorded means no limit, as a give reads it). Volume is each row's unit volume (its volume_override when it has one, else the game's item table, catalog.Volume)
-//     times its stack. A row whose item has no known volume counts as none and the answer says how many units that was. When the Reserve does not fit, nothing is changed and the answer
-//     says what was needed, what each box has free, and the shortfall.
-//   - All or nothing: one edit, read back inside itself (every row is where it was planned, with every other column as it was; the Reserve is empty; no position is shared), then the
-//     save layer's own checks. The write must be sent the fingerprint the preview gave. While a game process exists the edit is queued and put back onto the save the game wrote last;
-//     it is dropped when the game changed anything the edit read.
+//   - Room, by the give's own counts (giveupto.go: freeSlotsInTx, inventoryVolumeLimitInTx, inventoryVolumeUsedInTx, unitVolume), applied to whole stacks; whether a stack fits by volume
+//     is stackFitsByVolume, which allows the float sums a small slack (volumeTolerance) and is the rule the read back applies too. Every stack takes one slot (cosmetics and uniques
+//     too). A box holds max_item_count stacks (the slots; a box with no count above 0 is refused although a give would call it unlimited: a Developer storage container holds 1,000
+//     slots in every save seen, so such a box is unknown, and a move cannot be undone in the game) and max_item_volume of volume (a limit of 0 or none recorded means no limit, as a
+//     give reads it). Volume is each row's unit volume (its volume_override when it has one, else the game's item table, catalog.Volume) times its stack. A row whose item has no known
+//     volume counts as none and the answer says how many units that was. When the Reserve does not fit, nothing is changed and the answer says what was needed, what each box has free,
+//     and the shortfall.
+//   - All or nothing: one edit, read back inside itself (every row is where it was planned, with every other column as it was; the Reserve is empty; no position is shared; no box is
+//     over its slots; no box that received a stack with a volume is over its volume limit), then the save layer's own checks. The write must be sent the fingerprint the preview gave.
+//     While a game process exists the edit is queued and put back onto the save the game wrote last; it is dropped when the game changed anything the edit read.
 //
 // An empty Reserve is not an error and writes nothing.
 
@@ -562,8 +563,8 @@ func (b *moveBox) freePos() (int64, bool) {
 	return b.nextPos, true
 }
 
-// volumeFits says whether a whole stack of n units of unit volume still fits by volume next to what is in the box and what the move has already put there: the give's own count,
-// applied to the whole stack (stackFitsByVolume).
+// volumeFits says whether a whole stack of n units of unit volume still fits by volume next to what is in the box (counted as a give counts it) and what the move has already put
+// there (stackFitsByVolume).
 func (b *moveBox) volumeFits(unit float64, n int64) bool {
 	return stackFitsByVolume(b.VolLimit, b.UsedVol+b.Volume, unit, n)
 }
@@ -898,7 +899,7 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 		moveReserveBeforeReadBack(m)
 	}
 
-	// 2. read back: the Reserve is empty, every row is in the box and slot that were planned, no other column of any row changed, no position is shared, every box holds as many stacks as planned, none is over its slot count, and the volume of what each box now holds (re-summed with the give's own count, units of unknown volume as none) is within its volume limit
+	// 2. read back: the Reserve is empty, every row is in the box and slot that were planned, no other column of any row changed, no position is shared, every box holds as many stacks as planned, none is over its slot count, and the volume of what each box that received a stack with a volume now holds (re-summed with the give's own count, units of unknown volume as none) is within its volume limit
 	left, err := m.One(`select count(*) n from items where inventory_id=?`, p.Reserve)
 	if err != nil {
 		return nil, err

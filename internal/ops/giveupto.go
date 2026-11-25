@@ -315,13 +315,14 @@ func volumeWithinLimit(limit, used float64) bool {
 	return used <= limit+volumeTolerance*max(limit, used)
 }
 
-// stackFitsByVolume says whether a whole stack of n units of unit volume fits under the limit when used is already taken. It fits when the give's own count says so
-// (unitsLeftByVolume), or when the volume of the whole stack added to used is within the limit up to volumeTolerance (volumeWithinLimit): the second never refuses what the first
-// accepts, and takes in a stack that fills the box to the digit and that the float sums put a hair over. A stack that is a whole unit (0.001 at the least) over is still refused. A
-// limit not above 0 (none recorded) and a unit not above 0 (no volume, or not known) do not limit.
+// stackFitsByVolume says whether a whole stack of n units of unit volume fits under the limit when used is already taken: the volume of the whole stack added to used is within the
+// limit up to volumeTolerance (volumeWithinLimit, the rule the move's read back applies to the same box, so that the plan takes nothing the read back refuses). It takes in a stack
+// that fills the box to the digit and that the float sums put a hair over; at the 50,000 of the boxes seen, a stack one smallest unit (0.001) over is refused. It does not ask the give's
+// count (unitsLeftByVolume), whose slack is 1e-9 of a unit: that can let in a stack the read back refuses. A limit not above 0 (none recorded) and a unit not above 0 (no volume, or not
+// known) do not limit.
 func stackFitsByVolume(limit, used, unit float64, n int64) bool {
 	if limit <= 0 || unit <= 0 {
 		return true
 	}
-	return unitsLeftByVolume(limit, used, unit) >= n || volumeWithinLimit(limit, used+unit*float64(n))
+	return volumeWithinLimit(limit, used+unit*float64(n))
 }
