@@ -33,6 +33,9 @@ func gameRunningNow() (bool, string) {
 
 // runLayoutRoll is `tabr-tau layout-roll [--dry-run] [--set N] [--vetted 9,11] [--force] [--recycle-bases]` (#1141): one roll of the single-player Deep Desert layout, printed in plain lines. There is no window.
 func runLayoutRoll(args []string, cfgDir string, out io.Writer, base layoutroll.Options) error {
+	if len(args) > 0 && args[0] == "vet" {
+		return runLayoutVet(args[1:], cfgDir, out, base)
+	}
 	fs := flag.NewFlagSet("layout-roll", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	dry := fs.Bool("dry-run", false, "say what would be done and write nothing")
