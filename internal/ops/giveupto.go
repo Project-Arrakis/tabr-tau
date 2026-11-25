@@ -319,9 +319,9 @@ func volumeWithinLimit(limit, used float64) bool {
 // limit up to volumeTolerance (volumeWithinLimit, the rule the move's read back applies to the same box, so that the plan takes nothing the read back refuses). It takes in a stack
 // that fills the box to the digit and that the float sums put a hair over; at the 50,000 of the boxes seen, a stack one smallest unit (0.001) over is refused. It does not ask the give's
 // count (unitsLeftByVolume), whose slack is 1e-9 of a unit: that can let in a stack the read back refuses. A limit not above 0 (none recorded) and a unit not above 0 (no volume, or not
-// known) do not limit.
+// known) do not limit, and a stack of no units adds no volume, so it fits any box.
 func stackFitsByVolume(limit, used, unit float64, n int64) bool {
-	if limit <= 0 || unit <= 0 {
+	if limit <= 0 || unit <= 0 || n <= 0 {
 		return true
 	}
 	return volumeWithinLimit(limit, used+unit*float64(n))

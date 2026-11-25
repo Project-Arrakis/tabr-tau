@@ -925,6 +925,7 @@ func TestStackFitsByVolumeTolerance(t *testing.T) {
 		{"the largest unit over by a unit", 12500, 0, 125, 101, false, false},
 		{"the largest unit exactly", 12500, 0, 125, 100, true, true},
 		{"a box that is already over takes nothing with volume", 10, 40, 0.001, 1, false, false},
+		{"a stack of no units adds nothing, in a box that is over too", 10, 40, 0.001, 0, true, true},
 		{"no limit recorded", 0, 1e9, 125, 1000, true, false},
 		{"no volume", 10, 1e9, 0, 1000, true, false},
 	} {
