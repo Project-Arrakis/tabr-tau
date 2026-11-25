@@ -36,6 +36,11 @@ import (
 //
 // The game's own recycle returned about half of the table cost in the measured case; returning everything is this editor's rule, by the operator's decision.
 //
+// A base the game's tool already picked up (a base backup, #1207: the Deep Desert's cannot be placed or recycled in the game) goes through the same plan and the same write. It is found
+// by its shape (the totem and every actor of the base in state 5, listed by exactly one base_backups row, no permission record on the totem) and owned by the character when that row
+// records the character as its player; the backup must list exactly the actors the totem's entity owns. The write also deletes the backup's rows (base_backup_linked_actors, then
+// base_backups), as the game's own recycle of the backup did (probe8), and looks for no map marker (the pick-up took it; the game's recycle changed none).
+//
 // Refused: a base that is not the character's own (the owner rank, as Back up and remove checks it), a base the game already picked up or that is not in the normal state, a base
 // with a crafting queue that is running, a base an actor of which is a vehicle or part of a base backup, a base a character is waiting to respawn at, a base that a row of any
 // other table of the save points at (every reference the save's layout declares to an actor, an inventory or an entity is looked up, see recycleHandledRefs), and a save in
@@ -74,9 +79,13 @@ var recycleHandledRefs = map[string]bool{
 	"actor_fgl_entities.entity_id>fgl_entities": true, "building_instances.owner_entity_id>fgl_entities": true, "placeables.owner_entity_id>fgl_entities": true,
 }
 
+// recyclePickedUpRefs are the references the recycle of a picked-up base handles besides recycleHandledRefs (#1207): the rows that link the base backup to its actors are deleted
+// with the base (base_backup_linked_actors, then the base_backups row they hang from).
+var recyclePickedUpRefs = map[string]bool{"base_backup_linked_actors.actor_id>actors": true}
+
 // recycleOtherRefs looks up every reference the save's own layout declares to the rows a recycle deletes, leaves out those the recycle handles, and returns the others that
-// have rows, as "table.column (n rows)".
-func recycleOtherRefs(q baseQ, actors, inventories string) ([]string, error) {
+// have rows, as "table.column (n rows)". pickedUp adds the references only a picked-up base's recycle handles.
+func recycleOtherRefs(q baseQ, actors, inventories string, pickedUp bool) ([]string, error) {
 	fks, err := q.Query(`select m.name tbl, f."from" col, f."table" ref from sqlite_master m join pragma_foreign_key_list(m.name) f
 		where m.type='table' and f."table" in ('actors','totems','placeables','buildings','permission_actor','inventories','fgl_entities') order by 1,2,3`)
 	if err != nil {
@@ -87,7 +96,7 @@ func recycleOtherRefs(q baseQ, actors, inventories string) ([]string, error) {
 		tbl, _ := f["tbl"].(string)
 		col, _ := f["col"].(string)
 		ref, _ := f["ref"].(string)
-		if recycleHandledRefs[tbl+"."+col+">"+ref] {
+		if k := tbl + "." + col + ">" + ref; recycleHandledRefs[k] || (pickedUp && recyclePickedUpRefs[k]) {
 			continue
 		}
 		if !sqlNameRe.MatchString(tbl) || !sqlNameRe.MatchString(col) {
@@ -148,6 +157,8 @@ type recyclePlan struct {
 	Marker         *baseMarker
 	MarkerNote     string
 	Solido         *solidoPlan // nil when no Solido is made first (#1187)
+	PickedUp       bool        // the base is a base backup the game's tool made (#1207): its actors are in state 5 and a base_backups row lists them
+	Backup         int64       // the base_backups id of a picked-up base
 }
 
 func (p *recyclePlan) all() []int64 { return append(append([]int64{}, p.Actors...), p.Buildings...) }
@@ -172,6 +183,9 @@ func (p *recyclePlan) fingerprint() string {
 	}
 	if p.Marker != nil {
 		fmt.Fprintf(h, "m%d/%d/%s/%d", p.Marker.Hash, p.Marker.Dim, p.Marker.Map, p.Marker.MapID)
+	}
+	if p.PickedUp { // only a picked-up base, so that the fingerprint of a standing base is what it was
+		fmt.Fprintf(h, "|pickedup|%d", p.Backup)
 	}
 	if s := p.Solido; s != nil { // only when a Solido is made, so that the fingerprint of a recycle without one is what it was
 		fmt.Fprintf(h, "|solido|%d|%d|%d|%d|%d|%d|%s", s.Item, s.ItemInv, len(s.Rows.Instances), len(s.Rows.Placeables), len(s.Rows.Pentas), s.Rows.SkippedPieces+s.Rows.SkippedDoors, s.Digest)
@@ -240,36 +254,11 @@ func refundTotals(p *recyclePlan, pieces, plcs []save.Row) (map[string]int64, []
 	return total, missing, types
 }
 
-// planBaseRecycle reads the save (or the edit's view of it) and works out what the recycle deletes, moves and gives back, or says why this base cannot be recycled. It writes nothing.
-func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, opt RecycleOptions) (*recyclePlan, error) {
-	head, err := q.One(`select a.state state, coalesce(a.map,'') map, a.dimension_index dim, a.location_x lx, a.location_y ly, a.location_z lz, coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type,
-		(select entity_id from actor_fgl_entities where actor_id=t.id and slot_name='Actor' order by entity_id limit 1) ent,
-		exists (select 1 from base_backup_linked_actors where actor_id=t.id) linked,
-		exists (select 1 from permission_actor where actor_id=t.id) has_permission
-		from totems t join actors a on a.id=t.id left join permission_actor pa on pa.actor_id=t.id left join placeables tp on tp.id=t.id where t.id=?`, totem)
-	if err != nil {
-		return nil, err
-	}
-	if head == nil {
-		return nil, apierr.Newf(apierr.ErrNotFound, "There is no base with the totem %d in this save.", totem)
-	}
-	state, _ := toInt(head["state"])
-	linked, _ := toInt(head["linked"])
-	hasPerm, _ := toInt(head["has_permission"])
-	if state == pickedUpState || linked == 1 {
-		return nil, apierr.New(apierr.ErrConflict, "This base has already been picked up with the game's base tool. Only a standing base can be recycled here; recycle the base backup in the game. Nothing was changed.")
-	}
-	if state != 0 {
-		return nil, apierr.Newf(apierr.ErrConflict, "This base is not in the normal state (state %d), so it was not changed.", state)
-	}
-	if hasPerm == 0 {
-		return nil, apierr.New(apierr.ErrConflict, "This base has no permission record, so it is not known to be yours. "+recycleNotOwner)
-	}
-
-	// Ownership: the character holds the owner rank (1) over the totem, and nobody else does. The same check as Back up and remove (#1173).
+// recycleStandingOwnership checks that the character holds the owner rank (1) over the totem of a standing base, and nobody else does. The same check as Back up and remove (#1173).
+func recycleStandingOwnership(q baseQ, totem int64, pl player) error {
 	ranks, err := q.Query(`select player_id, rank from permission_actor_rank where permission_actor_id=?`, totem)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	mine, others, owners := false, false, 0
 	for _, r := range ranks {
@@ -286,11 +275,65 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 	}
 	switch {
 	case others:
-		return nil, apierr.New(apierr.ErrConflict, "This base belongs to another player (or is shared), so it was not changed. "+recycleNotOwner)
+		return apierr.New(apierr.ErrConflict, "This base belongs to another player (or is shared), so it was not changed. "+recycleNotOwner)
 	case !mine && len(ranks) > 0:
-		return nil, apierr.New(apierr.ErrConflict, "You are only a member of this base, not its owner. "+recycleNotOwner)
+		return apierr.New(apierr.ErrConflict, "You are only a member of this base, not its owner. "+recycleNotOwner)
 	case !mine || owners != 1:
-		return nil, apierr.New(apierr.ErrConflict, "Nobody holds the owner rank over this base, so it is not known to be yours. "+recycleNotOwner)
+		return apierr.New(apierr.ErrConflict, "Nobody holds the owner rank over this base, so it is not known to be yours. "+recycleNotOwner)
+	}
+
+	return nil
+}
+
+// planBaseRecycle reads the save (or the edit's view of it) and works out what the recycle deletes, moves and gives back, or says why this base cannot be recycled. It writes nothing.
+func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, opt RecycleOptions) (*recyclePlan, error) {
+	head, err := q.One(`select a.state state, coalesce(a.map,'') map, a.dimension_index dim, a.location_x lx, a.location_y ly, a.location_z lz, coalesce(pa.actor_name,'') name, coalesce(tp.building_type,'') totem_type,
+		(select entity_id from actor_fgl_entities where actor_id=t.id and slot_name='Actor' order by entity_id limit 1) ent,
+		(select count(*) from base_backup_linked_actors where actor_id=t.id) linked,
+		(select min(id) from base_backup_linked_actors where actor_id=t.id) backup,
+		exists (select 1 from permission_actor where actor_id=t.id) has_permission
+		from totems t join actors a on a.id=t.id left join permission_actor pa on pa.actor_id=t.id left join placeables tp on tp.id=t.id where t.id=?`, totem)
+	if err != nil {
+		return nil, err
+	}
+	if head == nil {
+		return nil, apierr.Newf(apierr.ErrNotFound, "There is no base with the totem %d in this save.", totem)
+	}
+	state, _ := toInt(head["state"])
+	linked, _ := toInt(head["linked"])
+	hasPerm, _ := toInt(head["has_permission"])
+	backup, _ := toInt(head["backup"])
+	// A picked-up base (#1207) is the shape the game's base tool leaves: the totem's actor and the actors of the base are in state 5, a base_backups row lists them, and the totem has no
+	// permission record (the claim is gone). Anything else that is in state 5 or listed in a base backup is not known, and is refused as before.
+	pickedUp := state == pickedUpState && linked == 1 && hasPerm == 0
+	switch {
+	case pickedUp:
+	case state == pickedUpState:
+		return nil, apierr.New(apierr.ErrConflict, "This base is in the picked-up state, but it is not listed in exactly one base backup or it still has a claim record, so this version does not know what it is. Nothing was changed.")
+	case linked > 0:
+		return nil, apierr.New(apierr.ErrConflict, "This base is standing and is also listed in a base backup, so it is not known which of the two it is. Nothing was changed.")
+	case state != 0:
+		return nil, apierr.Newf(apierr.ErrConflict, "This base is not in the normal state (state %d), so it was not changed.", state)
+	case hasPerm == 0:
+		return nil, apierr.New(apierr.ErrConflict, "This base has no permission record, so it is not known to be yours. "+recycleNotOwner)
+	}
+
+	if pickedUp {
+		// Ownership of a base backup: it records the character that picked it up. The totem has no permission record to say more.
+		bk, err := q.One(`select player_id from base_backups where id=?`, backup)
+		if err != nil {
+			return nil, err
+		}
+		if bk == nil {
+			return nil, apierr.New(apierr.ErrConflict, "The base backup this base is listed in is not in the save, so it is damaged and was not changed.")
+		}
+		if pid, _ := toInt(bk["player_id"]); pid != pl.Controller {
+			return nil, apierr.New(apierr.ErrConflict, "This base backup belongs to another player, so it was not changed. "+recycleNotOwner)
+		}
+	} else {
+		if err := recycleStandingOwnership(q, totem, pl); err != nil {
+			return nil, err
+		}
 	}
 
 	ent, ok := toInt(head["ent"])
@@ -298,6 +341,7 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 		return nil, apierr.New(apierr.ErrBadArgument, "The totem of this base has no entity, so its pieces cannot be told from those of another base. Nothing was changed.")
 	}
 	p := &recyclePlan{Totem: totem, Ctl: pl.Controller, Pawn: pl.Pawn, Ent: ent, Rows: map[string]int64{}, Refund: []RefundLine{}} // an empty refund is a list, not null, for the page
+	p.PickedUp, p.Backup = pickedUp, backup
 	p.RawName, _ = head["name"].(string)
 	totemType, _ := head["totem_type"].(string)
 	p.Map, _ = head["map"].(string)
@@ -326,11 +370,28 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 		bl = idList(p.Buildings)
 	}
 
+	// A standing base has no actor in a base backup and every actor in state 0; a picked-up base's actors are listed in its own base backup only, and are all in state 5, and the
+	// backup lists exactly the actors the totem's entity owns (nothing more, nothing less).
+	wantState, otherBackup := "0", `select count(*) from base_backup_linked_actors where actor_id in (`+all+`)`
+	if pickedUp {
+		wantState, otherBackup = strconv.Itoa(pickedUpState), `select count(*) from base_backup_linked_actors where actor_id in (`+all+`) and id<>`+strconv.FormatInt(backup, 10)
+		listed, err := q.Query(`select actor_id id from base_backup_linked_actors where id=? order by actor_id`, backup)
+		if err != nil {
+			return nil, err
+		}
+		want := p.all()
+		sort.Slice(want, func(i, j int) bool { return want[i] < want[j] })
+		if idList(rowsInt64(listed, "id")) != idList(want) {
+			return nil, apierr.Newf(apierr.ErrConflict, "The base backup lists %d actors and the totem's entity owns %d, and they are not the same actors, so the base was not changed.", len(listed), len(p.all()))
+		}
+	}
+
 	chk, err := q.One(`select
 		(select count(*) from actors where id in (` + all + `)) present,
-		(select count(*) from actors where id in (` + all + `) and state<>0) odd,
+		(select count(*) from actors where id in (` + all + `) and state<>` + wantState + `) odd,
 		(select count(*) from vehicles where id in (` + all + `)) vehicles,
-		(select count(*) from base_backup_linked_actors where actor_id in (` + all + `)) linked,
+		(` + otherBackup + `) linked,
+		(select count(*) from permission_actor_rank where permission_actor_id in (` + all + `) and player_id<>` + strconv.FormatInt(pl.Controller, 10) + `) other_ranks,
 		(select count(*) from building_instances where building_id in (` + bl + `) and owner_entity_id is not null and owner_entity_id<>` + eid + `
 			and owner_entity_id in (select entity_id from actor_fgl_entities where slot_name='Actor' and actor_id in (select id from totems))) shared,
 		(select count(*) from actor_fgl_entities where actor_id not in (` + all + `) and entity_id in (select entity_id from actor_fgl_entities where actor_id in (` + all + `))) shared_entities`)
@@ -342,11 +403,13 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 	case num(chk, "present") != int64(len(p.Actors)+len(p.Buildings)):
 		return nil, apierr.New(apierr.ErrBadArgument, "The base names an actor that is not in the save, so it is damaged and was not changed.")
 	case num(chk, "odd") > 0:
-		return nil, apierr.Newf(apierr.ErrConflict, "%d actors of this base are not in the normal state, so it was not changed.", num(chk, "odd"))
+		return nil, apierr.Newf(apierr.ErrConflict, "%d actors of this base are not in the %s state, so it was not changed.", num(chk, "odd"), map[bool]string{false: "normal", true: "picked-up"}[pickedUp])
 	case num(chk, "vehicles") > 0:
 		return nil, apierr.New(apierr.ErrConflict, "An actor of this base is a vehicle. Vehicles are never recycled, so the base was not changed.")
 	case num(chk, "linked") > 0:
 		return nil, apierr.New(apierr.ErrConflict, "An actor of this base is part of a base backup, so the base was not changed.")
+	case pickedUp && num(chk, "other_ranks") > 0:
+		return nil, apierr.New(apierr.ErrConflict, "An actor of this base backup is also held by another player (a rank of another player is recorded for it), so the base was not changed. "+recycleNotOwner)
 	case num(chk, "shared") > 0:
 		return nil, apierr.Newf(apierr.ErrConflict, "A building actor of this base also holds %d pieces of another base, so the base cannot be recycled on its own. Nothing was changed.", num(chk, "shared"))
 	case num(chk, "shared_entities") > 0:
@@ -464,7 +527,7 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 		return nil, apierr.New(apierr.ErrConflict, "A character is waiting to respawn at this base (player_state.pending_respawn_location_id names its respawn point). Respawn in the game first, then ask again. Nothing was changed.")
 	}
 	// Rows of other tables that point at the base: refused by name (see recycleHandledRefs).
-	otherRefs, err := recycleOtherRefs(q, all, il)
+	otherRefs, err := recycleOtherRefs(q, all, il, pickedUp)
 	if err != nil {
 		return nil, err
 	}
@@ -479,6 +542,9 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 	p.Rows["building_instances"] = p.Pieces
 	p.Rows["inventories"] = int64(len(p.Inventories))
 	p.Rows["actors"] = int64(len(p.Actors) + len(p.Buildings))
+	if pickedUp { // the base backup that listed the base goes with it (the rows the game's own recycle of a backup deleted: base_backup_linked_actors and base_backups)
+		p.Rows["base_backup_linked_actors"], p.Rows["base_backups"] = int64(len(p.all())), 1
+	}
 
 	// The Solido, when it is asked for: made from the base's rows as they are now, in this same edit (#1187).
 	if opt.Solido {
@@ -497,6 +563,12 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 		return nil, err
 	}
 	p.WaterDevices, p.Water = num(w, "n"), num(w, "w")
+
+	// A picked-up base has no marker of its own: the game's pick-up took it off the map, and the game's own recycle of a backup changed no marker (probe8). One at the totem's place now
+	// would be another base's, so none is looked for.
+	if pickedUp {
+		return p, nil
+	}
 
 	// The base's marker, found as Back up and remove finds it: the character's own discovered HomeBase marker of this map at the totem's position. Only one clearly tied to this
 	// base is removed; none or several are left alone and said.
@@ -596,6 +668,9 @@ func (o *Ops) recycleBase(totem int64, want string, dry bool, opt RecycleOptions
 		}
 		res = r
 		m.Desc = fmt.Sprintf("Recycle base \"%s\": %d pieces, %d placeables, %d item stacks and the refund to the Reserve", importLabel(plan.Name), plan.Pieces, plan.Placeables, plan.ItemRows)
+		if plan.PickedUp {
+			m.Desc = fmt.Sprintf("Recycle base \"%s\" (picked up, base backup %d): %d pieces, %d placeables, %d item stacks and the refund to the Reserve", importLabel(plan.Name), plan.Backup, plan.Pieces, plan.Placeables, plan.ItemRows)
+		}
 		if plan.Solido != nil {
 			m.Desc = fmt.Sprintf("Make a Solido of the base, then recycle it: \"%s\", %d pieces, %d placeables, %d item stacks and the refund to the Reserve", importLabel(plan.Name), plan.Pieces, plan.Placeables, plan.ItemRows)
 		}
@@ -756,6 +831,13 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		{"permission_actor", `delete from permission_actor where actor_id in (` + all + `)`},
 		{"actors", `delete from actors where id in (` + all + `)`},
 	}
+	if p.PickedUp { // the base backup that listed the base: its rows go first (they hang from the actors and from the backup), then the backup itself
+		bk := strconv.FormatInt(p.Backup, 10)
+		steps = append([]struct{ table, q string }{
+			{"base_backup_linked_actors", `delete from base_backup_linked_actors where id=` + bk},
+			{"base_backups", `delete from base_backups where id=` + bk},
+		}, steps...)
+	}
 	for _, s := range steps {
 		if err := del(s.table, s.q); err != nil {
 			return nil, err
@@ -794,7 +876,11 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 			return nil, recycleMismatch("the deleted rows of "+s.table, deleted[s.table], p.Rows[s.table])
 		}
 	}
-	left, err := one(`select
+	backupLeft := "0"
+	if p.PickedUp {
+		backupLeft = `(select count(*) from base_backups where id=` + strconv.FormatInt(p.Backup, 10) + `) + (select count(*) from base_backup_linked_actors where id=` + strconv.FormatInt(p.Backup, 10) + ` or actor_id in (` + all + `))`
+	}
+	left, err := one(`select ` + backupLeft + ` +
 		(select count(*) from actors where id in (` + all + `)) + (select count(*) from actor_fgl_entities where actor_id in (` + all + `)) +
 		(select count(*) from inventories where actor_id in (` + all + `) or id in (` + il + `)) + (select count(*) from actor_inventories where inventory_id in (` + il + `)) +
 		(select count(*) from items where inventory_id in (` + il + `)) + (select count(*) from building_instances where building_id in (` + bl + `)) +
@@ -877,11 +963,14 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 	if p.Percent != 100 {
 		rate = fmt.Sprintf("100%% of the building cost on this map, which is %d%% of the table cost", p.Percent)
 	}
-	summary := []string{
+	summary := []string{}
+	if p.PickedUp {
+		summary = append(summary, fmt.Sprintf("Deleted: the base backup %d that listed this picked-up base (its record and its %d linked actors).", p.Backup, p.Rows["base_backup_linked_actors"]))
+	}
+	summary = append(summary,
 		fmt.Sprintf("Deleted: the base \"%s\" with %s building pieces, its totem and %s placeables (%s actors with their entities, inventories and permission records), its land claim and its fuel times.",
 			p.Name, commas(p.Pieces), commas(p.Placeables), commas(p.Rows["actors"])),
-		fmt.Sprintf("Moved: %s item stacks (%s items) that were stored in the base, unchanged.", commas(p.ItemRows), commas(p.ItemUnits)),
-	}
+		fmt.Sprintf("Moved: %s item stacks (%s items) that were stored in the base, unchanged.", commas(p.ItemRows), commas(p.ItemUnits)))
 	if len(refundWords) > 0 {
 		summary = append(summary, fmt.Sprintf("Refund (%s, as %s new stacks): %s.", rate, commas(p.RefundStacks), strings.Join(refundWords, ", ")))
 	} else {
@@ -916,6 +1005,9 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 	}
 	if solido != nil {
 		out["solido"] = solido
+	}
+	if p.PickedUp {
+		out["pickedUp"], out["backup"] = true, p.Backup
 	}
 	return out, nil
 }

@@ -22,17 +22,22 @@ const openBases = async (ui) => {
 };
 const boots = (post = {}, preview = PREVIEW) => boot({ get: { '/api/bases/list': [HOME, OLD], '/api/bases/backups': [], '/api/bases/recycle-preview': preview }, post });
 
-test('every standing base has Recycle base next to the other actions, a base the game picked up does not, and the existing buttons are as they were', async () => {
+test('every standing base has Recycle base next to the other actions, a base the game picked up has it alone (#1207), and the existing buttons are as they were', async () => {
   const ui = await boots();
   const main = await openBases(ui);
   const buttons = [...main.querySelectorAll('[data-act="baseRecycle"]')];
-  assert.equal(buttons.length, 1);
+  assert.equal(buttons.length, 2, 'the standing base and the picked-up one');
   assert.equal(buttons[0].textContent.trim(), 'Recycle base');
   assert.deepEqual([buttons[0].dataset.id, buttons[0].dataset.name], ['7', 'Home']);
   const tipBox = main.querySelector('#' + buttons[0].getAttribute('aria-describedby'));
   assert.ok(tipBox && tipBox.getAttribute('role') === 'tooltip' && tipBox.textContent.includes('Reserve') && tipBox.textContent.includes('cannot be undone') && tipBox.textContent.includes('No base backup is made') && tipBox.textContent.includes('Your Reserve must be empty first') && tipBox.textContent.includes('Move the Reserve into storage'));
   const cell = buttons[0].closest('td');
   assert.deepEqual([...cell.querySelectorAll('button')].map((b) => b.textContent.trim()).slice(-3), ['Export for console', 'Back up and remove', 'Recycle base']);
+  // the picked-up base: Recycle base is its only action besides Open; the others stay hidden, and its tip says what it deletes
+  assert.deepEqual([buttons[1].dataset.id, buttons[1].dataset.name], ['8', 'Old']);
+  assert.deepEqual([...buttons[1].closest('td').querySelectorAll('button')].map((b) => b.textContent.trim()), ['Open', 'Recycle base']);
+  const oldTip = main.querySelector('#' + buttons[1].getAttribute('aria-describedby'));
+  assert.ok(oldTip && oldTip.textContent.includes('picked-up base') && oldTip.textContent.includes('Deep Desert') && oldTip.textContent.includes('Your Reserve must be empty first') && oldTip.textContent.includes('cannot be undone'), oldTip && oldTip.textContent);
   assert.equal(main.querySelectorAll('[data-act="baseRemove"]').length, 1);
   assert.equal(main.querySelectorAll('[data-act="baseConsoleExport"]').length, 1);
   assert.equal(ui.posted.length, 0, 'drawing the list writes nothing');
@@ -213,5 +218,23 @@ test('a Reserve that is not empty refuses the question with the message of the e
   assert.ok(t.includes('The Reserve is not empty (it holds 2 stack(s))') && t.includes('Move the Reserve into storage'), t);
   assert.ok(!ui.doc.querySelector('#ask').textContent.includes('Recycle "Home"'), 'no question');
   assert.equal(ui.posted.length, 0);
+  ui.dom.window.close();
+});
+
+test('the question for a picked-up base says the base backup is deleted with it, and the write carries the fingerprint', async () => {
+  const picked = { ...PREVIEW, base: 8, name: 'Old', pickedUp: true, backup: 12, map: 'DeepDesert', costPercent: 50, warnings: [] };
+  const ui = await boots({ '/api/bases/recycle': { ok: true, name: 'Old', pieces: 2141, placeables: 253, itemStacksMoved: 3492, refundStacks: 51 } }, picked);
+  await openBases(ui);
+  ui.click('[data-act="baseRecycle"][data-id="8"]'); await ui.settle();
+  const q = ui.doc.querySelector('#ask');
+  assert.ok(q.textContent.includes('Recycle "Old"?'), q.textContent);
+  const items = [...q.querySelectorAll('li')].map((l) => l.textContent);
+  assert.ok(items[0].includes('the base backup (number 12) that lists them') && !items[0].includes('base marker'), items[0]);
+  assert.ok(items[2].includes('which is 50% of the table cost'), items[2]);
+  await ui.wait(450); // the gap the question keeps against a double click
+  ui.click('#aok'); await ui.settle();
+  const w = ui.posted.filter((x) => x.path === '/api/bases/recycle');
+  assert.equal(w.length, 1);
+  assert.deepEqual([w[0].body.base_id, w[0].body.fingerprint], [8, 'abc123']);
   ui.dom.window.close();
 });
