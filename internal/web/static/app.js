@@ -756,7 +756,7 @@ function endAsk(v) {
   if (back && back.isConnected && typeof back.focus === 'function') back.focus(); // return to where the person was
   if (a) a.resolve(v);
 }
-document.addEventListener('input', (e) => { goKeep(e.target); if (e.target.id === 'mrBox1' || e.target.id === 'mrBox2') browserStore.set('moveReserveBox' + e.target.id.slice(-1), e.target.value); if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
+document.addEventListener('input', (e) => { goKeep(e.target); if (askState && e.target.id === 'atype') $('#aok').disabled = e.target.value.trim().toLowerCase() !== askState.typed.toLowerCase(); });
 
 // ---------- one-button confirmation
 // A button with data-confirm destroys or resets something (clear a container, clear sand, put a setting back to its default), so the first press only asks: the same button turns into "Yes, ..." for a few seconds and
@@ -1567,13 +1567,16 @@ const BASE_REMOVE_DD_NOTE = 'Not available for a base in the Deep Desert: the ga
 const isDeepDesertBase = (m) => /^deepdesert/i.test(String(m == null ? '' : m).trim());
 async function basesView() {
   const list = await api('/api/bases/list');
+  // the storage boxes DD-1, DD-2 ... the Reserve would move into (#1214): what the editor finds in the save, in plain words; a refusal reads the same way
+  let boxesLine = '';
+  try { boxesLine = (await api('/api/bases/move-reserve-boxes')).text || ''; } catch (e) { boxesLine = ''; }
   const id = list.some((x) => x.base_id == bsOpen) ? bsOpen : (list[0] ? list[0].base_id : null);
   const base = list.find((x) => x.base_id == id);
   const h = [html`<div class="card d-panel"><h3>Bases (${list.length})</h3>${tbl([{ k: 'name', label: 'Base name', f: (r) => html`<span title="Base number ${r.base_id}">${r.name}</span>${r.picked_up ? html` <span class="tag" title="Picked up with the game's base tool: its buildings are still in the save, but nobody has claimed it.">Picked up</span>` : ''}` }, { k: 'base_type', label: 'Base type' }, { k: 'owner', label: 'Owner' }, { k: 'map', label: 'Map' },
     { k: 'generators', label: 'Generators' }, { k: 'pieces', label: 'Building pieces' }, { k: 'placeables', label: 'Placeables' }, { k: 'x', label: 'Coordinates', f: (r) => html`${fix(r.x)}, ${fix(r.y)}, ${fix(r.z)}${r.place ? html` <span class="mut">${r.place}</span>` : r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], list,
     { actions: (r) => html`${r.base_id == id ? html`<span class="tag">Open below</span>` : html`<button class="b sec sm d-btn sm" data-bsopen="${r.base_id}">Open</button>`}${r.picked_up ? '' : tip('bcetip' + r.base_id, "Saves this base, with what is stored in it, as a Dune console base backup file, for your own self-hosted server only. Reads the save and changes nothing.", html`<button class="b sec sm d-btn sm" data-act="baseConsoleExport" data-kind="base" data-id="${r.base_id}" data-name="${r.name}" data-pieces="${r.pieces}" data-placeables="${r.placeables}" aria-describedby="bcetip${r.base_id}">Export for console</button>`)}${r.picked_up ? '' : isDeepDesertBase(r.map) ? tip('bcrtip' + r.base_id, BASE_REMOVE_DD_NOTE, html`<button class="b sec sm d-btn sm" disabled data-id="${r.base_id}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`) : tip('bcrtip' + r.base_id, "Backs this base up the way the game's own base tool does, and takes it out of the world. It becomes a base backup you can place again with the in-game tool. Items stored in it stay with the backup.", html`<button class="b sec sm d-btn sm" data-act="baseRemove" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcrtip${r.base_id}">Back up and remove</button>`)}${tip('bcytip' + r.base_id, r.picked_up ? BASE_RECYCLE_PICKED_NOTE : "Recycles this base: the base is deleted, and everything stored in it and everything it cost to build goes to your character's Reserve. No base backup is made. Your Reserve must be empty first: use Move the Reserve into storage below, then recycle. It cannot be undone except by restoring a backup of the save.", html`<button class="b sec sm d-btn sm" data-act="baseRecycle" data-id="${r.base_id}" data-name="${r.name}" aria-describedby="bcytip${r.base_id}">Recycle base</button>`)}`, empty: 'No bases yet: build one in the game, then reload.' })}
     <div class="row">${tip('rcsolidotip', "When a base is recycled, the editor first makes the game's own Solido of it (a copy that can rebuild it) in the same edit. It goes into a blank Solido device in your inventory; with none, a new device is made in your backpack (in your loadout only when the backpack is full). A Solido that is already filled is never changed. The claim totem and the doors are left out, as the game leaves them. Not yet tried in the game: keep your save backup until you have placed it.", html`<label><input type="checkbox" id="rcSolido" aria-describedby="rcsolidotip" ${recycleSolido ? 'checked' : ''}> Make a Solido of the base first when I recycle it</label>`)}</div>
-    <div class="row">${tip('mrtip', "Moves every stack of your character's Reserve into the two Developer storage boxes you named in the game (DD-1 and DD-2 unless you type other names; names are matched exactly, capitals included), whole and unchanged: only the place of each stack changes. Asks first. Not yet tried in the game: keep your save backup.", html`<button class="b sec sm d-btn sm" data-act="reserveMove" aria-describedby="mrtip">Move the Reserve into storage</button>`)}<label>Box 1 <input id="mrBox1" value="${browserStore.get('moveReserveBox1') || 'DD-1'}" size="24" spellcheck="false" aria-label="Name of storage box 1"></label> <label>Box 2 <input id="mrBox2" value="${browserStore.get('moveReserveBox2') || 'DD-2'}" size="24" spellcheck="false" aria-label="Name of storage box 2"></label></div></div>`];
+    <div class="row">${tip('mrtip', "Moves every stack of your character's Reserve into the Developer storage boxes you named in the game (the ones you named DD-1, DD-2, DD-3 ... up to DD-6 in the game, as many as run in a row from DD-1; names are matched exactly, capitals included), whole and unchanged: only the place of each stack changes. Asks first. Not yet tried in the game: keep your save backup.", html`<button class="b sec sm d-btn sm" data-act="reserveMove" aria-describedby="mrtip">Move the Reserve into storage</button>`)}<span class="mut" id="mrBoxes">${boxesLine}</span></div></div>`];
   if (base) {
     const tabs = [['power', 'Power'], ['water', 'Water'], ['inventory', 'Inventory'], ['claim', 'Land claim editor'], ['structures', 'Structures']];
     h.push(html`<div class="card d-panel"><h3 title="Base number ${base.base_id}">${base.name}</h3><div class="sub">${tabs.map(([k, v]) => html`<button data-bstab="${k}" class="${bsTab == k ? 'on' : ''}">${v}</button>`)}</div></div>`);
@@ -3448,22 +3451,20 @@ const A = {
       toast(`Recycled "${r.name}": ${n(r.pieces)} pieces and ${n(r.placeables)} placeables are deleted, ${n(r.itemStacksMoved)} item stacks and ${n(r.refundStacks)} refund stacks are in your Reserve.` + (r.solido ? ` A Solido of it (${n(r.solido.pieces)} pieces, ${n(r.solido.placeables)} placeables) is in ${r.solido.itemCreated ? 'a new device in your ' + (r.solido.itemWhere || 'backpack') : 'the blank device you already had'} (item ${r.solido.item}).` : '') + NOT_SAVED);
     }, null);
   },
-  // Move the Reserve into storage (#1191): the two box names are typed here once and kept in this browser. The editor works out the whole move (the edit, rolled back), the question lists
-  // what goes where, and only OK writes it, sent the fingerprint of what was shown.
+  // Move the Reserve into storage (#1191, #1214): the boxes are the ones named DD-1, DD-2 ... DD-6 in the game, found by the editor (the line beside the button). The editor works out the
+  // whole move (the edit, rolled back), the question lists what goes where, and only OK writes it, sent the fingerprint of what was shown.
   reserveMove: async () => {
-    const box1 = (document.getElementById('mrBox1') || {}).value.trim(), box2 = (document.getElementById('mrBox2') || {}).value.trim();
-    browserStore.set('moveReserveBox1', box1); browserStore.set('moveReserveBox2', box2);
-    if (!box1 || !box2) { toast('Type the names of the two storage boxes first, as you named them in the game.', true); return; }
     let pv;
-    try { pv = await api('/api/bases/move-reserve-preview?box1=' + encodeURIComponent(box1) + '&box2=' + encodeURIComponent(box2)); } catch (e) { toast(e.message, true); return; }
+    try { pv = await api('/api/bases/move-reserve-preview'); } catch (e) { toast(e.message, true); return; }
     if (pv.nothingToDo) { toast('Your Reserve is empty. Nothing was moved.'); return; }
     const where = saveBlocked ? 'The save cannot be written right now, so the edit is queued and written as soon as it can be; the backup of the save is taken when it is written. If the game saves a change to your Reserve or to these boxes before then, the queued move is dropped and nothing is moved. Close the game first to be sure.' : 'A backup of the save is taken first, then it is written at once.';
-    const ok = await ask({ title: `Move the Reserve into "${box1}" and "${box2}"?`, ok: 'Move the Reserve', gap: true, list: pv.summary.concat(pv.warnings || []), listLabel: 'What happens',
+    const names = (pv.boxNames || []).map((x) => `"${x}"`), boxWords = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names.join('');
+    const ok = await ask({ title: `Move the Reserve into ${boxWords}?`, ok: 'Move the Reserve', gap: true, list: pv.summary.concat(pv.warnings || []), listLabel: 'What happens',
       body: `Nothing is deleted or changed: only the place of each stack changes. It can be undone only by restoring a backup of the save. ${where}` });
     if (!ok) return;
     return act(async () => {
-      const r = await api('/api/bases/move-reserve', { box1, box2, fingerprint: pv.fingerprint });
-      toast(r.nothingToDo ? 'Your Reserve is empty. Nothing was moved.' : `Moved ${Number(r.stacks).toLocaleString()} item stacks (${Number(r.items).toLocaleString()} items) from your Reserve into "${box1}" and "${box2}".` + NOT_SAVED);
+      const r = await api('/api/bases/move-reserve', { fingerprint: pv.fingerprint });
+      toast(r.nothingToDo ? 'Your Reserve is empty. Nothing was moved.' : `Moved ${Number(r.stacks).toLocaleString()} item stacks (${Number(r.items).toLocaleString()} items) from your Reserve into ${boxWords}.` + NOT_SAVED);
     }, null);
   },
   baseImportCancel: () => { bbImport = null; render(true); },

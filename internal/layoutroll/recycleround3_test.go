@@ -244,7 +244,7 @@ func TestTheReasonForAMissingBoxFitsOneBaseAndManyBases(t *testing.T) {
 	if err == nil || r.Wrote || sha(t, e.save) != before {
 		t.Fatalf("%v\n%s", err, lines(r))
 	}
-	mustContain(t, err.Error(), "0 of 1 base(s) can be recycled now", "the boxes DD-1 and DD-2 cannot be used for the Reserve", "Nothing was recycled and nothing was exported")
+	mustContain(t, err.Error(), "0 of 1 base(s) can be recycled now", "the boxes DD-1, DD-2 ... DD-6 (as many as run in a row from DD-1) cannot be used for the Reserve", "Nothing was recycled and nothing was exported")
 	if strings.Contains(err.Error(), "which each base needs") || strings.Contains(err.Error(), "after every base") {
 		t.Fatalf("a text for many bases in a run of one: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestTheReasonForAMissingBoxFitsOneBaseAndManyBases(t *testing.T) {
 	if err == nil {
 		t.Fatal("a missing box must refuse")
 	}
-	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", "the boxes DD-1 and DD-2 cannot be used for the Reserve", "moved into them after every base")
+	mustContain(t, err.Error(), "0 of 2 base(s) can be recycled now", "the boxes DD-1, DD-2 ... DD-6 (as many as run in a row from DD-1) cannot be used for the Reserve", "moved into them after every base")
 }
 
 // F5: the rule text no longer promises that a missing box recycles the bases that fit.
