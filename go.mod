@@ -9,7 +9,7 @@ require (
 	// the one that is built and tested. Nothing depends on this root module, so the replace never reaches another program.
 	github.com/Project-Arrakis/tabr-tau/kit v0.0.0-00010101000000-000000000000
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
