@@ -68,6 +68,7 @@ type checkRecord struct {
 	RecycleSpace    []string         `json:"recycleSpace,omitempty"`
 	written         bool             // the save file was written by the recycle step of this run
 	vehiclesWritten bool             // the save file was written by the vehicle step of this run (#1201)
+	markersWritten  bool             // the save file was written by the Deep Desert markers step of this run (#1216)
 	history         []string         // the checkpoints of the EARLIER runs that recycled bases (oldest first, never this run's own), for the way back; not part of this record (the state file keeps them)
 	stateWarn       string           // set when the state file could not be written after the save was written: said with every later stop
 	intentOnDisk    bool             // the state file on disk holds the note of an intent that has not been withdrawn or confirmed yet
@@ -78,6 +79,8 @@ type checkRecord struct {
 	Intent       *writeIntent        `json:"writeIntent,omitempty"`
 	// ReserveNote is the warning of a run whose Reserve could not be emptied after the LAST base (the roll went on): kept here and in the outcome of the run, so it can be read the next day.
 	ReserveNote string `json:"reserveNote,omitempty"`
+	// Markers is what the run removed from the Deep Desert's markers (#1216), as one sentence of counts; empty when it removed none (--keep-markers, none there, or the run stopped first).
+	Markers string `json:"markers,omitempty"`
 }
 
 // writeIntent is the note the run leaves in the state file before it writes the save (#1167).
@@ -112,7 +115,7 @@ func (c *checkRecord) recycledNote() string {
 }
 
 // savedChanged says that this run has already written the save (bases recycled, vehicles taken out): every later stop must say so and name the way back.
-func (c *checkRecord) savedChanged() bool { return c.written || c.vehiclesWritten }
+func (c *checkRecord) savedChanged() bool { return c.written || c.vehiclesWritten || c.markersWritten }
 
 // vehiclesNote is the vehicle step's counterpart of recycledNote (#1201).
 func (c *checkRecord) vehiclesNote() string {
@@ -125,13 +128,21 @@ func (c *checkRecord) vehiclesNote() string {
 
 // writtenNote is said with every stop after the save was written by this run, whichever step wrote it (or both).
 func (c *checkRecord) writtenNote() string {
+	n := ""
 	switch {
 	case c.written && c.vehiclesWritten:
-		return c.recycledNote() + fmt.Sprintf(". %d vehicle(s) WERE also taken out of the Deep Desert and written to the save in this run", len(c.Vehicles))
+		n = c.recycledNote() + fmt.Sprintf(". %d vehicle(s) WERE also taken out of the Deep Desert and written to the save in this run", len(c.Vehicles))
 	case c.vehiclesWritten:
-		return c.vehiclesNote()
+		n = c.vehiclesNote()
+	case c.written:
+		n = c.recycledNote()
+	case c.markersWritten:
+		return c.markersNote()
 	}
-	return c.recycledNote()
+	if c.markersWritten {
+		n += fmt.Sprintf(". The Deep Desert markers (%s) WERE also removed and written to the save in this run", c.Markers)
+	}
+	return n
 }
 
 // plannedVehiclesOf is the part of the plan that a note keeps.

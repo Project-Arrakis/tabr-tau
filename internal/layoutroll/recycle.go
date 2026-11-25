@@ -325,7 +325,8 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 	// on the Deep Desert gives 0 of N with nothing changed and nothing exported, instead of a base recycled and the rest left. What an earlier run left in the Reserve is moved first, so it
 	// is asked about the same way.
 	if firstWhy == "" && emptyReserveInto != nil {
-		if _, err := emptyReserveInto(s, holdIDs(bases), true); err != nil {
+		pre, err := emptyReserveInto(s, holdIDs(bases), true)
+		if err != nil {
 			if !isCannotMove(err) {
 				return halt("not changed: the move of the Reserve could not be asked about", "the move of the Reserve into the boxes could not be asked about (%v); nothing was recycled", err)
 			}
@@ -336,6 +337,11 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 				if len(bases) > 1 {
 					firstWhy += "; the Reserve is moved into them after every base, so no base is recycled"
 				}
+			}
+		} else {
+			// said once, up front, while nothing is changed: which boxes were found, which were ignored behind a gap, the hint about a typo and the warning that only DD-1 was found (#1218)
+			for _, l := range pre.notes {
+				r.say("Boxes for the Reserve, checked before any base is recycled: %s", l)
 			}
 		}
 	} else if firstWhy == "" && enforceEmptyReserve && room0.Reserve.Used > 0 {
