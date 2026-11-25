@@ -15,7 +15,7 @@ The commands are for PowerShell and are written so that you can copy and paste e
 ## What it does
 
 - It changes one number, `WorldLayoutIndexInSingleplayer`, in the line `m_WorldLayoutsPerWorld` of `Game.ini` in your game config folder (`%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows`). If `Game.ini` has no such line yet, the whole line is added under its section. Every other line of the file is left as it is.
-- It reads your save to check the Deep Desert (below). It writes to the save in two cases only: when vehicles of yours stand in the Deep Desert and have to be stored or moved out (see "What happens to your vehicles"), and, only if you pass `--recycle-bases`, when bases of yours stand there and are recycled (see "Recycling the Deep Desert bases"). Nothing else in the save is ever changed.
+- It reads your save to check the Deep Desert (below). It writes to the save in three cases only: when vehicles of yours stand in the Deep Desert and have to be stored or moved out (see "What happens to your vehicles"), when the save holds Deep Desert markers (see "The Deep Desert markers"), and, only if you pass `--recycle-bases`, when bases of yours stand there and are recycled (see "Recycling the Deep Desert bases"). Nothing else in the save is ever changed.
 - A random roll picks only from the **vetted layouts** (see "Which layouts a random roll may pick" below) and never the one that is set now. You can name any layout yourself with `--set N` (0 to 11); that choice does not use the vetted list. Layouts 12 to 17 are never written.
 - The **game must be restarted** for a new layout to apply. The command never starts, stops or restarts the game.
 
@@ -96,6 +96,28 @@ Each vehicle of yours that stands in the Deep Desert is taken out before the lay
 All of it is one edit of the save. The rows written are read back inside the edit, and if anything read back differs from what was meant, the whole edit is undone and the save is left as it was. A run refuses and changes nothing when a vehicle has no clear spot (the message names that vehicle: face other ground and run again), when a vehicle's map is not recorded, or when the character's place cannot be told. The edit is written to the save only through the editor's own write path, which refuses while the game runs and keeps its own backup, and the written file is read back once more. If the editor window has the same save open, or another layout roll is running, the run refuses (see "One layout roll at a time"). Before the save is written, the run writes a note into `layout-roll.json` (under `vehicleNote`: the checkpoint, the file's SHA-256 as it was, and for each vehicle what is to be done), as the base step does: **a state file that cannot be written refuses the write**, and the note is replaced as soon as the save has been written. If the run is cut off, or the state file cannot be written after the write, the note stays, the run says so in capitals (**WARNING**, with the way back) even when no base was recycled in that run, and the next real run settles the note before anything else, the same way as for the bases: the save file as it was, the note is dropped; different, with every planned vehicle out as planned (a stored vehicle at the stored state with a row in the vehicle backup, a moved vehicle on the map it was put on), it is recorded as written, loudly; different, with none of them out, it is dropped, loudly; anything else (some out and some not, a vehicle that is neither where it was nor where it was put, a file that cannot be read, or a note marked `readBackFailed`) stops the run, which changes nothing, and after you have looked you remove the whole `vehicleNote` key (its value included) from `layout-roll.json` by hand. The run stops on that note every time until you do, and `--force` does not bypass it. A note that is settled as "recorded as written" is not lost: the earlier run's checkpoint, time and vehicles are kept in `vehicleHistory` of `layout-roll.json` (the newest 20), because the record of that run was replaced. If something fails after the save was written, the message says the save **was** changed and names the checkpoint that holds it as it was.
 
 The roll's output lists every vehicle: what was done, from where, to where (words and coordinates). `--dry-run` lists the same, changing nothing.
+
+## The Deep Desert markers (`--keep-markers` leaves them)
+
+A single-player game never wipes the places the game has put on your map; only a server's storm does. So after a roll, the game's own map in the Deep Desert would still show places of the layouts before: a lab that is not there any more, for example. A real run therefore removes the Deep Desert's markers from the save, after your bases and vehicles are dealt with and right before it changes `Game.ini`:
+
+- the Deep Desert's map markers (the places on the map),
+- which of them your character has discovered, and
+- the Deep Desert's resource fields (spice and the like) that the save keeps a state for.
+
+All of the Deep Desert's markers go, whatever their type (a lab, a base or a taxi marker too), because an old lab marker is exactly the ghost that the map would otherwise keep showing after the layout changed. Nothing else is touched: not the markers or resource fields of the Hagga Basin or any other map, and not a base, a vehicle, an item or anything you own. The game puts markers on the map again as your character discovers places on the new layout (checked in the game on 2026-11-24: after the markers were removed this way, 43 appeared once the lab was found).
+
+It is one edit of the save that is checked three times: the rows are counted before and after inside the edit (the Deep Desert must have none left and every other map must have the rows it had), the save is written the way the editor writes it, and the written file is counted again. If any check fails, the run stops before it changes `Game.ini` and says so. When the save was not written, it says that; when the save was written (by this step, or by an earlier step of the same run that recycled a base or moved a vehicle), the message says the save WAS changed and names the checkpoint of this run, which holds the save as it was, and how to restore it. Right before the step writes the save, the run records in `layout-roll.json` and `layout-roll.log` that it is about to, with the checkpoint's name, so a run that is cut off still leaves the way back; a state file that cannot be written then refuses the write. After the step the run checks again that the game is not running and that `Game.ini` is as it was read, and only then copies `Game.ini` and changes it. A save with no Deep Desert markers is not written for this step.
+
+`--dry-run` says how many it would remove, for example "Dry run: would remove the Deep Desert markers from the save ...: 3 marker(s), 2 discovered row(s) and 5 resource-field row(s)", and writes nothing. A real run counts again after the bases and vehicles were handled (a recycled base takes its own discovered row with it), so the counts it prints can be a few lower than the dry run's. It prints them, and writes them into `layout-roll.json` (`lastCheck.markers` and the last run) and as one line in `layout-roll.log`.
+
+To keep your markers for a roll, add `--keep-markers`:
+
+```
+& "$env:USERPROFILE\Downloads\tabr-tau.exe" layout-roll --keep-markers
+```
+
+For the weekly task, register it with `-KeepMarkers` (see "The weekly scheduled task"). This step is not checked in the game by the change that added it; look at the map after the first real run.
 
 ## Recycling the Deep Desert bases (`--recycle-bases`, off unless you give it)
 
@@ -256,6 +278,8 @@ To have the weekly run recycle your Deep Desert bases first (off unless you give
 ```
 
 Take `-WhatIf` off to register it. A task registered without the switch is changed by removing it and registering it again with it.
+
+To have the weekly run leave your Deep Desert markers in the save (it removes them otherwise, see "The Deep Desert markers"), register it with `-KeepMarkers`; the task action then reads `layout-roll --keep-markers`. It can be combined with `-RecycleBases`.
 
 Remove it:
 
