@@ -272,7 +272,7 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 
 	// 2. the checkpoint, before anything else is done with the save
 	if o.DryRun {
-		r.say("Dry run: would first take a checkpoint of the whole save (a verified copy in the save's backup folder, tagged -layoutroll, never removed by the automatic pruning).")
+		r.say("Dry run: would first take a checkpoint of the whole save (a verified copy in the save's backup folder, tagged -layoutroll, a real run keeps the newest 8 checkpoints and removes older ones over 7 days old).")
 	} else {
 		cp, err := takeCheckpoint(s)
 		if err != nil {
@@ -281,7 +281,10 @@ func guardDeepDesert(o Options, r *Result, st *state, now time.Time) (done bool,
 			return stop("not changed: the checkpoint of the save could not be taken", fmt.Errorf("not changed: the checkpoint of the save could not be taken (%v)", err))
 		}
 		rec.Checkpoint, rec.CheckpointSHA256, rec.CheckpointPath = cp.Name, cp.SHA256, cp.Path
-		r.say("Checkpoint of the save: %s (%d bytes, SHA-256 %s), verified. It stays in the save's backup folder.", cp.Name, cp.Size, cp.SHA256)
+		r.say("Checkpoint of the save: %s (%d bytes, SHA-256 %s), verified. It is in the save's backup folder (the newest 8 checkpoints are kept, older ones over 7 days old are removed).", cp.Name, cp.Size, cp.SHA256)
+		if len(cp.Pruned) > 0 {
+			r.say("Removed %d older checkpoint(s) beyond the newest 8: %s", len(cp.Pruned), strings.Join(cp.Pruned, ", "))
+		}
 	}
 
 	// 3. the read

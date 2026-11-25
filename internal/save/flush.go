@@ -17,14 +17,14 @@ import (
 // quickBackupEvery is how recent the backup of the last automatic write must be for the next to go without a new one: a burst of edits is one restore point, taken before the
 // first (and only while the file is still the one that write left: a file the game saved since gets a backup of its own, and the backup is reused only while its bytes are
 // still the ones recorded when it was taken). keepBackups is how many of the newest backups that automatic writes take the folder keeps; besides those it always keeps the
-// oldest one, the first one this session took (the state before the editor's first write) and the one just taken. The others (every one an earlier version or a person made,
-// and any file the editor did not name itself) are never counted and never removed.
+// oldest one, the first one this session took (the state before the editor's first write) and the one just taken. The others (every one an earlier version made, and the "-manual" and "-layoutroll" ones, which pruneTagged keeps the newest 8 of,
+// and any file the editor did not name itself) are never counted and never removed here.
 const (
 	quickBackupEvery = 2 * time.Minute
 	keepBackups      = 60
 	autoTag          = "-auto"
-	manualTag        = "-manual"     // the tag of a backup the person asked for (BackupNow): it is not an automatic one, so the pruning never counts or removes it
-	checkpointTag    = "-layoutroll" // the tag of the checkpoint the weekly layout roll takes before it looks at the save (BackupCheckpoint): never counted or removed by the pruning either
+	manualTag        = "-manual"     // the tag of a backup the person asked for (BackupNow): it is not an automatic one, so pruneBackups never counts or removes it; pruneTagged keeps the newest 8 of it
+	checkpointTag    = "-layoutroll" // the tag of the checkpoint the weekly layout roll takes before it looks at the save (BackupCheckpoint): pruneBackups never counts or removes it either; pruneTagged keeps the newest 8 of it
 )
 
 // Flush is what became of the pending edits at the last attempt to write them: written, or waiting (Queued of them) for the reason in Why.

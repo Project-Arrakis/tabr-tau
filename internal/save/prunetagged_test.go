@@ -88,19 +88,80 @@ func TestPruneTaggedNeverRemovesAYoungOrTheNewestBackup(t *testing.T) {
 	}
 }
 
-// Even when everything is old, the newest is never removed (also with a keep count of one, by the rule that it is never among the removable).
-func TestPruneTaggedKeepsTheNewestWhenAllAreOld(t *testing.T) {
+// When everything is old, exactly the newest 8 stay (the newest among them) and the rest go; the names of the ones removed are returned.
+func TestPruneTaggedKeepsExactlyTheNewestEightWhenAllAreOld(t *testing.T) {
 	s := openBackupNow(t)
 	var ps []string
 	for i := 0; i < 10; i++ {
 		ps = append(ps, putTagged(t, s, checkpointTag, ago(100+i)))
 	}
-	s.pruneTagged(checkpointTag, ps[0])
-	if !tFileThere(ps[0]) {
-		t.Fatal("the newest backup was removed")
+	got := s.pruneTagged(checkpointTag, "")
+	for i, p := range ps {
+		if want := i < keepTaggedBackups; tFileThere(p) != want {
+			t.Fatalf("backup %d: kept=%v want %v", i, tFileThere(p), want)
+		}
 	}
-	if tFileThere(ps[9]) || tFileThere(ps[8]) {
-		t.Fatal("the oldest were kept")
+	if len(got) != 2 || got[0] != filepath.Base(ps[8]) || got[1] != filepath.Base(ps[9]) {
+		t.Fatalf("the names returned: %v", got)
+	}
+}
+
+// The backup that was just taken is never removed, even when its name is old and it is beyond the newest 8 (a clock that was set far back); the others beyond 8 go.
+func TestPruneTaggedNeverRemovesTheOneJustTakenEvenWhenOld(t *testing.T) {
+	s := openBackupNow(t)
+	var ps []string
+	for i := 0; i < 12; i++ {
+		ps = append(ps, putTagged(t, s, manualTag, ago(30+i)))
+	}
+	just := ps[11] // the oldest, position 12
+	s.pruneTagged(manualTag, just)
+	if !tFileThere(just) {
+		t.Fatal("the backup just taken was removed")
+	}
+	if tFileThere(ps[8]) || tFileThere(ps[9]) || tFileThere(ps[10]) {
+		t.Fatal("the other old ones beyond the newest 8 were kept")
+	}
+}
+
+// A name that is not a real date, or is dated far ahead (a year that overflows the clock's nanoseconds, 2262 and later), is not counted and not removed: it must not be taken for
+// the oldest.
+func TestPruneTaggedKeepsNamesWithAnImpossibleOrFarFutureTime(t *testing.T) {
+	s := openBackupNow(t)
+	var real []string
+	for i := 0; i < 9; i++ {
+		real = append(real, putTagged(t, s, manualTag, ago(20+i)))
+	}
+	odd := []string{
+		"game-99991231-235959Z-000000000-manual.db",
+		"game-22630101-000000Z-000000000-manual.db",
+		"game-20261301-000000Z-000000000-manual.db", // month 13
+		"game-20261132-000000Z-000000000-manual.db", // day 32
+	}
+	var kept []string
+	for _, n := range odd {
+		kept = append(kept, putNamed(t, s, n, ago(300)))
+	}
+	s.pruneTagged(manualTag, "")
+	for _, p := range kept {
+		if !tFileThere(p) {
+			t.Fatalf("a file with an impossible or far-future time was removed: %s", filepath.Base(p))
+		}
+	}
+	// they take no place among the newest 8: the ninth real one (the oldest) is the one beyond them, and it is removed
+	if tFileThere(real[8]) || !tFileThere(real[7]) || !tFileThere(real[0]) {
+		t.Fatal("the far-future names took a place among the newest 8")
+	}
+}
+
+// A save whose name is not valid UTF-8 gives no pattern: nothing is pruned and nothing panics.
+func TestPruneTaggedDoesNotPanicOnASaveNameThatIsNotUTF8(t *testing.T) {
+	dir := t.TempDir()
+	s := &Save{Path: filepath.Join(dir, "g\xffame.db")}
+	if got := s.pruneTagged(manualTag, ""); len(got) != 0 {
+		t.Fatalf("removed %v", got)
+	}
+	if got := s.pruneTagged(checkpointTag, "x"); len(got) != 0 {
+		t.Fatalf("removed %v", got)
 	}
 }
 
@@ -139,6 +200,9 @@ func TestPruneTaggedOnlyRemovesTheExactNameOfTheKind(t *testing.T) {
 	}
 	dir := filepath.Join(s.backupDir(), "game-"+stamp+"Z-"+"000000001"+"-manual.db") // a directory with the exact name of a backup
 	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(dir, old, old); err != nil { // old by name and by time, so only its not being a regular file keeps it
 		t.Fatal(err)
 	}
 	s.pruneTagged(manualTag, "")
@@ -231,6 +295,9 @@ func TestBackupNowAndCheckpointPruneTheirOwnKind(t *testing.T) {
 		if !tFileThere(ps[0]) || !tFileThere(ps[6]) || tFileThere(ps[8]) || tFileThere(ps[9]) {
 			t.Fatalf("%s: the newest 8 (the new one and 7 of the old) are kept and the rest go", tag)
 		}
+		if len(m.Pruned) != 3 || m.Pruned[0] != filepath.Base(ps[7]) {
+			t.Fatalf("%s: the answer does not name the removed backups: %v", tag, m.Pruned)
+		}
 		if !tFileThere(auto) || !tFileThere(s.Path) {
 			t.Fatal("an automatic backup or the save was removed")
 		}
@@ -250,10 +317,10 @@ func TestPruneTaggedDoesNotFollowALinkedFolder(t *testing.T) {
 		os.Chtimes(p, ago(30+i), ago(30+i))
 		ps = append(ps, p)
 	}
-	if err := os.Symlink(target, s.backupDir()); err != nil {
-		t.Skipf("links cannot be made here: %v", err)
+	makeFolderLink(t, s.backupDir(), target) // a symbolic link, or a junction on Windows; skips when neither can be made
+	if got := s.pruneTagged(manualTag, ""); len(got) != 0 {
+		t.Fatalf("removed through a linked folder: %v", got)
 	}
-	s.pruneTagged(manualTag, "")
 	for _, p := range ps {
 		if !tFileThere(p) {
 			t.Fatal("a file was removed through a linked backup folder")
