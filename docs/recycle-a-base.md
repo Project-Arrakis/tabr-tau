@@ -189,7 +189,7 @@ It is the same recycle: the same plan, the same question, the same single write.
 | Map marker | the base's own marker is looked for and removed | none is looked for: the pick-up already took it off the map, and the game's own recycle of a backup changed no marker |
 | Refund, items, Reserve rule, room, queues, vehicles, fingerprint, undo note, queueing while the game runs | as on this page | the same |
 
-The refund is 100% of the table cost, and 50% in the Deep Desert, as for a standing base. What was stored in the backup's containers moves to the Reserve unchanged. The Reserve must be
+The refund is 100% of the table cost on every map, the Deep Desert included (#1211), as for a standing base. What was stored in the backup's containers moves to the Reserve unchanged. The Reserve must be
 empty first.
 
 **Refused, nothing changed (in addition to the rules below):** a base backup that records another player, or any actor of it held by a rank of another player; a backup that lists an
