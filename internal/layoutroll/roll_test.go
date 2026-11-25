@@ -13,6 +13,9 @@ import (
 
 // Every test works in a temp folder; none reads or writes a real Game.ini or a real settings folder.
 
+// allVetted is the --vetted text that lets a test pick any layout the roll can write; a test of the vetted list itself sets its own.
+var allVetted = "0,1,2,3,4,5,6,7,8,9,10,11"
+
 type env struct {
 	t       *testing.T
 	dir     string
@@ -57,7 +60,7 @@ func (e *env) ini() string {
 
 func (e *env) opts() Options {
 	return Options{
-		ConfigDir: e.dir, StatePath: e.state, SavePath: e.save, Editor: "test",
+		ConfigDir: e.dir, StatePath: e.state, SavePath: e.save, Editor: "test", VettedFlag: &allVetted, // every layout is vetted unless a test says otherwise (#1219)
 		Now:  func() time.Time { return e.now },
 		Intn: func(n int) int { return e.pick % n },
 		GameRunning: func() (bool, string) {
