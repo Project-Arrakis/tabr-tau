@@ -244,3 +244,73 @@ func TestAMissingNumberListsTheDeveloperBoxesWithOtherNames(t *testing.T) {
 		t.Fatalf("%s", txt)
 	}
 }
+
+// aBaseNamed is the totem of one more base called name (#1218): in a real save a totem is a placeable with an inventory of its own, and the name of the base is its permission_actor name.
+func aBaseNamed(id int, name string) string {
+	return fmt.Sprintf(`insert into actors(id,class,map,location_x,location_y,location_z,rotation_x,rotation_y,rotation_z,rotation_w,dimension_index,state,serial,owner_account_id,properties) values (%[1]d,'/Game/BP_Totem.BP_Totem_C','HaggaBasin',5500,6000,7,0,0,0,1,0,0,10,1,jsonb('{}'));
+insert into totems(id) values (%[1]d);
+insert into permission_actor(actor_id,actor_name,actor_type,access_level,is_child,edited_by_player_id) values (%[1]d,'%[2]s',3,3,0,0);
+insert into placeables(id,owner_entity_id,building_type,has_buildable_support,is_hologram) values (%[1]d,5764607523034234881,'Totem_Placeable',1,0);
+insert into inventories(id,actor_id,inventory_type,max_item_count,max_item_volume) values (%[3]d,%[1]d,4,10,0.0);
+`, id, name, 9000+id)
+}
+
+// #1218: a base that carries one of the names DD-1 ... DD-6 is a base, not a box. Its totem is a placeable with an inventory, so it used to be read as a container of another kind and
+// the scan refused the whole move.
+func TestABaseNamedDDnIsNotABoxAndBlocksNothing(t *testing.T) {
+	t.Run("beside valid boxes the move uses the boxes and ignores the base", func(t *testing.T) {
+		o := boxOpsExtra(t, aBaseNamed(602, "DD-1")+aBaseNamed(603, "DD-2")+aBaseNamed(604, "DD-3"), ddBoxes(2, 10, 0), 1, 2)
+		s, err := scanReserveBoxes(o.S)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprint(s.Found) != "[DD-1 DD-2]" || s.Gap != "DD-3" || len(s.Ignored) != 0 || len(s.Wrong) != 0 {
+			t.Fatalf("found %v gap %q ignored %v wrong %v", s.Found, s.Gap, s.Ignored, s.Wrong)
+		}
+		d := detectOf(t, o)
+		if fmt.Sprint(d["found"]) != "[DD-1 DD-2]" || len(d["unusable"].([]ReserveBoxProblem)) != 0 {
+			t.Fatalf("%v", d)
+		}
+		r := moveApply(t, o, nil, MoveReserveOptions{})
+		if fmt.Sprint(boxNamesOf(r)) != "[DD-1 DD-2]" || r["changed"] != true || inBox(t, o, 1)+inBox(t, o, 2) != 2 {
+			t.Fatalf("%v", r)
+		}
+		if n := rmCount(t, o, `items where inventory_id in (9602,9603,9604)`); n != 0 {
+			t.Fatalf("%d stacks went into a base", n)
+		}
+	})
+	t.Run("a base named DD-3 is no gap-filler: DD-4 behind the gap is still ignored", func(t *testing.T) {
+		boxes := []tbox{{"DD-1", 10, 0}, {"DD-2", 10, 0}, {"DD-4", 10, 0}}
+		o := boxOpsExtra(t, aBaseNamed(602, "DD-3"), boxes, 1)
+		s, err := scanReserveBoxes(o.S)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprint(s.Found) != "[DD-1 DD-2]" || s.Gap != "DD-3" || fmt.Sprint(s.Ignored) != "[DD-4]" || len(s.Wrong) != 0 {
+			t.Fatalf("found %v gap %q ignored %v wrong %v", s.Found, s.Gap, s.Ignored, s.Wrong)
+		}
+	})
+	t.Run("a base named DD-1 with no box named DD-1 is no box", func(t *testing.T) {
+		o := boxOpsExtra(t, aBaseNamed(602, "DD-1"), []tbox{{"Dump", 10, 0}}, 1)
+		if _, err := o.PreviewMoveReserve(nil, MoveReserveOptions{}); err == nil || !strings.Contains(err.Error(), "No Developer storage box named DD-1") {
+			t.Fatalf("%v", err)
+		}
+	})
+	t.Run("a real container of another kind is still refused, with a base of the same name beside it", func(t *testing.T) {
+		o := boxOpsExtra(t, aBaseNamed(602, "DD-3")+otherContainer(800, "DD-3", "Storage_Placeable"), []tbox{{"DD-1", 10, 0}, {"DD-2", 10, 0}}, 1)
+		_, err := o.PreviewMoveReserve(nil, MoveReserveOptions{})
+		refusedWith(t, err, apierr.ErrConflict, `The container named "DD-3" is a "Storage_Placeable" container`)
+		if strings.Contains(err.Error(), "Totem_Placeable") {
+			t.Fatalf("the base was named as a container: %v", err)
+		}
+	})
+	t.Run("a Developer box and a base of one name: one box, no clash", func(t *testing.T) {
+		o := boxOpsExtra(t, aBaseNamed(602, "DD-1"), []tbox{{"DD-1", 10, 0}}, 1)
+		if d := detectOf(t, o); fmt.Sprint(d["found"]) != "[DD-1]" || len(d["unusable"].([]ReserveBoxProblem)) != 0 {
+			t.Fatalf("%v", d)
+		}
+		if r := moveApply(t, o, nil, MoveReserveOptions{}); fmt.Sprint(boxNamesOf(r)) != "[DD-1]" {
+			t.Fatalf("%v", r)
+		}
+	})
+}
