@@ -68,12 +68,13 @@ test('the question lists the numbers, says everything goes to the Reserve and th
   ui.dom.window.close();
 });
 
-test('a Deep Desert base says the refund is half the table cost, and lines with nothing to say are left out', async () => {
-  const ui = await boots({}, { ...PREVIEW, map: 'DeepDesert', costPercent: 50, holograms: 0, devStorage: 0, waterDropped: 0, waterDevices: 0, warnings: [] });
+test('a Deep Desert base says the refund is the full building cost, the same as any map, and lines with nothing to say are left out', async () => {
+  const ui = await boots({}, { ...PREVIEW, map: 'DeepDesert', costPercent: 100, holograms: 0, devStorage: 0, waterDropped: 0, waterDevices: 0, warnings: [] });
   await openBases(ui);
   ui.click('[data-act="baseRecycle"]'); await ui.settle();
   const items = [...ui.doc.querySelectorAll('#ask li')].map((l) => l.textContent);
-  assert.ok(items[2].includes('which is 50% of the table cost'), items[2]);
+  assert.ok(items[2].includes('Refund to your Reserve (100% of the building cost,'), items[2]);
+  assert.ok(!items[2].includes('table cost'), items[2]);
   assert.equal(items.length, 4, items.join('|'));
   assert.ok(!items.some((l) => /hologram|Developer|water/.test(l)), items.join('|'));
   ui.dom.window.close();

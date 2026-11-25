@@ -14,8 +14,9 @@ read by `catalog.go` (`MaxStack`, `Volume`, `Unlocks`) and nothing else.
 ## buildcosts.json (#1176)
 
 **What it is.** The placement cost of one building piece and of one placeable, by type, as the game's own tables list it: item template ids and whole numbers, nothing else (no
-names, text, images or code). Recycle base (`internal/ops/recyclebase.go`) reads it through `buildcosts.go` (`PieceCost`, `PlaceableCost`, `PlacementCostPercent`) to give back
-what a base cost. Nothing else reads it.
+names, text, images or code). Recycle base (`internal/ops/recyclebase.go`) reads it through `buildcosts.go` (`PieceCost`, `PlaceableCost`) to give back
+what a base cost. Nothing else reads it. `PlacementCostPercent` (the map multiplier below) is kept as data of the game's table, but the refund does not use it: the refund is the
+full table cost on every map, the Deep Desert included (#1211).
 
 **Source.** The game's own data tables of game build `26592269` (the installed game's Steam manifest, `appmanifest_1172710.acf`, read on 2026-11-23), all under
 `DuneSandbox/Content/Dune/Systems/Building/Data/`:
@@ -52,7 +53,7 @@ cost (deployables such as `Stilltent` and `Thumper`, which cost one of themselve
 catalog knows the id and a refusal when it does not.
 
 **Not checked.** That the game charges exactly these amounts when a piece is placed (the amounts are the table's; no placement was checked against an inventory in the game),
-and how the game rounds half of an odd cost in the Deep Desert (Recycle base rounds a half up, per unit).
+and how the game rounds half of an odd cost in the Deep Desert (the refund no longer halves anything, #1211, so this no longer affects Recycle base).
 
 **Licence position.** As for the other files of this folder that come from the game's tables: identifiers and whole numbers only; the game and its data belong to Funcom and
 this project is unofficial. The notice is in `internal/notices/THIRD-PARTY-NOTICES.md` ("Building costs").

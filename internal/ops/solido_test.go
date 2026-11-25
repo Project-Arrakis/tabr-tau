@@ -417,7 +417,7 @@ func TestADeepDesertBaseMakesItsSolidoTheSameWay(t *testing.T) {
 	o := recycleOps(t, solidoWorld(blankDevice)+`update actors set map='DeepDesert' where id in (601,602,701,702,703,704,705,706,707);
 update markers set map_name='DeepDesert' where marker_hash_id=111; update player_markers set map_name='DeepDesert' where marker_hash_id=111;`)
 	r := recycleWithSolido(t, o)
-	if s := r["solido"].(map[string]any); s["pieces"] != int64(3) || s["placeables"] != int64(6) || r["costPercent"] != int64(50) {
+	if s := r["solido"].(map[string]any); s["pieces"] != int64(3) || s["placeables"] != int64(6) || r["costPercent"] != int64(100) {
 		t.Fatalf("%v", r)
 	}
 }

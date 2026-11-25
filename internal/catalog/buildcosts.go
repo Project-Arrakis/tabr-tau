@@ -40,7 +40,7 @@ func PlaceableCost(buildingType string) (map[string]int64, bool) {
 }
 
 // PlacementCostPercent returns the share of the table cost that a piece or a placeable costs on this map, in percent: 100 for every map but those the game's map table gives
-// their own value (the Deep Desert: 50).
+// their own value (the Deep Desert: 50). Recycle base does not use it for the refund, which is the full table cost on every map (#1211).
 func PlacementCostPercent(mapName string) int64 {
 	if p, ok := buildCosts.PlacementCostPercent[mapName]; ok && p > 0 {
 		return p

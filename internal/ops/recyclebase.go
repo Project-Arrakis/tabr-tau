@@ -28,8 +28,8 @@ import (
 //     base's actors, the "BaseTotem" row of a base the character respawns at): the save's own layout deletes them with the actor;
 //   - moved: every item row of every inventory of those actors (chests, the totem's own slots, windtrap filters, generator fuel, refinery and fabricator slots) goes to the
 //     Reserve unchanged. Only inventory_id and position_index of a row change, as in the game's own recycle;
-//   - added: the refund, as new stacks in the Reserve. Every piece and placeable gives back 100% of what the game's building tables say it costs to place (times the map's cost
-//     share: 50% in the Deep Desert, where a piece costs half), with three fixed rules: a Developer storage container gives 10 IronBar, a hologram gives nothing, and a door is
+//   - added: the refund, as new stacks in the Reserve. Every piece and placeable gives back 100% of what the game's building tables say it costs to place, on every map (the
+//     Deep Desert too: 100%, not the half its map table gives a piece there, #1211), with three fixed rules: a Developer storage container gives 10 IronBar, a hologram gives nothing, and a door is
 //     counted once (as its own placeable row; the door its frame carries in the tables is the same object and is not added again). A type the tables give no cost is never free:
 //     the base is refused and the type named;
 //   - dropped: water stored in cisterns and windtraps (it is an amount in the entity, not an item) and a unit of fuel that is already burning.
@@ -134,7 +134,6 @@ type recyclePlan struct {
 	Ctl, Pawn, Ent int64
 	Name, RawName  string
 	Map            string
-	Percent        int64
 	Actors         []int64 // the totem and every placeable it owns, ascending
 	Buildings      []int64 // the building actors that hold the pieces, ascending
 	Pieces         int64
@@ -168,7 +167,7 @@ const solidoFingerprintPrefix = "solido-"
 
 func (p *recyclePlan) fingerprint() string {
 	h := sha256.New()
-	fmt.Fprintf(h, "recycle|%d|%d|%d|%d|%s|%s|%d|%v|%v|%s|%v|%d|%d|%d|%d|", p.Totem, p.Ctl, p.Pawn, p.Ent, p.RawName, p.Map, p.Percent, p.Actors, p.Buildings, p.Types, p.Inventories,
+	fmt.Fprintf(h, "recycle|%d|%d|%d|%d|%s|%s|%v|%v|%s|%v|%d|%d|%d|%d|", p.Totem, p.Ctl, p.Pawn, p.Ent, p.RawName, p.Map, p.Actors, p.Buildings, p.Types, p.Inventories,
 		p.ItemRows, p.ItemUnits, p.Reserve, p.Water)
 	for _, r := range p.Refund {
 		fmt.Fprintf(h, "%s=%d/%d;", r.Item, r.Count, r.Stacks)
@@ -196,19 +195,14 @@ func (p *recyclePlan) fingerprint() string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// unitCost is what one unit gives back on a map where a piece costs percent of the table cost. A half that is not whole is rounded up: the game's own rounding of a Deep Desert
-// cost has not been measured, and the rule here is that nothing paid is lost.
-func unitCost(n, percent int64) int64 {
-	if percent == 100 {
-		return n
-	}
-	return (n*percent + 99) / 100
-}
+// refundPercent is the share of the table cost that a recycle gives back: all of it, on every map, the Deep Desert included (operator decision, #1211). The game's map table gives the
+// Deep Desert a placement cost multiplier of 0.5 (catalog.PlacementCostPercent); the refund does not use it.
+const refundPercent = 100
 
-// addCost adds what n units of one type give back to the refund: each item of the type's cost, at the map's share.
-func addCost(total, cost map[string]int64, n, percent int64) {
+// addCost adds what n units of one type give back to the refund: each item of the type's cost, in full.
+func addCost(total, cost map[string]int64, n int64) {
 	for item, c := range cost {
-		total[item] += unitCost(c, percent) * n
+		total[item] += c * n
 	}
 }
 
@@ -229,7 +223,7 @@ func refundTotals(p *recyclePlan, pieces, plcs []save.Row) (map[string]int64, []
 			missing = append(missing, t)
 			continue
 		}
-		addCost(total, cost, n, p.Percent)
+		addCost(total, cost, n)
 	}
 	for _, r := range plcs {
 		t, _ := r["t"].(string)
@@ -248,7 +242,7 @@ func refundTotals(p *recyclePlan, pieces, plcs []save.Row) (map[string]int64, []
 				missing = append(missing, t)
 				continue
 			}
-			addCost(total, cost, n, p.Percent)
+			addCost(total, cost, n)
 		}
 	}
 	return total, missing, types
@@ -347,10 +341,6 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 	p.Map, _ = head["map"].(string)
 	dim, _ := toInt(head["dim"])
 	p.Name = backupDisplayName(p.RawName, totemType)
-	p.Percent = catalog.PlacementCostPercent(p.Map)
-	if isDeepDesertMap(p.Map) {
-		p.Percent = catalog.PlacementCostPercent("DeepDesert")
-	}
 
 	// The actors: the totem, every placeable the totem owns, and the building actors that hold its pieces.
 	eid := strconv.FormatInt(ent, 10)
@@ -960,9 +950,6 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 		refundWords = append(refundWords, fmt.Sprintf("%s %s", commas(r.Count), r.Name))
 	}
 	rate := "100% of the building cost"
-	if p.Percent != 100 {
-		rate = fmt.Sprintf("100%% of the building cost on this map, which is %d%% of the table cost", p.Percent)
-	}
 	summary := []string{}
 	if p.PickedUp {
 		summary = append(summary, fmt.Sprintf("Deleted: the base backup %d that listed this picked-up base (its record and its %d linked actors).", p.Backup, p.Rows["base_backup_linked_actors"]))
@@ -996,7 +983,7 @@ func applyBaseRecycle(m *save.Mut, msql markerSQL, p *recyclePlan) (map[string]a
 	}
 
 	out := map[string]any{
-		"ok": true, "changed": true, "base": p.Totem, "name": p.Name, "map": p.Map, "costPercent": p.Percent,
+		"ok": true, "changed": true, "base": p.Totem, "name": p.Name, "map": p.Map, "costPercent": refundPercent,
 		"pieces": p.Pieces, "placeables": p.Placeables, "holograms": p.Holograms, "devStorage": p.DevStorage, "actors": p.Rows["actors"],
 		"deleted": deleted, "itemStacksMoved": p.ItemRows, "itemsMoved": p.ItemUnits,
 		"refund": p.Refund, "refundStacks": p.RefundStacks, "waterDropped": p.Water, "waterDevices": p.WaterDevices,

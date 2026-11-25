@@ -236,10 +236,11 @@ Materials are not split further. The cost of a refinery is returned as the ingot
 
 The cost table is `internal/catalog/buildcosts.json` (752 piece types, 527 placeable types, game build 26592269); `internal/catalog/PROVENANCE.md` says where it comes from.
 
-### Deep Desert: half
+### Deep Desert: the same as everywhere
 
-A piece or placeable costs half in the Deep Desert (the game's map table gives that map a placement cost multiplier of 0.5). A base that stands there gives back what was paid
-there: half the table cost of each unit. Half of an odd cost is rounded up per unit (a foundation of 15 gives 8). How the game itself rounds is not measured.
+A base in the Deep Desert gives back the full table cost of each unit, exactly as a base on any other map does (#1211, the operator's decision). The game's map table gives the Deep
+Desert a placement cost multiplier of 0.5, so a piece costs half to place there; the refund does not apply that multiplier. It is the same code for every map (and for the layout
+roll's recycle step), so a base gives back the same whichever map it stands on.
 
 ### A door counts once
 
@@ -302,7 +303,7 @@ door and a spice silo with four stacks in it.
 |---|---:|---:|---|
 | The game's own recycle (measured) | 125 | 37 | moved to the Reserve, unchanged |
 | Recycle base in this editor (100% of the table cost) | 242 | 75 | moved to the Reserve, unchanged |
-| The same base in the Deep Desert (half, rounded up per unit) | 122 | 38 | moved to the Reserve, unchanged |
+| The same base in the Deep Desert (the same 100%, #1211) | 242 | 75 | moved to the Reserve, unchanged |
 
 The game's 37 Salvaged Metal is exactly half of 75, rounded down. Its 125 Granite Stone is a little more than half of 242; one base is not enough to say why.
 
@@ -424,7 +425,8 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
   The weekly layout roll (`layout-roll --recycle-bases`, #1167) recycles the Deep Desert bases of the character one at a time, each with its Solido, and needs the Reserve to be empty before each base: it empties the Reserve into the boxes named `DD-1` and `DD-2` between the bases (and after the last one), on the same working copy and with the same move, so several bases go in one run when the boxes have room. When a box is missing or full it recycles the bases that fit and stops before the roll; a re-run continues.
 - **The game's own recycle returns about half.** The editor returns everything, by the operator's choice. A base recycled here gives more than the same base recycled in the
   game. An "as the game does" mode is not built: the game's rate and rounding are known from one base only.
-- **Deep Desert rounding.** Half of an odd cost is rounded up per unit. What the game charges for such a piece there has not been measured.
+- **The Deep Desert gives back more than it cost.** A piece costs half to place in the Deep Desert (the game's map multiplier of 0.5), and the refund is the full table cost, by the
+  operator's decision (#1211): a base built there returns twice what was paid for it. What the game's own recycle would return there was not measured.
 - **Not measured in the game for a standing base.** The rows deleted are those of the game's recycle of a base *backup*. What the game does with the totem's own slots, the slots
   of refineries and fabricators, and filters and fuel on a recycle was not in the measured base (its only contents were the four stacks in the silo); the editor moves them all,
   by the operator's rule.
@@ -445,7 +447,7 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
 
 ## What has been checked
 
-Tests on made-up saves of both marker layouts (what is deleted, that the Reserve receives the items unchanged, the refund sums, the Deep Desert half, the Developer storage
+Tests on made-up saves of both marker layouts (what is deleted, that the Reserve receives the items unchanged, the refund sums, the Deep Desert refund being the same as any other map's, the Developer storage
 container, the door, the hologram, a type with no cost, a running queue, every ownership refusal, a stale fingerprint, a read back that differs, vehicles untouched), the
 routes, the page in a browser engine, and the edit applied to a copy of a real save (the large base above): rows went from exactly the tables listed, every stored item row
 arrived unchanged, the save layer's reference check passed, and the written copy opened again and compared table by table with the save it was made from. **Not checked in the game:** loading a save after a recycle made here.
