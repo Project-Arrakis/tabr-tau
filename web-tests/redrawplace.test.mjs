@@ -220,7 +220,7 @@ test('Bases: another inventory group, a sub-tab and another base start the table
 const many = (n, f) => Array.from({ length: n }, (_, i) => f(i + 1));
 const veh = (id) => ({ id, name: 'BP_Sandbike_CHOAM', type: 'Sandbike', map: 'HaggaBasin', condition: 60, fuel: 10, x: 1, y: 2, components: [], cargo: null });
 
-test('Vehicles: Details on a low row keeps the list at its offset, the button keeps the focus and the page offset stays', async () => {
+test('Vehicles: opening a low row keeps the list at its offset, the row button keeps the focus and the page offset stays', async () => {
   const ui = await boot({ get: { '/api/vehicles': { vehicles: many(40, veh), hidden: 0, recovered: [], backups: [] }, '/api/vehicles/fuel': { total: 40, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
   await go(ui, '[data-tab="player"]', '[data-sub="player:vehicles"]');
   boxOf(ui).scrollTop = 420; boxOf(ui).scrollLeft = 5;

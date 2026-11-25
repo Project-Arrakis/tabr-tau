@@ -25,7 +25,8 @@ func vehicleType(name string) string {
 //	fuel       the current fuel from the vehicle component, nil when there is none; fuelMax and fuelPercent (never above 100) come from the tank of the chassis (tankOf)
 //	components every module with its durability; percent only where the maximum is known
 //	cargo      the cargo hold, the inventory with inventory_type 0 (a vehicle's other inventories are per-component holds with no
-//	           capacity), with its items and its room (slots, volume, slots used, and noHold when the vehicle has no storage part: cargolimits.go); nil when the vehicle has none
+//	           capacity), with its items and its room (slots, volume, slots used, volume used, and noHold when the vehicle has no storage part: cargolimits.go); nil when the
+//	           vehicle has none
 func (o *Ops) vehicleDetails(v map[string]any) {
 	mods, _ := o.S.Query(`select id, template_id,
 			json_extract(stats,'`+schema.VehicleModuleCurrentDurability+`') current,
@@ -84,9 +85,16 @@ func (o *Ops) vehicleDetails(v map[string]any) {
 		for _, it := range items {
 			used[it["position_index"]] = true
 		}
-		c := map[string]any{"inventory_id": hold["id"], "slots": nil, "volume": hold["volume"], "used": int64(len(used)), "noHold": known && slots == 0, "items": items}
+		c := map[string]any{"inventory_id": hold["id"], "slots": nil, "volume": hold["volume"], "used": int64(len(used)), "volumeUsed": nil, "volumeUnknown": int64(0), "noHold": known && slots == 0, "items": items}
 		if known {
 			c["slots"] = slots
+		}
+		// volumeUsed: what the hold holds by volume (#1231), by the count a give works with (giveupto.go); volumeUnknown: the units with no known volume, counted as none there.
+		// volumeUsed stays nil when it cannot be read, so the page shows no figure rather than a wrong one.
+		if id, ok := hold["id"].(int64); ok {
+			if vol, unknown, err := inventoryVolumeUsedInTx(o.S, id); err == nil {
+				c["volumeUsed"], c["volumeUnknown"] = vol, unknown
+			}
 		}
 		v["cargo"] = c
 	}

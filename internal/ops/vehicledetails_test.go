@@ -1,9 +1,11 @@
 package ops
 
 import (
+	"math"
 	"strings"
 	"testing"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/catalog"
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
@@ -54,6 +56,41 @@ func TestVehicleDetailsConditionFuelComponentsAndCargo(t *testing.T) {
 	items := cargo["items"].([]map[string]any)
 	if cargo["inventory_id"].(int64) != 8001 || cargo["slots"].(int64) != 15 || len(items) != 1 || items[0]["template_id"] != "CopperOre" || items[0]["stack_size"].(int64) != 40 {
 		t.Errorf("cargo hold is the inventory_type 0 one, not a per-component hold: %v", cargo)
+	}
+}
+
+// The cargo hold says what it holds by volume (#1231), by the count a give works with: the item table's unit volume, or the row's own volume_override, times the stack. Units
+// with no known volume count as none and are counted apart.
+func TestVehicleCargoSaysTheVolumeUsedAsAGiveCountsIt(t *testing.T) {
+	unit, known := catalog.Volume(carbon)
+	if !known || unit <= 0 {
+		t.Fatalf("the item table has a volume for carbon ore: %v %v", unit, known)
+	}
+	for name, c := range map[string]struct {
+		sql     string
+		used    float64
+		unknown int64
+	}{
+		"the item table's volume": {"", 40 * unit, 0},
+		"a row's own volume":      {`update items set volume_override=2.5 where id=8101;`, 100, 0},
+		"an unknown item": {`insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level) values (8110,8001,7,3,'NoSuchItemAnywhere',0,1790000000,'{}',0);`,
+			40 * unit, 7},
+		"an empty hold": {`delete from items where inventory_id=8001;`, 0, 0},
+	} {
+		// the stack of the hold is carbon ore, an item with a known volume
+		o := &Ops{S: testsave.PlayerWithSQL(t, vehicleDetailsWorld+`update items set template_id='`+carbon+`' where id=8101;`+c.sql)}
+		r, err := o.Vehicles()
+		if err != nil {
+			t.Fatal(err)
+		}
+		cargo := r.(map[string]any)["vehicles"].([]map[string]any)[0]["cargo"].(map[string]any)
+		used, ok := cargo["volumeUsed"].(float64)
+		if !ok || math.Abs(used-c.used) > 1e-9 || cargo["volumeUnknown"] != c.unknown || cargo["volume"] != 500.0 {
+			t.Errorf("%s: volume %v, used %v (want %v), unknown %v (want %d)", name, cargo["volume"], cargo["volumeUsed"], c.used, cargo["volumeUnknown"], c.unknown)
+		}
+		if o.S.Dirty() {
+			t.Errorf("%s: listing the vehicles changes nothing", name)
+		}
 	}
 }
 

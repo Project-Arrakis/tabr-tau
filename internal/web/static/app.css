@@ -616,6 +616,63 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 @media (max-width:720px){#vcpreview td{min-width:0}}
 @media (pointer:coarse){#vcpreview td select{min-height:44px}}
 
+/* ---- Player > Vehicles (issues 1230 and 1231): a row opens its details under it, and the cargo hold's slots and volume on one line. Every rule here starts with a v- class of that tab. ---- */
+.vlist.scroll{max-height:none}
+.vlist>table>thead th{position:static}
+.vlist{overflow-anchor:none}
+.vopen{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:2px 6px 2px 2px;margin:0;background:none;border:0;border-radius:var(--r-2);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.vopen:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+.vchev{flex:none;display:inline-block;width:12px;height:12px;position:relative;color:var(--c-gold)}
+.vchev::before{content:"";position:absolute;left:2px;top:2px;width:6px;height:6px;border:solid currentColor;border-width:2px 2px 0 0;transform:rotate(45deg)}
+.vopen[aria-expanded="true"] .vchev::before{transform:rotate(135deg);top:1px;left:3px}
+.vtap{cursor:pointer}
+.vsub{display:block;margin:2px 0 0 22px}
+.vsub .tag{margin-left:0}
+/* hover: only while the pointer is on something that opens the row */
+.vlist tr.vrow:hover>td{background:transparent}
+@media (hover:hover){.vlist tr.vrow:has(.vtap:hover,.vopen:hover)>td{background:color-mix(in srgb,var(--c-gold) 5%,var(--panel))}}
+/* the open row and its details: the sand of the headings, never the blue of an action (in the Fremen look --c-spice is that blue). The tint is mixed on the panel and is no stronger
+   than this so that the row's text, its condition colours too, keeps 4.5:1 in every look and palette */
+.vlist tr.vrow.on>td,.vlist tr.vrow.on:hover>td{background:color-mix(in srgb,var(--c-gold) 9%,var(--panel));border-bottom-color:transparent}
+.vlist tr.vrow.on>td:first-child{box-shadow:inset 3px 0 0 var(--c-gold)}
+.vlist tr.vdetail>td,.vlist tr.vdetail:hover>td{background:var(--panel2);box-shadow:inset 3px 0 0 var(--c-gold);padding:4px 12px 12px 25px}
+.vlist tr.vdetail[hidden]{display:none}
+.vpane{margin-top:10px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-2)}
+.vpane h4{margin:0 0 8px;font:700 var(--t-xs)/1.2 var(--t-display);letter-spacing:var(--t-track-caps);text-transform:uppercase;color:var(--c-gold)}
+.vpane th{position:static}
+.vpane tr:hover td{background:transparent}
+.vacts{display:flex;gap:6px;flex-wrap:nowrap;justify-content:flex-end}
+.vacts .d-btn{white-space:nowrap;flex:none}
+/* the cargo hold: one line */
+.vcargo{margin:0 0 10px;color:var(--mut)}
+.vtight{color:var(--fg);font-weight:700}
+.vtight.vfull{color:var(--warn)}
+@media (max-width:900px){
+  /* narrow window and phone: each vehicle is a block (name, its facts, then the three actions on one line); there are no column headers, so no sorting here */
+  .vlist>table,.vlist>table>tbody,.vlist>table>tbody>tr,.vlist>table>tbody>tr>td{display:block;width:100%}
+  .vlist>table>thead{display:none}
+  .vlist>table>tbody>tr.vrow{border-bottom:1px solid var(--line);padding:6px 0}
+  .vlist>table>tbody>tr.vrow>td{border:0;padding:2px 8px}
+  .vlist>table>tbody>tr.vrow>td[data-label]{padding-left:30px}
+  .vlist>table>tbody>tr.vrow>td[data-label]::before{content:attr(data-label) ": ";color:var(--mut);font-size:var(--t-sm)}
+  .vlist>table>tbody>tr.vrow>td[data-label]:has(>.vtap)::before{content:none}
+  .vlist td>.vtap[data-l]::before{content:attr(data-l) ": ";color:var(--mut);font-size:var(--t-sm)}
+  .vlist td>.vtap{padding:3px 0}
+  .vlist>table>tbody>tr.vrow>td.vtype{display:none}
+  .vlist>table>tbody>tr.vrow>td.vactcell{padding-top:8px}
+  .vlist tr.vrow.on>td{box-shadow:inset 3px 0 0 var(--c-gold)}
+  .vlist>table>tbody>tr.vdetail[hidden]{display:none}
+  .vlist>table>tbody>tr.vdetail>td{padding:0 0 8px 3px}
+  .vopen{min-height:44px;width:auto}
+  .vacts{justify-content:stretch;max-width:26rem}
+  .vacts .d-btn{flex:1 1 auto;padding:0 6px}
+  .vpane{padding:8px 5px;border-left:0;border-right:0;border-radius:0}
+  .vpane .scroll th,.vpane .scroll td{padding:4px}
+  .vpane .scroll th{letter-spacing:.02em}
+  .vpane .scroll .d-btn{white-space:nowrap;padding:0 6px}
+  .vpane input[type=number]{width:70px;padding:6px}
+}
+
 /* ==== Command Center board view: width, layout and the floor for the text of the tab (display only) ====
    Content width: while the board is on, the page is as wide as the window up to 1800 px, and the nested padding is trimmed on a narrow window.
    Layout: the board's own grid holds the board panel and the side column; the action bar is not under the board any more but in the panel's control bar (the page seats its parts there, tau 914), so the

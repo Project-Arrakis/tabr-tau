@@ -443,10 +443,11 @@ function compareCells(a, b) {
 function sortTable(t, col, dir) {
   const body = t.tBodies[0];
   if (!body) return;
-  const rows = [...body.rows];
+  const rows = [...body.rows].filter((r) => !r.classList.contains('vdetail')); // the details row of a vehicle (#1230) is not sorted: it stays under its row
+  const under = new Map(rows.map((r) => [r, r.nextElementSibling && r.nextElementSibling.classList.contains('vdetail') ? r.nextElementSibling : null]));
   rows.forEach((r, i) => { if (r.sortOrder === undefined) r.sortOrder = i; });
   rows.sort((a, b) => (dir ? compareCells(cellValue(a.cells[col]), cellValue(b.cells[col])) * (dir === 'asc' ? 1 : -1) : 0) || a.sortOrder - b.sortOrder);
-  for (const r of rows) body.appendChild(r);
+  for (const r of rows) { body.appendChild(r); if (under.get(r)) body.appendChild(under.get(r)); }
   [...t.tHead.rows[0].cells].forEach((th, i) => {
     th.classList.toggle('sa', i === col && dir === 'asc'); th.classList.toggle('sd', i === col && dir === 'desc');
     if (th.hasAttribute('aria-sort')) th.setAttribute('aria-sort', i === col && dir ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
@@ -1652,9 +1653,9 @@ async function basesView() {
 }
 
 // ---------- VEHICLES
-// The player's own vehicles as in the console's Vehicles tab: type, lowest condition, fuel and location per vehicle, and for the open
-// one its components with their condition and its cargo hold (read-only here; removing cargo comes later).
-let vhOpen = null;
+// The player's own vehicles as in the console's Vehicles tab: type, lowest condition, fuel and location per vehicle, and under the open
+// one its components with their condition and its cargo hold.
+let vhOpen = null; // the one vehicle whose details are open (#1230); none on a fresh page
 const pctCell = (v) => (v == null ? html`<span class="mut">-</span>` : html`<span class="${v < 30 ? 'bad' : v < 60 ? 'warn' : 'ok'}">${Math.round(v)}%</span>`);
 const compName = (t) => String(t || '').replace(/_\d+$/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
 // The kind of a vehicle from its blueprint name: BP_MediumOrnithopter_CHOAM_C is a Medium Ornithopter.
@@ -1880,36 +1881,88 @@ function vehicleCreateCard(cat) {
       <p class="mut">Pick a part in the Part column to swap it. The preview updates, and nothing is written until Create.</p>
       ${tbl([{ k: 'slot', label: 'Slot', f: (m) => slotWord(m.slot) }, { k: 'name', label: 'Part', f: (m) => html`<select data-vcprev="${m.slot}" aria-label="Part for ${slotWord(m.slot)}" aria-invalid="${vcPartNote && vcPartNote.slots.includes(m.slot) ? 'true' : 'false'}" aria-describedby="${vcPartNote && vcPartNote.slots.includes(m.slot) ? 'vcpartnote' : ''}">${vcSlotOptions(c.slots.find((x) => x.slot === m.slot) || {}, mods[m.slot])}</select>` }, { k: 'durability', label: 'Durability', f: (m) => fix(m.durability) }], vcPartRows(p))}</div>` : ''}${aboutText}</div>`;
 }
+// A row opens its details from the button around its name (keyboard and pointer) and from a tap on the text of its other cells (data-vhtap); empty space in the row and the
+// action buttons do not (#1230). The button says whether the details are open (aria-expanded). On a narrow window the same row is drawn as a block (app.css), each fact with
+// the name of its column (data-label).
+function vehicleRow(r, on) {
+  const name = r.type || r.name, off = r.stored ? 'disabled' : '', why = r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : '';
+  const named = 'vname' + r.id, offBy = named + (r.stored ? ' vstored' + r.id : ''); // a button is described by its vehicle, one that is off by the reason too
+  const cell = (label, content) => html`<td data-label="${label}"><span class="vtap" data-vhtap="${r.id}" data-l="${label}">${content}</span></td>`;
+  return html`<tr class="vrow ${on ? 'on' : ''}"><td><button type="button" class="vopen" data-vhopen="${r.id}" aria-expanded="${on ? 'true' : 'false'}" aria-controls="vdetail${r.id}"><span class="vchev" aria-hidden="true"></span><span id="vname${r.id}"><b title="${r.name}">${name}</b> <span class="mut">${r.map}</span><span class="sr"> vehicle number ${r.id}</span></span></button>${r.stored ? html`<span class="vsub"><span class="vtap" data-vhtap="${r.id}"><span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">Stored</span> <span class="mut" id="vstored${r.id}">${r.storedLabel}. Take it out of storage in the game first.</span></span></span>` : ''}</td>
+    <td class="vtype"><span class="vtap" data-vhtap="${r.id}">${r.type}</span></td>
+    ${cell('Lowest condition', pctCell(r.condition))}
+    ${cell('Fuel', r.fuel == null ? '-' : r.fuelMax ? html`${Number(r.fuel).toFixed(1)} of ${Number(r.fuelMax).toLocaleString()} <span class="mut">(${Math.round(r.fuelPercent)}%)</span>` : Number(r.fuel).toFixed(1))}
+    ${cell('Location', html`${fix(r.x)}, ${fix(r.y)}${r.place ? html` <span class="mut">${r.place}</span>` : r.region ? html` <span class="mut">near ${r.region}</span>` : ''}`)}
+    <td class="vactcell"><div class="vacts"><button class="b sm d-btn primary sm" data-act="repairOne" data-id="${r.id}" aria-describedby="${named}">Repair</button><button class="b sm d-btn primary sm" data-act="bring" data-id="${r.id}" aria-describedby="${offBy}" ${off} title="${why}">Bring to me</button><button class="b sec sm d-btn sm" data-act="dupV" data-id="${r.id}" data-name="${name}" aria-label="Duplicate ${name} ${r.id}" aria-describedby="${offBy}" ${off} title="${why}">Duplicate</button></div></td></tr>`;
+}
+// The cargo hold line (#1231): slots and volume on one line. A limit is bold once 80 % of it is used; a full one takes the warning colour and says (full), and the word "used" is
+// then left out. A limit that is not recorded is not shown. "at least": some units have no known volume and count as none, as in a give.
+function cargoRoom(cargo) {
+  const n = cargo.items.length;
+  if (cargo.noHold) return 'This vehicle has no cargo hold (no storage part).' + (n ? ` ${nn(n, 'item', 'items')} in a hold with no slots.` : '');
+  const hasSlots = cargo.slots != null, hasVolume = Number(cargo.volume) > 0 && cargo.volumeUsed != null;
+  if (!hasSlots && !hasVolume) return nn(n, 'item', 'items');
+  const num = (x) => Number(x).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  let full = false;
+  const limit = (used, max, text) => { // the slack takes up what a sum of volumes is off by
+    if (used >= max * (1 - 1e-11)) { full = true; return html`<span class="vtight vfull">${text} (full)</span>`; }
+    return used >= max * (0.8 - 1e-11) ? html`<span class="vtight">${text}<span class="sr"> (nearly full)</span></span>` : text;
+  };
+  const used = cargo.used == null ? n : cargo.used;
+  const slots = hasSlots ? limit(used, cargo.slots, `${num(used)} of ${num(cargo.slots)} slots`) : nn(n, 'item', 'items');
+  // the volume used is cut to one decimal, never rounded up, so a hold that is not full does not read as full
+  const volume = hasVolume ? limit(cargo.volumeUsed, cargo.volume, `${cargo.volumeUnknown > 0 ? 'at least ' : ''}${num(Math.floor(cargo.volumeUsed * 10 + 1e-6) / 10)} of ${num(cargo.volume)} volume`) : null;
+  return html`${slots}${volume ? html`, ${volume}` : ''}${full ? '' : ' used'}`;
+}
+// The details under the open row: its components, then its cargo hold.
+function vehicleDetail(open, cat) {
+  // The cargo hold is the vehicle's own inventory (the console's "View Contents"): the stack of an item, Delete, Add item and Clear this container work as in a base container.
+  // Its room comes from the vehicle's parts (#483): a vehicle with no storage part has none, so the pane offers no Add item there, and says so; rows already in such a hold stay listed to be deleted or cleared.
+  const cargo = open.cargo, hold = `${open.type || open.name} cargo hold`;
+  const n = cargo ? cargo.items.length : 0, noHold = !!(cargo && cargo.noHold);
+  return html`<div class="vpane"><h4>${open.type || open.name}: ${(open.components || []).length} components</h4>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
+      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
+      ${about('vehicles.components', 'Components', html`<p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The tank size is not stored in the save; the Fuel column takes it from the vehicle's chassis in the game's module table.</p>`)}</div>
+    <div class="vpane"><h4>Cargo hold</h4>${cargo ? html`<p class="vcargo" id="cargoroom">${cargoRoom(cargo)}</p>${n ? tbl([{ k: 'position_index', label: 'Slot' },
+      { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Quantity of ${itemName(r.template_id)}">` },
+      { k: 'quality_level', label: 'Grade' }], cargo.items, { actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` }) : noHold ? '' : html`<p class="mut">The cargo hold is empty.</p>`}
+      ${noHold ? '' : html`<div class="row">${itemPicker('bt', cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveCargo" data-id="${cargo.inventory_id}">Add item</button></div>`}${noHold && !n ? '' : clearRow(cargo.inventory_id, hold, cargo.items)}${!noHold && Number(cargo.volume) > 0 && cargo.volumeUnknown > 0 ? about('vehicles.cargo', 'Cargo hold', html`<p class="mut">"At least": the editor has no volume for some items here, so they count as none.</p>`) : ''}` : html`<p class="mut">This vehicle has no cargo hold.</p>`}</div>`;
+}
+// One list of the character's vehicles, a stored one too (#1230). Each row has its details row under it, filled only for the open one.
+function vehicleList(list, open, cat) {
+  if (!list.length) return html`<p class="mut">You have no vehicles in this save yet.</p>`;
+  return html`<div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Type</th><th>Lowest condition</th><th>Fuel</th><th>Location</th><th></th></tr></thead><tbody>${
+    list.map((r) => html`${vehicleRow(r, r === open)}<tr class="vdetail" id="vdetail${r.id}" ${r === open ? '' : 'hidden'}><td colspan="6">${r === open ? vehicleDetail(r, cat) : ''}</td></tr>`)}</tbody></table></div>`;
+}
+// A vehicle waiting to be recovered is not in the list above: the entries of kind "recovery" (the server's one label function, as the list uses, #528) whose vehicle is not
+// listed. The card is drawn only when there is one (#1230).
+function recoveryCard(stored, list) {
+  const waiting = (stored || []).filter((s) => s.kind === 'recovery' && !list.some((r) => r.id === s.vehicle_id));
+  if (!waiting.length) return '';
+  const val = (x) => (x == null ? '-' : x);
+  return html`<div class="card d-panel"><h3>Waiting for recovery</h3><div class="scroll vlist"><table><thead><tr><th>Vehicle</th><th>Chassis durability</th><th>Stored at</th></tr></thead><tbody>${
+    waiting.map((s) => html`<tr class="vrow"><td><span title="Vehicle number ${s.vehicle_id}">${s.type || '-'}</span></td><td data-label="Chassis durability">${val(s.chassis_durability)}</td><td data-label="Stored at">${s.time_stored == null ? '-' : fmtEpoch(s.time_stored)}</td></tr>`)}</tbody></table></div></div>`;
+}
+// A tap on a row's name or text opens its details, a second one closes them. A double click, or the end of marking text (to copy a place), is not a tap.
+function vhToggle(el, e) {
+  if (el.hasAttribute('data-vhtap') && (e.detail > 1 || String(window.getSelection()))) return;
+  const btn = el.closest('tr').querySelector('[data-vhopen]'), id = btn.dataset.vhopen, top = btn.getBoundingClientRect().top;
+  btn.focus({ preventScroll: true }); // the keyboard goes on from the row that was tapped
+  vcSync();
+  vhOpen = vhOpen === +id ? null : +id;
+  // the details of a row above may close with this: the tapped row stays where it was on the screen
+  askReveal(() => { const b = document.querySelector('#main [data-vhopen="' + id + '"]'), moved = b ? b.getBoundingClientRect().top - top : 0; if (moved) window.scrollBy(0, moved); });
+  render('rows', false, btn);
+}
 async function vehiclesView() {
   const v = await api('/api/vehicles');
   let fuel = null;
   try { fuel = await api('/api/vehicles/fuel'); } catch (e) { fuel = null; }
-  const open = v.vehicles.find((r) => r.id == vhOpen) || v.vehicles[0];
+  const open = v.vehicles.find((r) => r.id == vhOpen);
   const cat = (open && open.cargo) || vcDraft ? await loadCatalog(open && open.cargo ? open.cargo.items.map((i) => i.template_id) : []) : null;
-  const h = [html`<div class="card d-panel"><h3>Your vehicles (${v.vehicles.length})</h3>${tbl([{ k: 'name', label: 'Vehicle', f: (r) => html`<b title="${r.name}">${r.type || r.name}</b> <span class="mut">${r.map}</span>${r.stored ? html` <span class="tag" title="The game keeps this vehicle in storage; it keeps only the place it was last in the world.">${r.storedLabel}</span> <span class="mut" id="vstored${r.id}">Stored: take it out of storage in the game first.</span>` : ''}` }, { k: 'type', label: 'Type' },
-    { k: 'condition', label: 'Lowest condition', f: (r) => pctCell(r.condition) }, { k: 'fuel', label: 'Fuel', f: (r) => (r.fuel == null ? '-' : r.fuelMax ? html`${Number(r.fuel).toFixed(1)} of ${Number(r.fuelMax).toLocaleString()} <span class="mut">(${Math.round(r.fuelPercent)}%)</span>` : Number(r.fuel).toFixed(1)) },
-    { k: 'x', label: 'Location', f: (r) => html`${fix(r.x)}, ${fix(r.y)}${r.place ? html` <span class="mut">${r.place}</span>` : r.region ? html` <span class="mut">near ${r.region}</span>` : ''}` }], v.vehicles,
-    { actions: (r) => html`<button class="b ${open && open.id == r.id ? '' : 'sec'} sm d-btn sm ${open && open.id == r.id ? 'primary' : ''}" data-vhopen="${r.id}">Details</button><button class="b sm d-btn primary sm" data-act="repairOne" data-id="${r.id}">Repair</button><button class="b sm d-btn primary sm" data-act="bring" data-id="${r.id}" ${describedBy(r.stored ? 'vstored' + r.id : '')} ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Bring to me</button><button class="b sec sm d-btn sm" data-act="dupV" data-id="${r.id}" data-name="${r.type || r.name}" aria-label="Duplicate ${r.type || r.name} ${r.id}" ${describedBy(r.stored ? 'vstored' + r.id : '')} ${r.stored ? 'disabled' : ''} title="${r.stored ? 'This vehicle is stored; take it out of storage in the game first.' : ''}">Duplicate</button>`, empty: 'You have no vehicles in this save yet.' })}
+  const h = [html`<div class="card d-panel"><h3>Your vehicles (${v.vehicles.length})</h3>${vehicleList(v.vehicles, open, cat)}
     <div class="row">${tip('repairvtip', 'Makes every module as good as new: full durability, and the maximum that repairs at a workbench wore down is restored too. 100 repairs every module that is not already as good as new; a lower number repairs only the modules below that share, and says when there were none. A module whose full durability is not known is raised to the maximum it records, or skipped when it records none.', html`<button class="b d-btn primary" data-act="repairV" aria-describedby="repairvtip">Repair all my vehicles</button>`)}<label>Only modules below <input id="rvPct" type="number" min="1" max="100" value="100" class="w70"> % of their full durability</label></div>
-    ${v.hidden ? about('vehicles.list', 'Your vehicles', html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`) : ''}</div>`, refuelCard(fuel), vehicleCreateCard(cat)];
-  if (open) {
-    const cargo = open.cargo;
-    h.push(html`<div class="card d-panel"><h3>${open.type || open.name}: ${(open.components || []).length} components</h3>${tbl([{ k: 'template_id', label: 'Component', f: (r) => html`<span title="${r.template_id}">${compName(r.template_id)}</span>` },
-      { k: 'percent', label: 'Condition', f: (r) => pctCell(r.percent) }, { k: 'current', label: 'Durability', f: (r) => (r.current == null ? '-' : Number(r.current).toFixed(0) + (r.max ? ' / ' + Number(r.max).toFixed(0) : '')) }], open.components || [], { empty: 'This vehicle has no components in the save.' })}
-      ${about('vehicles.components', 'Components', html`<p class="mut">Condition is each module's durability against its current maximum; a module with no stored maximum shows only its value. The tank size is not stored in the save; the Fuel column takes it from the vehicle's chassis in the game's module table.</p>`)}</div>`);
-    // The cargo hold is the vehicle's own inventory (the console's "View Contents"): the stack of an item, Delete, Add item and Clear this container work as in a base container.
-    // Its room comes from the vehicle's parts (#483): a vehicle with no storage part has none, so the card offers no Add item there, and says so; rows already in such a hold stay listed to be deleted or cleared.
-    const hold = `${open.type || open.name} cargo hold`;
-    const n = cargo ? cargo.items.length : 0, noHold = !!(cargo && cargo.noHold);
-    const room = !cargo ? '' : noHold ? 'This vehicle has no cargo hold (no storage part).' + (n ? ` ${nn(n, 'item', 'items')} in a hold with no slots.` : '') : cargo.slots == null ? nn(n, 'item', 'items') : `${cargo.used == null ? n : cargo.used} of ${cargo.slots} slots used`;
-    h.push(html`<div class="card d-panel"><h3 class="d-head">Cargo hold</h3>${cargo ? html`<p class="mut" id="cargoroom">${room}</p>${n ? tbl([{ k: 'position_index', label: 'Slot' },
-      { k: 'template_id', label: 'Item', f: (r) => itemCell(r.template_id) }, { k: 'stack_size', label: 'Quantity', f: (r) => html`<input type="number" min="1" value="${r.stack_size}" data-item="${r.id}" data-field="stack_size" data-name="${itemName(r.template_id)}" class="w90" aria-label="Quantity of ${itemName(r.template_id)}">` },
-      { k: 'quality_level', label: 'Grade' }], cargo.items, { actions: (r) => html`<button class="b bad sm d-btn danger sm" data-act="delItem" data-id="${r.id}" data-name="${itemName(r.template_id)}">Delete</button>` }) : noHold ? '' : html`<p class="mut">The cargo hold is empty.</p>`}
-      ${noHold ? '' : html`<div class="row">${itemPicker('bt', cat)}Qty<input id="bq" aria-label="Quantity to add" type="number" value="1" min="1"><button class="b d-btn primary" data-act="giveCargo" data-id="${cargo.inventory_id}">Add item</button></div>`}${noHold && !n ? '' : clearRow(cargo.inventory_id, hold, cargo.items)}` : html`<p class="mut">This vehicle has no cargo hold.</p>`}</div>`);
-  }
-  // Every stored vehicle of the character in one list (#528): the recovered ones, the one in the vehicle backup and the ones whose state says stored; the count is the rows shown.
-  const stored = v.stored || [];
-  h.push(html`<div class="card d-panel"><h3>Recovered and stored vehicles (${stored.length})</h3>${tbl([{ k: 'label', label: 'Kind', f: (r) => html`<span title="Vehicle number ${r.vehicle_id}">${r.label}</span>` }, { k: 'type', label: 'Vehicle', f: (r) => (r.type || '-') }, { k: 'vehicle_name', label: 'Name', f: (r) => (r.vehicle_name == null ? '-' : r.vehicle_name) }, { k: 'chassis_durability', label: 'Chassis durability', f: (r) => (r.chassis_durability == null ? '-' : r.chassis_durability) }, { k: 'time_stored', label: 'Stored at', f: (r) => (r.time_stored == null ? '-' : fmtEpoch(r.time_stored)) }, { k: 'reason', label: 'Reason code', f: (r) => (r.reason == null ? '-' : r.reason) }], stored, { empty: 'No vehicle has been recovered or stored.' })}</div>`);
+    ${v.hidden ? about('vehicles.list', 'Your vehicles', html`<p class="mut">${v.hidden} other vehicle${v.hidden == 1 ? '' : 's'} in the world (not yours) ${v.hidden == 1 ? 'is' : 'are'} not shown.</p>`) : ''}</div>`, recoveryCard(v.stored, v.vehicles), refuelCard(fuel), vehicleCreateCard(cat)];
   setHTML(host(), html`${h}`);
 }
 
@@ -3830,8 +3883,8 @@ document.addEventListener('click', (e) => {
   if (sg) { skSchool = sg.dataset.skgrp; skillsList(); return; }
   const jg = e.target.closest('[data-jgrp]');
   if (jg) { if (JGROUPS.some(([k]) => k == jg.dataset.jgrp)) { jgrp = jg.dataset.jgrp; journeyList(); } return; }
-  const vo = e.target.closest('[data-vhopen]');
-  if (vo) { vcSync(); vhOpen = +vo.dataset.vhopen; render('rows', false, vo); return; }
+  const vo = e.target.closest('[data-vhopen], [data-vhtap]');
+  if (vo) { vhToggle(vo, e); return; }
   const bo = e.target.closest('[data-bsopen]');
   if (bo) { bsOpen = +bo.dataset.bsopen; bsInvOpen = null; render('rows', false, bo); return; }
   const bt = e.target.closest('[data-bstab]');

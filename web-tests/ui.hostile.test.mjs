@@ -182,6 +182,7 @@ test('Player > Vehicles shows type, condition, fuel, components and the cargo ho
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
   const main = () => ui.doc.querySelector('#main').textContent;
+  ui.click('[data-vhopen="152"]'); await ui.settle();
   for (const want of ['Your vehicles (2)', 'Sandbike', 'Buggy', '40%', '85%', '90.5', '5,228, -408,425', 'Sandbike: 2 components', 'Sandbike Engine', '90%', '900 / 1000', 'Sandbike Chassis', '2000', 'Cargo hold', '1 of 15 slots used', 'CopperOre', '12 other vehicles']) {
     assert.ok(main().includes(want), `the vehicles tab should show ${want}`);
   }
@@ -218,6 +219,7 @@ test('Vehicles: the cargo hold of the open vehicle can be changed like a base co
   const ui = await boot({ get: { '/api/vehicles': { vehicles: [v1, v2], recovered: [], backups: [], hidden: 0 } }, post: { '/api/items/update': { ok: true }, '/api/items/delete': { ok: true }, '/api/bases/give': { ok: true, given: 1, requested: 1 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
+  ui.click('[data-vhopen="152"]'); await ui.settle();
   assert.equal(ui.doc.querySelector('#main img'), null, 'a hostile template id is text');
   assert.ok(ui.doc.querySelector('#main').textContent.includes('90.5 of 100 (91%)'), 'the fuel says how big the tank is where that is known');
   const qty = ui.doc.querySelector('input[data-item="1"][data-field="stack_size"]');
@@ -1735,7 +1737,7 @@ test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#
   const bases = { base_id: 7, pieces: { n: 2, minh: 5600, avgh: 6300, sand: 0 }, unowned: { pieces: { n: 0 }, types: [], placeables: [] }, save: { pieces: 2, placeables: 2 }, types: [{ building_type: 'Sardaukar_Foundation', n: 1, minh: 7000, maxh: 7000, avgh: 7000 }],
     placeables: [{ id: 5, class: 'c', building_type: 'Generator_Placeable', health: 2500, x: 1, y: 2, z: 3 }, { id: 6, class: 'c', building_type: 'WaterCistern_Placeable', health: 1250, x: 1, y: 2, z: 3 }] };
   const rec77 = { vehicle_id: 77, vehicle_name: 'Sandbike', chassis_durability: 100, time_stored: 't', reason: 0 };
-  const veh = { vehicles: [], hidden: 0, backups: [], recovered: [rec77], stored: [{ ...rec77, kind: 'recovery', label: 'Stored for recovery', type: 'Sandbike' }] };
+  const veh = { vehicles: [], hidden: 0, backups: [], recovered: [rec77], stored: [{ ...rec77, time_stored: 't', kind: 'recovery', label: 'Stored for recovery', type: 'Sandbike' }] };
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/bases/structures': bases, '/api/vehicles': veh } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:bases"]'); await ui.settle();
@@ -1746,7 +1748,7 @@ test('Structures and Vehicles have no edit boxes on single pieces or vehicles (#
   assert.ok(main().querySelector('[data-act="repairB"]'), 'Repair all to max stays');
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
-  assert.ok(main().textContent.includes('Recovered and stored vehicles (1)') && main().textContent.includes('Sandbike'), 'the stored vehicle is listed');
+  assert.ok(main().textContent.includes('Waiting for recovery') && main().textContent.includes('Sandbike'), 'the vehicle waiting for recovery is listed');
   assert.equal(main().querySelector('[data-act="dur"]'), null, 'no Set durability on a vehicle');
   assert.ok(!main().textContent.includes('Set durability'), 'and no text for it');
   ui.dom.window.close();
