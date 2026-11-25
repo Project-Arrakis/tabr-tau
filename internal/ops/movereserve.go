@@ -126,8 +126,9 @@ func (s ReserveBoxScan) Words() string {
 }
 
 // scanReserveBoxes looks for the containers named DD-1 ... DD-6 and keeps them in a row from DD-1. The name is trimmed and matched exactly (DD-10, DD-0, dd-3, DD-03 are not DD-n). A container
-// with such a name counts as found whatever it is: one that cannot be used (a duplicate name, one of another kind than a Developer storage box, one in a vehicle or in a refused place) is
-// refused by the move, by name, and is never silently passed over.
+// with such a name counts as found whatever it is: one that cannot be used (a duplicate name, one of another kind than a Developer storage box, or one in a refused place) is
+// refused by the move, by name, and is never silently passed over. Two things are not seen at all: the totem of a base (a base can be named DD-2; its name is the base's, not a box's, so it is neither
+// a box nor a gap nor a duplicate) and a box inside a vehicle (the scan reads placeables, a vehicle part is none, so its number counts as missing and the boxes behind it are ignored).
 func scanReserveBoxes(q baseQ) (ReserveBoxScan, error) {
 	args := make([]any, 0, MaxReserveBoxes+1)
 	marks := make([]string, MaxReserveBoxes)
@@ -138,6 +139,7 @@ func scanReserveBoxes(q baseQ) (ReserveBoxScan, error) {
 	args = append(args, strings.ToLower(devStorageType))
 	rows, err := q.Query(`select trim(pa.actor_name, ' '||char(9,10,13)) name, p.building_type bt, count(*) n from placeables p join permission_actor pa on pa.actor_id=p.id
 		where trim(pa.actor_name, ' '||char(9,10,13)) in (`+strings.Join(marks, ",")+`)
+		and not exists (select 1 from totems t where t.id=p.id)
 		and (lower(p.building_type)=? or exists (select 1 from inventories i where i.actor_id=p.id and i.item_id is null))
 		group by 1, 2 order by 1, 2`, args...)
 	if err != nil {
@@ -849,6 +851,7 @@ func applyMoveReserve(m *save.Mut, p *moveReservePlan) (map[string]any, error) {
 	}
 	boxInfo := func(r map[string]any) map[string]any {
 		r["boxNames"], r["autoDetected"], r["ignoredBoxes"] = names, p.Auto, ignored
+		r["scanNotes"] = append([]string{}, p.Notes...)
 		return r
 	}
 	boxOut := func() []map[string]any {
