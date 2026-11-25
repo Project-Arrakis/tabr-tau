@@ -302,11 +302,26 @@ func giveAnswer(g giveOutcome, what string) map[string]any {
 		"volumeChecked": g.VolumeChecked, "volumeNote": g.VolumeNote}
 }
 
-// stackFitsByVolume says whether a whole stack of n units of unit volume fits under the limit when used is already taken. It uses the give's own count (unitsLeftByVolume). A limit
-// not above 0 (none recorded) and a unit not above 0 (no volume, or not known) do not limit.
+// volumeTolerance is the relative slack of the move of the Reserve's volume check (#1199). A volume is a sum of floats whose terms are as small as 0.001 (the smallest unit volume in the
+// game's item table) and the sum is made in different orders (the plan adds the box and the moved stacks, the read back adds what the box holds), so a box that is full to the digit can
+// come out a few parts in 10^13 over its limit. 1e-11 of the limit absorbs that and stays far below one smallest unit for any limit under 10^7. The give does not use it.
+const volumeTolerance = 1e-11
+
+// volumeWithinLimit says whether used is no more than the limit, up to volumeTolerance of the larger of the two. A limit not above 0 (none recorded) does not limit.
+func volumeWithinLimit(limit, used float64) bool {
+	if limit <= 0 {
+		return true
+	}
+	return used <= limit+volumeTolerance*max(limit, used)
+}
+
+// stackFitsByVolume says whether a whole stack of n units of unit volume fits under the limit when used is already taken. It fits when the give's own count says so
+// (unitsLeftByVolume), or when the volume of the whole stack added to used is within the limit up to volumeTolerance (volumeWithinLimit): the second never refuses what the first
+// accepts, and takes in a stack that fills the box to the digit and that the float sums put a hair over. A stack that is a whole unit (0.001 at the least) over is still refused. A
+// limit not above 0 (none recorded) and a unit not above 0 (no volume, or not known) do not limit.
 func stackFitsByVolume(limit, used, unit float64, n int64) bool {
 	if limit <= 0 || unit <= 0 {
 		return true
 	}
-	return unitsLeftByVolume(limit, used, unit) >= n
+	return unitsLeftByVolume(limit, used, unit) >= n || volumeWithinLimit(limit, used+unit*float64(n))
 }
