@@ -35,7 +35,7 @@ func ReserveNotEmptyWhy(stacks int64) string {
 // ReserveNotEmptyRefusal is the refusal of Recycle base (its question and its write) for a Reserve that holds stacks, with where to empty it.
 func ReserveNotEmptyRefusal(stacks int64) error {
 	why := ReserveNotEmptyWhy(stacks)
-	return apierr.Newf(apierr.ErrConflict, "%s%s. Use Move the Reserve into storage (Player > Bases) to empty it into your two storage boxes, then ask again. Nothing was changed.", strings.ToUpper(why[:1]), why[1:])
+	return apierr.Newf(apierr.ErrConflict, "%s%s. Use Move the Reserve into storage (Player > Bases) to empty it into your storage boxes (DD-1, DD-2 ...), then ask again. Nothing was changed.", strings.ToUpper(why[:1]), why[1:])
 }
 
 // RecycleRoom is the room the three destinations have now.

@@ -11,7 +11,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/save"
 )
 
-const moveReserveUsage = `usage: move-reserve [--boxes "DD-1,DD-2"] [--dry-run]`
+const moveReserveUsage = `usage: move-reserve [--boxes "DD-1,DD-2,DD-3"] [--dry-run]`
 
 // moveReserveEnv is what a run asks of the machine. A test replaces it; a real run uses realMoveReserveEnv.
 type moveReserveEnv struct {
@@ -24,14 +24,14 @@ func realMoveReserveEnv() moveReserveEnv {
 	return moveReserveEnv{GameRunning: gameRunningNow, Discover: save.Discover, Flush: func(s *save.Save) save.Flush { return s.Flush() }}
 }
 
-// runMoveReserve is `tabr-tau move-reserve --boxes "Name A,Name B" [--dry-run]` (#1191): every stack of the character's Reserve goes into the two named Developer storage boxes, whole and
-// unchanged, in one all-or-nothing edit. There is no window. The preview (the same edit, rolled back) is always made and printed first; a dry run stops there and writes nothing. A real
+// runMoveReserve is `tabr-tau move-reserve [--boxes "Name A,Name B"] [--dry-run]` (#1191): every stack of the character's Reserve goes into the Developer storage boxes, whole and
+// unchanged, in one all-or-nothing edit. Without --boxes the boxes are DD-1, DD-2 ... DD-6 as far as they run in a row from DD-1 (#1214); --boxes names up to six boxes of its own. There is no window. The preview (the same edit, rolled back) is always made and printed first; a dry run stops there and writes nothing. A real
 // run refuses while a game process exists (there is no editor here to hold a queued edit), takes a verified backup copy of the save, writes through the editor's own write path (which takes
 // its own backup too), and then opens the written file afresh to see that the Reserve is empty.
 func runMoveReserve(args []string, savePath string, out io.Writer, env moveReserveEnv) error {
 	fs := flag.NewFlagSet("move-reserve", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	boxes := fs.String("boxes", strings.Join(ops.DefaultReserveBoxes, ","), "the names of the storage boxes, separated by a comma (matched exactly, capitals included)")
+	boxes := fs.String("boxes", "", "the names of the storage boxes, separated by a comma (at most 6; matched exactly, capitals included). Without it the boxes DD-1, DD-2 ... DD-6 found in a row from DD-1 are used")
 	dry := fs.Bool("dry-run", false, "say what would be done and write nothing")
 	if err := fs.Parse(args); err != nil {
 		return fmt.Errorf("%s: %v", moveReserveUsage, err)
@@ -45,8 +45,10 @@ func runMoveReserve(args []string, savePath string, out io.Writer, env moveReser
 			names = append(names, n)
 		}
 	}
-	if len(names) == 0 || len(names) > 2 {
-		return fmt.Errorf("%s (one or two names; a name cannot contain a comma)", moveReserveUsage)
+	given := false
+	fs.Visit(func(f *flag.Flag) { given = given || f.Name == "boxes" })
+	if len(names) > ops.MaxReserveBoxes || (len(names) == 0 && given) {
+		return fmt.Errorf("%s (one to %d names, or none to use DD-1, DD-2 ... as far as they run in a row; a name cannot contain a comma)", moveReserveUsage, ops.MaxReserveBoxes)
 	}
 	path, problem := resolveLayoutSave(savePath, env.Discover)
 	if problem != "" {

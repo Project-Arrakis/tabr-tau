@@ -821,13 +821,15 @@ func (s *Server) routes() {
 		}
 		return o.RecycleBaseWith(id, a.Str("fingerprint"), ops.RecycleOptions{Solido: a.Bool("solido", false), RequireEmptyReserve: true})
 	})
-	// Move the Reserve into two storage boxes the person named (#1191). The preview reads and changes nothing (it is the edit, rolled back); the write is the ordinary edit (written
-	// after a backup, or queued while a game process exists) and must be sent the fingerprint the preview gave. The boxes are found by the name the person gave them in the game.
+	// Move the Reserve into the storage boxes (#1191, #1214). The preview reads and changes nothing (it is the edit, rolled back); the write is the ordinary edit (written after a backup, or
+	// queued while a game process exists) and must be sent the fingerprint the preview gave. Without "boxes" the boxes are the Developer storage containers the person named DD-1, DD-2 ...
+	// DD-6 in the game, as many as run in a row from DD-1 (ops.ReserveBoxScan); "boxes" is an explicit comma list of up to six names. move-reserve-boxes says what the scan finds (read only).
+	s.get("/api/bases/move-reserve-boxes", func(r *http.Request) (any, error) { return o.DetectReserveBoxes() })
 	s.get("/api/bases/move-reserve-preview", func(r *http.Request) (any, error) {
-		return o.PreviewMoveReserve([]string{r.URL.Query().Get("box1"), r.URL.Query().Get("box2")}, ops.MoveReserveOptions{})
+		return o.PreviewMoveReserve(boxNameList(r.URL.Query().Get("boxes")), ops.MoveReserveOptions{})
 	})
 	s.post("/api/bases/move-reserve", func(a ops.Args) (any, error) {
-		return o.MoveReserve([]string{a.Str("box1"), a.Str("box2")}, a.Str("fingerprint"), ops.MoveReserveOptions{})
+		return o.MoveReserve(boxNameList(a.Str("boxes")), a.Str("fingerprint"), ops.MoveReserveOptions{})
 	})
 	s.get("/api/bases/claim", func(r *http.Request) (any, error) { return o.LandClaims() })
 	s.get("/api/player/summary", func(r *http.Request) (any, error) { return o.Summary() })
@@ -1429,4 +1431,15 @@ func (s *Server) grantSettings() ops.GrantSettings {
 // specNums are the track numbers the Specialization tab works with: the ones assigned in the settings, and the measured numbers for every track with none.
 func (s *Server) specNums() map[string]int64 {
 	return ops.EffectiveTrackNumbers(settings.Load(s.SettingsPath).TrackNumbers)
+}
+
+// boxNameList reads a comma list of box names (the "boxes" of the move-reserve routes); an empty text gives none, which asks for the boxes DD-1, DD-2 ... to be found.
+func boxNameList(s string) []string {
+	var names []string
+	for _, n := range strings.Split(s, ",") {
+		if n = strings.TrimSpace(n); n != "" {
+			names = append(names, n)
+		}
+	}
+	return names
 }

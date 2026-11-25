@@ -24,7 +24,7 @@ import (
 //	   in the order of their numbers, each as its own recycle with the Solido option, on the working copy of the save: each is asked about again on the copy as the bases before it left
 //	   it, recycled, read back and verified (the base gone, the Solido filled and linked, the Reserve holding what it should) before the next one starts. The Reserve must be EMPTY
 //	   before each base (a recycle sends everything to the Reserve, and the operator's rule is that no further recycle happens until it is empty): after each base the whole Reserve is
-//	   moved into the two storage boxes DD-1 and DD-2 (recyclemove.go, #1191), by the editor's own move on the same working copy, with every base of the run left out of the boxes; a
+//	   moved into the storage boxes DD-1, DD-2 ... DD-6, as many as run in a row from DD-1 (recyclemove.go, #1191, #1214), by the editor's own move on the same working copy, with every base of the run left out of the boxes; a
 //	   Reserve an earlier run left is moved before the first base. The Solido devices need places in the backpack or the loadout. The run recycles the largest number k of bases, in
 //	   order, for which all of that holds: a box that is missing, misnamed or in a base of the run gives 0 of N before anything is changed (the boxes are asked about first, even with an empty Reserve); no room in the boxes stops it like a lack of room for a base. After the last base the Reserve is moved too, when
 //	   the boxes can take it; when they cannot, the roll goes on (nothing is left to hold back) and the run says that the Reserve is still full;
@@ -45,7 +45,7 @@ var enforceEmptyReserve = true
 
 // The reads and writes of this step, as variables only so that a test can make one fail. Nothing else changes them.
 var (
-	// emptyReserveInto moves the Reserve of the working copy into the two storage boxes (#1191, recyclemove.go). exclude are the totems of every base of this run (a box in one of them
+	// emptyReserveInto moves the Reserve of the working copy into the storage boxes DD-1 ... (#1191, recyclemove.go). exclude are the totems of every base of this run (a box in one of them
 	// is refused). With previewOnly it only asks what the move would do; otherwise it asks and then moves, on the same working copy. It is called after each base is recycled and
 	// verified and before a base when the Reserve is not empty (what an earlier run left), and must leave the Reserve empty (the run checks that). A refusal that leaves the copy
 	// as it was (no such box, no room) comes back as a cannotMove error: the run then stops like a run that is out of room. It is nil only in a test that shows the loop without it.
@@ -201,7 +201,7 @@ type recycleOutcome struct {
 	planned bool // a dry run planned the recycle of every base: they count as gone for the rest of the dry run
 }
 
-const reserveRule = "The Reserve must be empty before each base is recycled: a recycle sends everything (what the base stored and its refund) to the Reserve, and no further recycle can happen until the Reserve is empty. After each base (and before the first, when an earlier run left something in it) the run moves the whole Reserve into your two storage boxes named " + boxesWords + " (#1191); when a box is missing, misnamed or otherwise cannot be used, nothing is recycled, and when there is no room in them the run recycles the bases that fit and stops before the roll."
+const reserveRule = "The Reserve must be empty before each base is recycled: a recycle sends everything (what the base stored and its refund) to the Reserve, and no further recycle can happen until the Reserve is empty. After each base (and before the first, when an earlier run left something in it) the run moves the whole Reserve into your storage boxes " + boxesWords + " (#1191); when a box is missing, misnamed or otherwise cannot be used, nothing is recycled, and when there is no room in them the run recycles the bases that fit and stops before the roll."
 
 // stateWriter is how the step keeps the state file (the guard's own record of the run) up to date. The guard owns the state; these write it at once.
 type stateWriter struct {
@@ -448,7 +448,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 			if o.DryRun {
 				verb = "would be moved"
 			}
-			r.say("  The Reserve %s into the boxes %s (%s): %d stack(s), %d item(s)", verb, boxesWords, what, m.Stacks, m.Items)
+			r.say("  The Reserve %s into the boxes %s (%s): %d stack(s), %d item(s)", verb, boxNamesWords(m.Boxes), what, m.Stacks, m.Items)
 			for _, l := range m.lines {
 				r.say("      %s", l)
 			}
@@ -569,7 +569,7 @@ func recycleStep(o Options, r *Result, rec *checkRecord, s *save.Save, h ops.Dee
 		return changed("stopped: the written save does not read back", "the file does not read back as written ("+err.Error()+")")
 	}
 	if len(res.moves) > 0 {
-		r.say("The Reserve was moved into the boxes %s: every stack that was moved is in a box and the Reserve holds %d stack(s), as read back from the file.", boxesWords, expect.ReserveLeft)
+		r.say("The Reserve was moved into the boxes %s: every stack that was moved is in a box and the Reserve holds %d stack(s), as read back from the file.", movedBoxNamesWords(res.moves), expect.ReserveLeft)
 	}
 	r.say("Recycled %d base(s) in the Deep Desert, one at a time, written in one save and read back from the file.", k)
 	if k < n {
@@ -623,7 +623,7 @@ func reserveWhy(i int, used int64) string {
 }
 
 func makeRoom() string {
-	return "Make room: free slots and volume in the two storage boxes named " + boxesWords + " (or empty the Reserve in the game; the run moves it into those boxes itself, #1191) and free the backpack slots the Solido devices need, then run this again."
+	return "Make room: free slots and volume in the storage boxes " + boxesWords + ", or add the next box (name another Developer storage container DD-n, up to DD-6), or empty the Reserve in the game (the run moves it into those boxes itself, #1191); and free the backpack slots the Solido devices need, then run this again."
 }
 
 // eachResult is what applyEach did: the bases recycled, and, when it stopped before one only for lack of room, why.
@@ -663,7 +663,7 @@ func recordIDs(ds []recycledRecord) []int64 {
 
 // applyEach recycles the bases one at a time on the working copy, in the order given. Before each base the Reserve must be empty and the question about it (asked on the copy as the
 // bases before it left it) must be answered with room for its Solido device with the margin; a base for which that is not so ends the loop (why says it), and so does every base after
-// it. After each base the Reserve is moved into the two boxes (emptyReserveInto) and the Reserve of a base that finds something in it (what an earlier run left) is moved first; a move
+// it. After each base the Reserve is moved into the boxes (emptyReserveInto) and the Reserve of a base that finds something in it (what an earlier run left) is moved first; a move
 // that the boxes refuse (a box is missing, no room) ends the loop like a base that has no room, and a move that fails otherwise is a failure. dry says that this is a dry run: the
 // move is also asked about first, so that the output holds the words of the question. Any other failure is returned as err, with failed the index of the base: the caller throws the
 // working copy away.
