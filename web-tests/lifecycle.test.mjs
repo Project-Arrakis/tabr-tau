@@ -13,11 +13,13 @@ test('a stored vehicle is labelled and its Bring and Duplicate buttons are off',
     '/api/vehicles/fuel': { total: 2, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
-  const rows = [...ui.doc.querySelectorAll('#main table tbody tr')];
+  const rows = [...ui.doc.querySelectorAll('#main tr.vrow')];
   const stored = rows.find((r) => r.textContent.includes('In the vehicle backup'));
   assert.ok(stored, 'the stored vehicle carries its label');
+  assert.equal(stored.querySelector('.tag').textContent, 'Stored');
   assert.equal(stored.querySelector('[data-act="bring"]').disabled, true);
   assert.equal(stored.querySelector('[data-act="dupV"]').disabled, true);
+  assert.equal(stored.querySelector('[data-act="repairOne"]').disabled, false, 'Repair stays on, as before');
   const plain = rows.find((r) => !r.textContent.includes('In the vehicle backup'));
   assert.equal(plain.querySelector('[data-act="bring"]').disabled, false);
   assert.equal(plain.querySelector('[data-act="dupV"]').disabled, false);
@@ -44,41 +46,60 @@ test('the Saved map says how many stored vehicles it does not show', async () =>
   assert.ok(!none.doc.querySelector('#main').textContent.includes('are stored'));
 });
 
-// #528: the card lists every stored vehicle (recovered, in the vehicle backup, stored by state only) with its kind, and its count is the rows shown.
+// #1230: a stored vehicle that is in the list is shown there, with a Stored tag and the server's label (one function, #528). A vehicle waiting to be recovered, which is not in
+// the list, is shown in a section of its own, drawn only when there is one.
 const sv = (id, kind, extra) => ({ vehicle_id: id, kind, label: kind === 'backup' ? 'In the vehicle backup' : 'Stored for recovery', type: 'Buggy', ...extra });
-const storedCard = (ui) => [...ui.doc.querySelectorAll('#main .card')].find((c) => c.querySelector('h3') && c.querySelector('h3').textContent.startsWith('Recovered and stored vehicles'));
-
-test('the stored vehicles card lists the recovered, the backed-up and the state-only vehicle, with a kind column and a count of the rows', async () => {
-  const stored = [sv(301, 'recovery', { vehicle_name: 'BP_Buggy_CHOAM', chassis_durability: 0.5, time_stored: 1700000000, reason: 1 }),
-    sv(302, 'backup', { type: 'LightOrnithopter' }), sv(303, 'backup', { type: 'Sandbike' })];
-  const ui = await boot({ get: { '/api/vehicles': { vehicles: [veh(303, { stored: 'backup', storedLabel: 'In the vehicle backup' })], hidden: 0, recovered: [], backups: [], stored },
-    '/api/vehicles/fuel': { total: 1, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
+const card = (ui, title) => [...ui.doc.querySelectorAll('#main .card')].find((c) => c.querySelector('h3') && c.querySelector('h3').textContent.startsWith(title));
+const openVehicles = async (vehicles, stored) => {
+  const ui = await boot({ get: { '/api/vehicles': { vehicles, hidden: 0, recovered: [], backups: [], stored }, '/api/vehicles/fuel': { total: 1, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
-  const card = storedCard(ui);
-  assert.ok(card, 'the card is drawn');
-  assert.equal(card.querySelector('h3').textContent, 'Recovered and stored vehicles (3)');
-  assert.ok(!card.textContent.includes('No vehicle has been recovered or stored.'));
-  const heads = [...card.querySelectorAll('th')].map((h) => h.textContent);
-  assert.ok(heads.includes('Kind') && heads.includes('Vehicle'), heads.join(','));
-  const rows = [...card.querySelectorAll('tbody tr')];
-  assert.equal(rows.length, 3, 'the title counts the rows shown');
-  const kindCol = heads.indexOf('Kind');
-  const cells = (r) => [...r.querySelectorAll('td')].map((c) => c.textContent);
-  assert.deepEqual(rows.map((r) => cells(r)[kindCol]), ['Stored for recovery', 'In the vehicle backup', 'In the vehicle backup']);
-  assert.deepEqual(rows.map((r) => cells(r)[heads.indexOf('Vehicle')]), ['Buggy', 'LightOrnithopter', 'Sandbike']);
-  assert.equal(cells(rows[1])[heads.indexOf('Chassis durability')], '-', 'what the save does not have is a dash');
-  assert.equal(cells(rows[0])[heads.indexOf('Chassis durability')], '0.5');
-  // the vehicle table says the same about the vehicle it lists
-  assert.ok([...ui.doc.querySelectorAll('#main table tbody tr')].some((r) => r.textContent.includes('In the vehicle backup') && r.querySelector('[data-act="bring"]')));
+  return ui;
+};
+
+test('a vehicle waiting for recovery has its own section; the backed-up and the state-only vehicle are in the list only', async () => {
+  const stored = [sv(301, 'recovery', { vehicle_name: 'BP_Buggy_CHOAM', chassis_durability: 0.5, time_stored: 1700000000, reason: 1 }),
+    sv(302, 'backup', { type: 'LightOrnithopter' }), sv(303, 'recovery', { type: 'Sandbike' })];
+  const ui = await openVehicles([veh(302, { type: 'LightOrnithopter', stored: 'backup', storedLabel: 'In the vehicle backup' }),
+    veh(303, { stored: 'recovery', storedLabel: 'Stored for recovery' })], stored);
+  assert.equal(card(ui, 'Recovered and stored vehicles'), undefined, 'the old card is gone');
+  const list = card(ui, 'Your vehicles');
+  assert.deepEqual([...list.querySelectorAll('[id^="vstored"]')].map((n) => n.textContent),
+    ['In the vehicle backup. Take it out of storage in the game first.', 'Stored for recovery. Take it out of storage in the game first.']);
+  const waiting = card(ui, 'Waiting for recovery');
+  assert.equal(waiting.querySelector('h3').textContent, 'Waiting for recovery');
+  assert.equal(list.nextElementSibling, waiting, 'directly under the list');
+  assert.deepEqual([...waiting.querySelectorAll('th')].map((h) => h.textContent), ['Vehicle', 'Chassis durability', 'Stored at'], 'no Name and no Reason code');
+  const rows = [...waiting.querySelectorAll('tbody tr')];
+  assert.equal(rows.length, 1, 'a vehicle that is in the list is not repeated');
+  const cells = [...rows[0].querySelectorAll('td')].map((c) => c.textContent);
+  assert.deepEqual(cells.slice(0, 2), ['Buggy', '0.5']);
+  assert.ok(cells[2].includes('2023'), cells[2]);
+  assert.ok(!waiting.textContent.includes('BP_Buggy_CHOAM'));
+  assert.equal(waiting.querySelector('button'), null, 'nothing to press');
 });
 
-test('the stored vehicles card says so only when no vehicle is stored, and then counts 0', async () => {
-  const ui = await boot({ get: { '/api/vehicles': { vehicles: [veh(1)], hidden: 0, recovered: [], backups: [], stored: [] }, '/api/vehicles/fuel': { total: 1, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
-  ui.click('[data-tab="player"]'); await ui.settle();
-  ui.click('[data-sub="player:vehicles"]'); await ui.settle();
-  const card = storedCard(ui);
-  assert.equal(card.querySelector('h3').textContent, 'Recovered and stored vehicles (0)');
-  assert.ok(card.textContent.includes('No vehicle has been recovered or stored.'));
-  assert.equal(card.querySelectorAll('tbody tr').length, 0);
+test('a stored vehicle that is not in the list is never hidden: one not waiting for recovery says its label, and the title says so', async () => {
+  const stored = [sv(301, 'recovery'), sv(302, 'backup', { type: 'LightOrnithopter' }), sv(304, 'other', { type: 'Sandbike', label: 'A label of the server <b>' })];
+  const ui = await openVehicles([veh(1)], stored);
+  const section = card(ui, 'Waiting for recovery');
+  assert.equal(section.querySelector('h3').textContent, 'Waiting for recovery and stored');
+  const names = [...section.querySelectorAll('tbody tr td:first-child')].map((c) => [...c.children].map((n) => n.textContent));
+  assert.deepEqual(names, [['Buggy'], ['LightOrnithopter', 'In the vehicle backup'], ['Sandbike', 'A label of the server <b>']], 'each once; the label under the name only where the kind is not recovery');
+  assert.deepEqual([...section.querySelectorAll('th')].map((h) => h.textContent), ['Vehicle', 'Chassis durability', 'Stored at']);
+  assert.equal(section.querySelectorAll('.vkind.mut').length, 2);
+  ui.dom.window.close();
+  // a backup alone is shown too, under the same title
+  const alone = await openVehicles([], [sv(302, 'backup')]);
+  assert.equal(card(alone, 'Waiting for recovery').querySelector('h3').textContent, 'Waiting for recovery and stored');
+  assert.ok(card(alone, 'Waiting for recovery').textContent.includes('In the vehicle backup'));
+});
+
+test('the waiting section is not drawn, and says nothing, when no vehicle waits', async () => {
+  for (const stored of [[], undefined, [sv(1, 'backup')], [sv(1, 'recovery')]]) {
+    const ui = await openVehicles([veh(1)], stored);
+    assert.equal(card(ui, 'Waiting for recovery'), undefined, JSON.stringify(stored));
+    assert.ok(!ui.doc.querySelector('#main').textContent.includes('No vehicle has been recovered or stored.'));
+    ui.dom.window.close();
+  }
 });

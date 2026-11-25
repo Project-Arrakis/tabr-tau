@@ -13,6 +13,7 @@ const open = async (ui) => { ui.click('[data-tab="player"]'); await ui.settle();
 test('Vehicles: the repair and refuel explanations are tooltips, the tank sizes and the module note are in About this, the counts and state stay', async () => {
   const ui = await boot({ get: { '/api/vehicles': VEH(), '/api/vehicles/fuel': FUEL } });
   const main = await open(ui);
+  ui.click('[data-vhopen="41"]'); await ui.settle(); // the components are under the open row (#1230)
   const shown = visibleText(main), moved = movedText(main);
   for (const s of ['Makes every module as good as new: full durability', 'A module whose full durability is not known is raised to the maximum it records',
     'Fills the fuel of your own vehicles to a full tank', 'Vehicles of other owners and the world\'s vehicles are not touched', 'A tank follows the vehicle\'s chassis grade', 'Sandbike 90 to 150, Buggy 220 to 300',
