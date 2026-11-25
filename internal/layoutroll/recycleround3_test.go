@@ -175,6 +175,7 @@ func TestSettlingANoteClearsTheIntentOfTheLastCheckOfTheSameCheckpoint(t *testin
 			if err := writeState(e.state, st); err != nil {
 				t.Fatal(err)
 			}
+			o.lockHeld = true // Roll holds the lock of the save when it settles
 			if msg := settleIntents(o, &Result{}, &st, e.now); msg != "" {
 				t.Fatal(msg)
 			}
