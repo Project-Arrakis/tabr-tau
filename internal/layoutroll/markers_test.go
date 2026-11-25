@@ -245,7 +245,9 @@ func TestASaveWithNoDeepDesertMarkersIsNotWritten(t *testing.T) {
 // The read inside the edit fails (or the edit does): the save is as it was, Game.ini is not changed, and the run says so.
 func TestAnEditThatFailsLeavesTheSaveAndGameIniAsTheyWere(t *testing.T) {
 	inBothLayouts(t, mkWorld, func(t *testing.T, e *env) {
-		swapVar(t, &clearMarkers, func(*save.Save) (ops.MarkerSurvey, error) { return ops.MarkerSurvey{}, errors.New("read back: the Deep Desert still has 1 marker row(s)") })
+		swapVar(t, &clearMarkers, func(*save.Save) (ops.MarkerSurvey, error) {
+			return ops.MarkerSurvey{}, errors.New("read back: the Deep Desert still has 1 marker row(s)")
+		})
 		before := sha(t, e.save)
 		r, err := Roll(e.opts())
 		if err == nil || r.Wrote {
@@ -287,7 +289,9 @@ func TestAMarkersWriteThatIsNotSavedChangesNothing(t *testing.T) {
 // The written file that does not read back as cleared is reported with the way back; Game.ini is not rolled.
 func TestAWrittenSaveThatDoesNotReadBackAsClearedIsReported(t *testing.T) {
 	inBothLayouts(t, mkWorld, func(t *testing.T, e *env) {
-		swapVar(t, &verifyMarkers, func(string, ops.MarkerSurvey) error { return errors.New("read back: the Deep Desert still has 2 marker row(s)") })
+		swapVar(t, &verifyMarkers, func(string, ops.MarkerSurvey) error {
+			return errors.New("read back: the Deep Desert still has 2 marker row(s)")
+		})
 		r, err := Roll(e.opts())
 		if err == nil || r.Wrote || e.ini() != iniWith("11") {
 			t.Fatalf("%v", err)
@@ -403,7 +407,9 @@ func TestBasesVehiclesAndMarkersInOneRun(t *testing.T) {
 	})
 	t.Run("the markers fail after the base and the vehicle were written", func(t *testing.T) {
 		e, o := rcEnv(t, world)
-		swapVar(t, &clearMarkers, func(*save.Save) (ops.MarkerSurvey, error) { return ops.MarkerSurvey{}, errors.New("a row could not be removed") })
+		swapVar(t, &clearMarkers, func(*save.Save) (ops.MarkerSurvey, error) {
+			return ops.MarkerSurvey{}, errors.New("a row could not be removed")
+		})
 		r, err := Roll(o)
 		if err == nil || r.Wrote || e.ini() != iniWith("11") {
 			t.Fatalf("%v", err)
