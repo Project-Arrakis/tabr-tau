@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -119,4 +120,50 @@ func TestAnOldTwoBoxStateFileIsReadAndItsNoteSettled(t *testing.T) {
 	if h := readState(t, e.state).RecycleHistory; len(h) != 1 || h[0].Unconfirmed || h[0].Checkpoint == "cp-earlier.db" {
 		t.Fatalf("%+v", h)
 	}
+}
+
+// #1218: the preflight asks about the boxes before any base is touched, and what it found (a box ignored behind a gap, a typo in a name, only DD-1) is said then, once, before the first
+// base is recycled or exported, in the dry run and in the real run alike.
+func TestThePreflightSaysWhatItFoundAboutTheBoxesBeforeTheFirstBase(t *testing.T) {
+	// DD-2 is misnamed "DD2" and DD-3 stands behind the gap
+	const world = `update permission_actor set actor_name='DD2' where actor_id=3002;`
+	check := func(t *testing.T, out string, firstMark string) {
+		t.Helper()
+		mustContain(t, out, "Boxes for the Reserve, checked before any base is recycled:", "Ignored: DD-3 (DD-2 is missing", `Developer storage boxes with other names: "DD2"`)
+		pre := strings.Index(out, "checked before any base is recycled")
+		first := strings.Index(out, firstMark)
+		if pre < 0 || first < 0 || pre > first {
+			t.Fatalf("the box lines must come before %q:\n%s", firstMark, out)
+		}
+		if n := strings.Count(out, "checked before any base is recycled"); n != 1 {
+			t.Fatalf("said %d times, not once:\n%s", n, out)
+		}
+	}
+	t.Run("dry run", func(t *testing.T) {
+		e, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+rcExtraBox(3, "DD-3", 10)+world)
+		o.DryRun = true
+		r, err := Roll(o)
+		if err != nil || r.Wrote {
+			t.Fatalf("%v\n%s", err, lines(r))
+		}
+		check(t, lines(r), "Dry run: would first write")
+		noExportFolder(t, e)
+	})
+	t.Run("real run", func(t *testing.T) {
+		_, o := mvEnv(t, rcWorld(ddBases(2)...)+rcBoxes(10, 10)+rcExtraBox(3, "DD-3", 10)+world)
+		r, err := Roll(o)
+		if err != nil || !r.Wrote {
+			t.Fatalf("%v\n%s", err, lines(r))
+		}
+		check(t, lines(r), "Exported and read back")
+	})
+	t.Run("only DD-1", func(t *testing.T) {
+		_, o := mvEnv(t, rcWorld(ddBases(1)...)+rcBoxes(10, 10)+world)
+		o.DryRun = true
+		r, err := Roll(o)
+		if err != nil {
+			t.Fatalf("%v\n%s", err, lines(r))
+		}
+		mustContain(t, lines(r), "checked before any base is recycled", "only DD-1 was found")
+	})
 }

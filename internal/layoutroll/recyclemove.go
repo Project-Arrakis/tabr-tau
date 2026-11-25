@@ -64,6 +64,7 @@ type reserveMoveRecord struct {
 
 	// what the move said, for the run's output (the preview's words in a dry run); the ids of the stacks, to check the written file; not kept in the state file
 	lines   []string
+	notes   []string // the words of the scan of the boxes (which were found, which were ignored, the typo hint, the DD-1 warning), for the preflight
 	itemIDs []int64
 }
 
@@ -159,6 +160,9 @@ func movedFrom(m map[string]any) (movedReserve, error) {
 	switch v := m["summary"].(type) {
 	case []string:
 		mr.lines = v
+	}
+	if v, ok := m["scanNotes"].([]string); ok {
+		mr.notes = v
 	}
 	boxes, ok := m["boxes"].([]map[string]any)
 	if !ok || (mr.Stacks > 0 && len(boxes) == 0) {
