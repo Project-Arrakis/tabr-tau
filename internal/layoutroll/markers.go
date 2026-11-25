@@ -37,8 +37,15 @@ func markerWords(c ops.MarkerCounts) string {
 
 // markersNote is said with every stop after the markers were written to the save by this run.
 func (c *checkRecord) markersNote() string {
-	return fmt.Sprintf("NOTE: the Deep Desert markers (%s) WERE removed and written to the save earlier in this run. %s", c.Markers, c.wayBack())
+	n := fmt.Sprintf("NOTE: the Deep Desert markers (%s) WERE removed and written to the save earlier in this run. %s", c.Markers, c.wayBack())
+	if c.stateWarn != "" {
+		n += ". " + c.stateWarn
+	}
+	return n
 }
+
+// errWouldStop is what a dry run's markers step returns after it said it would stop: the dry run ends there, without going on to say what it would do to Game.ini.
+var errWouldStop = errors.New("dry run: would stop here")
 
 // noteLog appends one dated line to layout-roll.log; like the refusals it never fails the run.
 func noteLog(o Options, now time.Time, line string) { noteRefusal(o, now, line) }
@@ -53,14 +60,16 @@ func clearDeepDesertMarkers(o Options, r *Result, st *state, now time.Time) erro
 	if o.SavePath == "" {
 		return nil // the guard refused such a run before this point
 	}
+	// the record of this run: an earlier step (bases, vehicles) may already have written the save, and a stop here must then say so and name the checkpoint
+	rec := st.LastCheck
 	s, err := openSave(o.SavePath)
 	if err != nil {
-		return stopMarkers(o, r, st, now, "not changed: the Deep Desert markers could not be counted", fmt.Errorf("not changed: the save could not be read to count the Deep Desert markers (%v)", err), nil)
+		return stopMarkers(o, r, st, now, "not changed: the Deep Desert markers could not be counted", fmt.Errorf("not changed: the save could not be read to count the Deep Desert markers (%v)", err), rec)
 	}
 	defer s.Close()
 	sv, err := surveyMarkers(s)
 	if err != nil {
-		return stopMarkers(o, r, st, now, "not changed: the Deep Desert markers could not be counted", fmt.Errorf("not changed: the Deep Desert markers could not be counted (%v)", err), nil)
+		return stopMarkers(o, r, st, now, "not changed: the Deep Desert markers could not be counted", fmt.Errorf("not changed: the Deep Desert markers could not be counted (%v)", err), rec)
 	}
 	d := sv.DeepDesert
 	if d.Total() == 0 {
@@ -68,11 +77,14 @@ func clearDeepDesertMarkers(o Options, r *Result, st *state, now time.Time) erro
 		return nil
 	}
 	if o.DryRun {
-		r.say("Dry run: would remove the Deep Desert markers from the save, after the vehicles and before Game.ini: %s. Other maps are not touched, and the game adds markers again as you discover places (--keep-markers leaves them).", markerWords(d))
+		r.say("Dry run: would remove the Deep Desert markers from the save, after the vehicles and before Game.ini: %s. A real run counts them again after the bases and vehicles were handled (a recycled base takes its own discovered row with it), so its counts can be a few lower. Other maps are not touched, and the game adds markers again as you discover places (--keep-markers leaves them).", markerWords(d))
 		return nil
 	}
-	rec := st.LastCheck
+	intentNoted := false
 	fail := func(outcome, format string, a ...any) error {
+		if intentNoted {
+			noteLog(o, now, "layout roll: the Deep Desert markers were not written to the save; the save is as it was (checkpoint "+checkpointName(rec)+")")
+		}
 		return stopMarkers(o, r, st, now, outcome, errors.New("not changed: "+fmt.Sprintf(format, a...)), rec)
 	}
 	// the file as it is now must be known: without that a write could not be told from no write afterwards
@@ -88,13 +100,29 @@ func clearDeepDesertMarkers(o Options, r *Result, st *state, now time.Time) erro
 		return fail("not changed: the Deep Desert markers could not be removed", "the Deep Desert markers could not be removed (%v); the save was not changed by this step", err)
 	}
 	words := markerWords(done.DeepDesert)
+	// The intent is on record BEFORE the save is written (as the vehicle and recycle steps do it): the state file and the log then name the checkpoint, so a run that dies between the write
+	// and the next record still leaves the way back. The next record of this run (the confirmed one, or a stop) replaces it. A state file that cannot be written now refuses the write.
+	if rec != nil {
+		if rec.SaveFile == "" {
+			rec.SaveFile = s.Path
+		}
+		if o.lockHeld {
+			intent := "in progress: about to write the save with the Deep Desert markers removed (" + words + "; not written yet; if this is the last word, the save may or may not have been written: see the checkpoint " + checkpointName(rec) + ")"
+			if werr := saveRunErr(o.StatePath, *st, now, intent); werr != nil {
+				s.Discard()
+				return fail("not changed: the state file could not be written", "the state file cannot be written (%v), and it must name the checkpoint before the save is changed; the save was not written by this step", werr)
+			}
+		}
+		noteLog(o, now, "layout roll: about to write the save with the Deep Desert markers removed ("+words+"); if this is the last line, the save may or may not have been written; checkpoint "+checkpointName(rec))
+		intentNoted = true
+	}
 	f := flushSave(s)
 	changed := func(outcome, why string) error {
 		msg := fmt.Sprintf("the save WAS changed (the Deep Desert markers were removed: %s) but %s", words, why)
 		if rec != nil {
 			msg += ". The checkpoint " + rec.Checkpoint + " holds the save as it was before; Database > Save backups restores it. Look at it before the game starts"
 		}
-		r.say("Stopped: %s.", msg)
+		// said once: the error carries it, and the caller prints the lines and then the error
 		return stopMarkers(o, r, st, now, outcome, errors.New("stopped: "+msg), rec)
 	}
 	mark := func() {
@@ -146,7 +174,12 @@ func checkpointName(rec *checkRecord) string {
 func stopMarkers(o Options, r *Result, st *state, now time.Time, outcome string, e error, rec *checkRecord) error {
 	if o.DryRun {
 		r.say("Dry run: it would stop here: %v.", e)
-		return nil
+		return errWouldStop
+	}
+	// a step of this run before this one may have written the save: the stop then says that, not "not changed" alone
+	if rec != nil && rec.savedChanged() && strings.HasPrefix(e.Error(), "not changed: ") {
+		e = errors.New("stopped: " + strings.TrimPrefix(e.Error(), "not changed: ") + " (this step wrote nothing, but the save WAS changed earlier in this run)")
+		outcome = "stopped: " + strings.TrimPrefix(outcome, "not changed: ")
 	}
 	if rec != nil {
 		if rec.markersWritten {

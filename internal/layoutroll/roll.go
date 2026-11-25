@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is only read, apart from the vehicle step, the removal of the Deep Desert markers (markers.go) and, with RecycleBases, the recycle of the Deep Desert bases (deepdesert.go, recycle.go).
+	// FileName is the game's own config file that holds the setting. It is the only existing file this package changes; it also writes its backups, its state file, the base files of a refused run (deepdesert.go) and, through the save package, one checkpoint copy of the save in the save's backup folder. The save itself is written only by the vehicle step, the removal of the Deep Desert markers (markers.go) and, with RecycleBases, the recycle of the Deep Desert bases (deepdesert.go, recycle.go).
 	FileName = "Game.ini"
 	// KeepBackups is how many timestamped copies of Game.ini are kept beside it.
 	KeepBackups = 10
@@ -38,7 +38,7 @@ type Options struct {
 	Force     bool   // roll although one already happened in the current week
 	Set       *int   // a chosen layout (0 to 11) instead of a random one; an explicit choice is not held back by the weekly rule
 	// SavePath is the save to check (game.db or its folder) before Game.ini is touched (#1167); SaveProblem says why it is empty when the caller could not tell which save it is.
-	// The run only ever reads it, apart from the verified checkpoint copied into the save's backup folder. Editor is the version written into the base files that are exported.
+	// The run writes it only when it recycles bases (RecycleBases), moves vehicles out of the Deep Desert or clears the Deep Desert markers (KeepMarkers off); it also copies the verified checkpoint into the save's backup folder. Editor is the version written into the base files that are exported.
 	SavePath    string
 	SaveProblem string
 	Editor      string
@@ -185,6 +185,10 @@ func Roll(o Options) (Result, error) {
 	// the Deep Desert markers (#1216): counted in a dry run, removed in a real one right before Game.ini is written (below), so a run that stops earlier has not touched them
 	if o.DryRun {
 		if err := clearDeepDesertMarkers(o, &r, &st, now); err != nil {
+			if errors.Is(err, errWouldStop) {
+				r.say("Nothing was written.")
+				return r, nil // it said it would stop here: nothing more is said about Game.ini
+			}
 			return r, err
 		}
 	}
@@ -200,7 +204,37 @@ func Roll(o Options) (Result, error) {
 		return r, nil
 	}
 
-	// backup first, written exclusively and compared with what was read
+	// the game must still not be running and Game.ini must still be what was read: checked before the save is written and again right before Game.ini is (the markers step takes time)
+	stillSafe := func() error {
+		if running, why := o.GameRunning(); running {
+			outcome := "not changed: the game is running"
+			if c := st.LastCheck; c != nil && c.savedChanged() {
+				outcome = "stopped: Game.ini was not changed because the game started during the run, but the save WAS changed earlier in this run (checkpoint " + checkpointName(c) + ")"
+			}
+			saveRun(o.StatePath, st, now, outcome)
+			return late(fmt.Errorf("not changed: %s (it started while this ran)", why))
+		}
+		again, _, _, err := readIni(path)
+		if err != nil || again != old {
+			if c := st.LastCheck; c != nil && c.savedChanged() && o.lockHeld {
+				saveRun(o.StatePath, st, now, "stopped: Game.ini was not changed because it changed while the run was going, but the save WAS changed earlier in this run (checkpoint "+checkpointName(c)+")")
+			}
+			return late(errors.New("not changed: Game.ini changed while this ran; run it again"))
+		}
+		return nil
+	}
+	if err := stillSafe(); err != nil {
+		return r, err
+	}
+	// every write to the save is done before Game.ini is changed: the Deep Desert markers go now, in an edit of their own that is read back
+	if err := clearDeepDesertMarkers(o, &r, &st, now); err != nil {
+		return r, err
+	}
+	// the same two checks again, right before Game.ini is written; the backup is made only after them, so a run that stopped earlier has used no slot of the newest 10 on a copy that no change followed
+	if err := stillSafe(); err != nil {
+		return r, err
+	}
+	// backup, written exclusively and compared with what was read
 	backup := ""
 	if existed {
 		if backup, err = writeBackup(o.ConfigDir, old, now, mode); err != nil {
@@ -210,19 +244,6 @@ func Roll(o Options) (Result, error) {
 		if n := pruneBackups(o.ConfigDir); n > 0 {
 			r.say("Removed %d older backup(s); the newest %d are kept.", n, KeepBackups)
 		}
-	}
-	// the file must still be what was read, and the game still not running: otherwise another program changed it in between and nothing is written
-	if running, why := o.GameRunning(); running {
-		saveRun(o.StatePath, st, now, "not changed: the game is running")
-		return r, late(fmt.Errorf("not changed: %s (it started while this ran)", why))
-	}
-	again, _, _, err := readIni(path)
-	if err != nil || again != old {
-		return r, late(errors.New("not changed: Game.ini changed while this ran; run it again"))
-	}
-	// every write to the save is done before Game.ini is changed: the Deep Desert markers go now, in an edit of their own that is read back
-	if err := clearDeepDesertMarkers(o, &r, &st, now); err != nil {
-		return r, err
 	}
 	if mode == 0 {
 		mode = 0o644
