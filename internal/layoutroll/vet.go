@@ -324,7 +324,7 @@ func VetRecord(o Options, n int, pass bool, note string) (Result, error) {
 		return r, fmt.Errorf("not recorded: the settings folder cannot be made (%v)", err)
 	}
 	if newText != "" {
-		if err := replaceVetFile(listPath, text, exists, newText); err != nil {
+		if err := writeVetFile(listPath, text, exists, newText); err != nil {
 			return r, fmt.Errorf("not recorded: the vetted layouts file %s was not changed (%v)", listPath, err)
 		}
 		if exists {
@@ -347,7 +347,7 @@ func VetRecord(o Options, n int, pass bool, note string) (Result, error) {
 		next += eolOf(next)
 	}
 	next += line + eolOf(resText)
-	if err := replaceVetFile(resPath, resText, resText != "" || fileExists(resPath), next); err != nil {
+	if err := writeVetFile(resPath, resText, resText != "" || fileExists(resPath), next); err != nil {
 		changed := ""
 		if newText != "" {
 			changed = " The vetted list WAS changed (see above); write the result line by hand if you want it kept."
@@ -384,9 +384,9 @@ func readVettingFile(path string) (text string, exists bool, err error) {
 	return readPlainFile(path, maxVettingFile)
 }
 
-// replaceVetFile writes a small settings file whole and atomically (a new file beside it, flushed, renamed over it). It checks first that the file on disk is still what was read (before,
+// writeVetFile writes a small settings file whole and atomically (a new file beside it, flushed, renamed over it). It checks first that the file on disk is still what was read (before,
 // existed), and afterwards that it reads back as written. The mode of an existing file is kept.
-func replaceVetFile(path, before string, existed bool, text string) error {
+func writeVetFile(path, before string, existed bool, text string) error {
 	cur, curExists, err := readPlainFile(path, maxVettingFile)
 	if err != nil {
 		return err

@@ -545,16 +545,16 @@ func TestReplaceVetFileRefusesWhenTheFileChangedSinceItWasRead(t *testing.T) {
 	if err := os.WriteFile(p, []byte("9\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := replaceVetFile(p, "9, 11\n", true, "9, 11, 10\n"); err == nil || !strings.Contains(err.Error(), "changed while this ran") {
+	if err := writeVetFile(p, "9, 11\n", true, "9, 11, 10\n"); err == nil || !strings.Contains(err.Error(), "changed while this ran") {
 		t.Fatalf("%v", err)
 	}
-	if err := replaceVetFile(p, "", false, "x\n"); err == nil {
+	if err := writeVetFile(p, "", false, "x\n"); err == nil {
 		t.Fatal("a file that appeared was overwritten")
 	}
 	if b, _ := os.ReadFile(p); string(b) != "9\n" {
 		t.Fatal("changed")
 	}
-	if err := replaceVetFile(p, "9\n", true, "9, 10\n"); err != nil {
+	if err := writeVetFile(p, "9\n", true, "9, 10\n"); err != nil {
 		t.Fatal(err)
 	}
 }
