@@ -648,6 +648,9 @@ button.d-btn .x-btnfx.all{color:var(--c-ok)}
 .vcargo{margin:0 0 10px;color:var(--mut)}
 .vtight{color:var(--fg);font-weight:700}
 .vtight.vfull{color:var(--warn)}
+/* "Durability (weakest part)" is two lines in a narrow table, so it takes no width from the cells beside it (tau 1243) */
+.vbreak{display:none}
+@media (max-width:1100px){.vbreak{display:inline}}
 @media (max-width:900px){
   /* narrow window and phone: each vehicle is a block (name, its facts, then the three actions on one line); there are no column headers, so no sorting here */
   .vlist>table,.vlist>table>tbody,.vlist>table>tbody>tr,.vlist>table>tbody>tr>td{display:block;width:100%}
