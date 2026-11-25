@@ -253,6 +253,18 @@ func Roll(o Options) (Result, error) {
 	if err := clearDeepDesertMarkers(o, &r, &st, now); err != nil {
 		return r, err
 	}
+	// a stop after the save was written by this run leaves the last word in the state file and the log: without it layout-roll.json would keep "in progress ... Game.ini is next"
+	iniNotChanged := func(why string) {
+		c := st.LastCheck
+		if c == nil || !c.savedChanged() {
+			return
+		}
+		outcome := "stopped: Game.ini was not changed (" + why + "), the save WAS changed earlier in this run (checkpoint " + checkpointName(c) + ")"
+		if o.lockHeld {
+			saveRun(o.StatePath, st, now, outcome)
+		}
+		noteLog(o, now, "layout roll: "+outcome)
+	}
 	// the same two checks again, right before Game.ini is written; the backup is made only after them, so a run that stopped earlier has used no slot of the newest 10 on a copy that no change followed
 	if err := stillSafe(); err != nil {
 		return r, err
@@ -260,7 +272,8 @@ func Roll(o Options) (Result, error) {
 	// backup, written exclusively and compared with what was read
 	backup := ""
 	if existed {
-		if backup, err = writeBackup(o.ConfigDir, old, now, mode); err != nil {
+		if backup, err = writeBackupFile(o.ConfigDir, old, now, mode); err != nil {
+			iniNotChanged("the backup could not be made")
 			return r, late(fmt.Errorf("not changed: the backup could not be made (%v)", err))
 		}
 		r.say("Backup: %s", filepath.Base(backup))
@@ -271,7 +284,8 @@ func Roll(o Options) (Result, error) {
 	if mode == 0 {
 		mode = 0o644
 	}
-	if err := durable.WriteFile(path, []byte(text), mode, writeOptions()); err != nil {
+	if err := writeIniFile(path, []byte(text), mode, writeOptions()); err != nil {
+		iniNotChanged("the file could not be written")
 		return r, late(fmt.Errorf("the file Game.ini could not be written (%v); it was left as it was%s", err, backupNote(backup)))
 	}
 	back, _, _, err := readIni(path)
@@ -380,6 +394,12 @@ func writeOptions() durable.Options {
 	o.TempPattern = FileName + ".tabr-*.tmp"
 	return o
 }
+
+// The two writes next to Game.ini, as variables only so that a test can make one fail; nothing else changes them.
+var (
+	writeBackupFile = writeBackup
+	writeIniFile    = durable.WriteFile
+)
 
 // writeBackup puts the exact bytes of Game.ini in a new file beside it, never over an existing one, and reads it back.
 func writeBackup(dir, content string, now time.Time, mode fs.FileMode) (string, error) {

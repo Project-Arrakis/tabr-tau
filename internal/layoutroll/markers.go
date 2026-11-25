@@ -3,6 +3,7 @@ package layoutroll
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -100,8 +101,10 @@ func clearDeepDesertMarkers(o Options, r *Result, st *state, now time.Time) erro
 		return fail("not changed: the Deep Desert markers could not be removed", "the Deep Desert markers could not be removed (%v); the save was not changed by this step", err)
 	}
 	words := markerWords(done.DeepDesert)
-	// The intent is on record BEFORE the save is written (as the vehicle and recycle steps do it): the state file and the log then name the checkpoint, so a run that dies between the write
-	// and the next record still leaves the way back. The next record of this run (the confirmed one, or a stop) replaces it. A state file that cannot be written now refuses the write.
+	// A note is left BEFORE the save is written: the state file's outcome and the log (free text; unlike the notes of the vehicle and recycle steps, which the next run settles, this one is
+	// not settled by a later run, because this step is idempotent: a run that finds Deep Desert markers removes them, and one that finds none writes nothing). The note names the checkpoint,
+	// so a run that dies between the write and the next record still leaves the way back. The next record of this run (the confirmed one, or a stop) replaces it. A state file that cannot
+	// be written now refuses the write.
 	if rec != nil {
 		if rec.SaveFile == "" {
 			rec.SaveFile = s.Path
@@ -110,8 +113,10 @@ func clearDeepDesertMarkers(o Options, r *Result, st *state, now time.Time) erro
 			intent := "in progress: about to write the save with the Deep Desert markers removed (" + words + "; not written yet; if this is the last word, the save may or may not have been written: see the checkpoint " + checkpointName(rec) + ")"
 			if werr := saveRunErr(o.StatePath, *st, now, intent); werr != nil {
 				s.Discard()
+				noteLog(o, now, "layout roll: the Deep Desert markers were not written to the save (the state file could not be written); the save is as it was (checkpoint "+checkpointName(rec)+")")
 				return fail("not changed: the state file could not be written", "the state file cannot be written (%v), and it must name the checkpoint before the save is changed; the save was not written by this step", werr)
 			}
+			rec.intentOnDisk = true // the state file on disk holds the note until the next record of this run replaces it
 		}
 		noteLog(o, now, "layout roll: about to write the save with the Deep Desert markers removed ("+words+"); if this is the last line, the save may or may not have been written; checkpoint "+checkpointName(rec))
 		intentNoted = true
@@ -157,6 +162,7 @@ func clearDeepDesertMarkers(o Options, r *Result, st *state, now time.Time) erro
 	r.say("Removed the Deep Desert markers from the save in one edit, read back inside the edit and again from the written file: %s. Rows of other maps were counted before and after and are unchanged (%s).", words, markerWords(done.Others))
 	// recorded at once (the state file and the log), so the run's own record says what was removed even if a later step stops
 	if rec != nil && o.lockHeld {
+		rec.intentOnDisk = false
 		warnStateAfterWrite(o, r, rec, saveRunErr(o.StatePath, *st, now, "in progress: the Deep Desert markers were removed from the save ("+words+"); Game.ini is next"))
 	}
 	noteLog(o, now, "layout roll: removed the Deep Desert markers from the save ("+words+"); other maps unchanged; checkpoint "+checkpointName(rec))
@@ -202,15 +208,23 @@ func stopMarkers(o Options, r *Result, st *state, now time.Time, outcome string,
 	if rec != nil {
 		rec.Blockers = []string{strings.TrimPrefix(strings.TrimPrefix(e.Error(), "not changed: "), "stopped: ")}
 	}
-	if werr := saveRunErr(o.StatePath, *st, now, outcome); werr != nil && rec != nil && rec.savedChanged() {
-		rec.stateWarn = fmt.Sprintf("WARNING: the state file %s could not be updated (%v). Keep this output: it names the way back", "layout-roll.json", werr)
-		r.say("%s", rec.stateWarn)
+	if werr := saveRunErr(o.StatePath, *st, now, outcome); werr == nil {
+		if rec != nil {
+			rec.intentOnDisk = false
+		}
+	} else if rec != nil && (rec.savedChanged() || rec.intentOnDisk) && rec.stateWarn == "" {
+		// after the save was written, or while the note of the intent is still the last word in the state file, a state file that cannot be written is said loudly, never dropped
+		rec.stateWarn = fmt.Sprintf("WARNING: the state file %s could not be updated (%v). Keep this output: it names the way back", filepath.Base(o.StatePath), werr)
+		if rec.intentOnDisk && !rec.savedChanged() {
+			rec.stateWarn += ". The state file still holds the note that the save was about to be written, with the checkpoint's name; if the save was written, that checkpoint is the way back"
+		}
 	}
-	if rec == nil || !rec.savedChanged() {
-		r.say("%s", e.Error())
-		return e
+	// said once, in the error: the command prints the lines and then the error
+	if rec != nil && rec.savedChanged() {
+		return fmt.Errorf("%v. %s", e, rec.writtenNote())
 	}
-	n := rec.writtenNote()
-	r.say("%s", n)
-	return fmt.Errorf("%v. %s", e, n)
+	if rec != nil && rec.stateWarn != "" {
+		return fmt.Errorf("%v. %s", e, rec.stateWarn)
+	}
+	return e
 }

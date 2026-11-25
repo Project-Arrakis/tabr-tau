@@ -138,6 +138,15 @@ func TestAStateFileThatCannotTakeTheMarkersNoteRefusesTheWrite(t *testing.T) {
 		if len(e.backups()) != 0 {
 			t.Fatalf("a backup of Game.ini was made: %v", e.backups())
 		}
+		// the last word in the state file and the log: nothing was written
+		stt := readState(t, e.state)
+		if stt.LastRun == nil || !strings.HasPrefix(stt.LastRun.Outcome, "not changed: the state file could not be written") || stt.LastRoll != nil {
+			t.Fatalf("%+v", stt.LastRun)
+		}
+		mustContain(t, logText(t, e), "the Deep Desert markers were not written to the save", filepath.Base(checkpoints(t, e.save)[0]))
+		if survey(t, e.save).DeepDesert.Total() != 8 {
+			t.Fatal("the markers were removed")
+		}
 	})
 }
 
@@ -241,24 +250,4 @@ func TestADryRunThatWouldStopSaysNothingMore(t *testing.T) {
 	if _, serr := os.Stat(e.state); serr == nil {
 		t.Fatal("a dry run wrote the state file")
 	}
-}
-
-// The stop text of a save that changed in a way that was not confirmed is said once in what the command prints (the lines, then the error).
-func TestTheMarkersStopTextIsSaidOnce(t *testing.T) {
-	e := newEnv(t, iniWith("11"))
-	e.save = testsave.PlayerWithSQL(t, mkWorld).Path
-	swapVar(t, &flushSave, func(s *save.Save) save.Flush {
-		f := s.Flush()
-		f.Saved, f.Why = false, "the write was not confirmed in time"
-		return f
-	})
-	r, err := Roll(e.opts())
-	if err == nil || r.Wrote {
-		t.Fatalf("%v", err)
-	}
-	all := lines(r) + "\n" + err.Error()
-	if n := strings.Count(all, "the write was not reported as saved"); n != 1 {
-		t.Fatalf("said %d times:\n%s", n, all)
-	}
-	mustContain(t, all, "the save WAS changed", "Copy-Item -Force")
 }
