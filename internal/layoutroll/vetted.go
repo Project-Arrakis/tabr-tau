@@ -27,6 +27,9 @@ const (
 // defaultVetted is the list used when the settings file does not exist.
 func defaultVetted() []int { return []int{9, 11} }
 
+// errNoVettedNumber is what ParseVetted says of a text with no layout number in it (a file of comments only, which the vet command may fill again).
+var errNoVettedNumber = errors.New("there is no layout number in it")
+
 // Where the list in use came from.
 const (
 	vettedFromFlag    = "the --vetted flag"
@@ -74,7 +77,7 @@ func ParseVetted(text string) ([]int, error) {
 		}
 	}
 	if len(out) == 0 {
-		return nil, errors.New("there is no layout number in it")
+		return nil, errNoVettedNumber
 	}
 	sort.Ints(out)
 	return out, nil
@@ -95,6 +98,11 @@ func knownLayouts(iniText string) int {
 
 // readVettedFile reads the settings file. exists is false when there is none (the default list is then used). A file that cannot be used safely is an error.
 func readVettedFile(path string) (text string, exists bool, err error) {
+	return readPlainFile(path, maxVettedFile)
+}
+
+// readPlainFile reads a small plain 8-bit text file (the vetted list, the vetting results): a missing file is exists false; a link, a folder, a file over max bytes and text that is not 8-bit text are errors.
+func readPlainFile(path string, max int64) (text string, exists bool, err error) {
 	st, err := os.Lstat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", false, nil
@@ -105,8 +113,8 @@ func readVettedFile(path string) (text string, exists bool, err error) {
 	if !st.Mode().IsRegular() {
 		return "", true, errors.New("it is not a plain file (links are refused)")
 	}
-	if st.Size() > maxVettedFile {
-		return "", true, fmt.Errorf("it is larger than %d bytes", maxVettedFile)
+	if st.Size() > max {
+		return "", true, fmt.Errorf("it is larger than %d bytes", max)
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {

@@ -341,6 +341,8 @@ var knownFileWriters = map[string]bool{
 	"internal/layoutroll.writeState":    true, // the small record of the last roll beside the editor's settings
 	"internal/layoutroll.noteRefusal":   true, // the append-only layout-roll.log beside it: one dated line for a run that was refused without touching the record (#1201), never the save
 	"internal/layoutroll.exportBases":   true, // the base files of a refused roll (#1167): new files, created exclusively in a new dated folder beside the state file, never the save
+	"internal/layoutroll.VetSet":        true, // Game.ini in the game's config folder (fixed name, never the save), after a backup and the roll's refusals; refuses while the game runs (#1222)
+	"internal/layoutroll.writeVetFile":  true, // the vetted list and the vetting results beside the editor's settings: whole-file replace, never the save (#1222)
 	"internal/ops.Record":               true, // the editor's own record of the Landsraad ground it paid (landsraad_paid.go): a file in its own folder, whose path is the journal's folder and never the save's
 	"internal/ops.moveAside":            true, // moves that same record aside (landsraad_paid.go) when it is damaged, so the next write does not destroy it: the record's own file, never the save's
 	"internal/gui.AttachConsole":        true, // the console handles of the process

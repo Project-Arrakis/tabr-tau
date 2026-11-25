@@ -40,6 +40,26 @@ Not every layout is good to play on. In the game, layout 8 gave a Sandworm Threa
 - **`--set N` is your own choice** and ignores the vetted list, so you can still go to a layout you want to check in the game. Do that, check it (set `Game.ini`, load the Deep Desert, shield on, read the Sandworm Threat on a rock island and inside a lab, and check that the trainer's rock matches the ground), and only then add its number to the file.
 - **`--dry-run` shows it:** it prints the vetted list, where it came from (the flag, the file with its full path, or the built-in default) and the layouts the random pick may choose from. A real run prints the same lines and keeps them in the run record in `layout-roll.json` (`lastRun`).
 
+## Checking a layout in the game (`vet`)
+
+To add a layout to the vetted list you check it in the game first. `vet` does the file work for that, in three steps. None of them opens or changes the save.
+
+1. **`tabr-tau layout-roll vet 8`** sets layout 8 in `Game.ini` so that you can look at it. It has the same refusals as a roll: the game must be closed (a Dune process, or a list of running programs that cannot be read, stops it) and the save must not be held by the editor or by a layout roll. It backs `Game.ini` up first, changes only the number, checks that `Game.ini` did not change while it ran, and reads the file back. Only layouts 0 to 11 that `Game.ini` lists are accepted. It then prints what to do:
+   - start the game and load into the Deep Desert;
+   - with the shield on, read the Sandworm Threat on a rock island and again inside a lab (it should be 0% in both);
+   - check that the trainer's rock matches the ground you stand on.
+
+   `vet` does not look for a base, a vehicle or your character in the Deep Desert: they stand on different terrain on another layout, and a roll checks for them but `vet` does not. If the layout is already set, nothing is written and no backup is made, and it still prints the steps.
+2. **`tabr-tau layout-roll vet 8 pass`** or **`tabr-tau layout-roll vet 8 fail worm threat 100% on rock`** records what you saw. The game may be running for this step (it writes neither `Game.ini` nor the save). Everything after `pass` or `fail` is a note: it is kept on one line (line ends and other control characters become spaces) and cut at 200 characters.
+   - The result is added as one line, newest last, to the plain text file `layout-roll-vetting.txt` in the same folder as `layout-roll-vetted.txt`, for example `2026-11-24 22:41 layout 8 fail worm threat 100% on rock`. Nothing in it is ever removed.
+   - `pass` adds 8 to the vetted list. `fail` takes 8 out of it. If `layout-roll-vetted.txt` does not exist yet, it is created from the built-in list (9 and 11) with the change. If it exists, only the number changes: your comments, spacing and line ends stay as they are. A number in a comment is not a number. The file is replaced whole in one step (a new file beside it, then renamed over), so it is never left half written.
+   - `pass` is refused for a layout above 11, and for one that `Game.ini` does not list (or when `Game.ini` cannot be read). `fail` may take out a stray number above 11 that a typo left in the list.
+   - If a `fail` leaves the list empty, it says so: a roll refuses an empty list until a layout is vetted again.
+   - If the list file or the results file cannot be used, nothing is written (neither file), and the message names the file.
+3. **`tabr-tau layout-roll vet list`** shows layouts 0 to 11 with the last result of each (date and note), and whether a roll may pick it: **yes** when it is in the vetted list now, with "but not while it is set now" for the layout `Game.ini` sets, which a roll never picks. It only reads.
+
+`vet` is not a roll: it ignores the once-a-week rule, writes no `layout-roll.json`, and does not recycle bases or move vehicles. When you are done checking, put the layout you want to play on back with `--set N`, or let the next roll choose.
+
 ## The safeguards
 
 - **The game must be closed.** If a Dune process is running, or the list of running programs cannot be read, nothing is changed. The command says so and you run it again after closing the game (the scheduled run tries again the next Tuesday).
