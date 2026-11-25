@@ -97,7 +97,7 @@ Developer storage container holds 1,000 slots in every save seen, so a box witho
 row changed (a digest of the rows before and after), no two stacks share a slot, no box is over its slot count, and no box that received a stack with a volume is over its volume limit (the volume of what each such box holds is added up again from its rows with the same count as Give item, units with no known volume as none). Any difference fails the whole edit and nothing changes. The save layer
 then runs its reference check and its check of stored JSON, as for a recycle. The write must be sent the **fingerprint** the question showed (the Reserve, the boxes and the plan), and
 is refused when anything changed in between. A backup of the save is taken first, as for every write. A real run from the command line takes **one more** backup first: a verified
-copy named `-manual`, which the editor never prunes (the write path then takes its own automatic backup as well, so a real run leaves two copies). While a game process exists the edit is only queued, put back onto the save the
+copy named `-manual`, of which the editor keeps the newest 8 and removes older ones over 7 days old (the write path then takes its own automatic backup as well, so a real run leaves two copies). While a game process exists the edit is only queued, put back onto the save the
 game wrote last, and **dropped, not written**, when the game saved a change to anything it read (a stack of the Reserve, a box, its contents).
 
 **An empty Reserve** is not an error: the answer says so and nothing is written (the boxes are still checked first, so a wrong name is always said).
