@@ -327,7 +327,6 @@ func TestOnlyTheCharactersOwnStandingBasesCanBeRecycled(t *testing.T) {
 	}{
 		{801, apierr.ErrConflict, "belongs to another player"},
 		{811, apierr.ErrConflict, "belongs to another player"},
-		{901, apierr.ErrConflict, "already been picked up"},
 		{12345, apierr.ErrNotFound, "no base with the totem"},
 		{950, apierr.ErrNotFound, "no base with the totem"}, // a vehicle is not a base
 	} {
@@ -418,9 +417,11 @@ func TestTheHandledReferencesAreReferencesOfTheSavesLayout(t *testing.T) {
 		for _, f := range fks {
 			declared[fmt.Sprintf("%v.%v>%v", f["tbl"], f["col"], f["ref"])] = true
 		}
-		for k := range recycleHandledRefs {
-			if !declared[k] {
-				t.Errorf("%s is handled by the recycle and is not a reference of the save's layout", k)
+		for _, refs := range []map[string]bool{recycleHandledRefs, recyclePickedUpRefs} {
+			for k := range refs {
+				if !declared[k] {
+					t.Errorf("%s is handled by the recycle and is not a reference of the save's layout", k)
+				}
 			}
 		}
 		if !declared["player_respawn_locations.locator_actor_id>actors"] || !declared["game_events.actor_id>actors"] || len(declared) < 60 {

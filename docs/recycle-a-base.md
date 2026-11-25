@@ -1,12 +1,13 @@
 # Recycle a base and return everything
 
-Player > Bases lists every base of the save. A base that is still standing has a **Recycle base** button (#1176, phase 1). It deletes the base and puts **everything** into your
+Player > Bases lists every base of the save. A base that is still standing has a **Recycle base** button (#1176, phase 1), and so has a base the game already **picked up** (a base
+backup, marked "Picked up", Deep Desert ones included: see [A base that was picked up](#a-base-that-was-picked-up-1207)). It deletes the base and puts **everything** into your
 character's **Reserve**: all that was stored in the base, and all that the base cost to build.
 
 It is a delete. The base is gone afterwards, no base backup is made, and the only way back is to restore a backup of the save (see [Undo](#undo-restore-the-save)).
 
-The game has its own recycle, for a base that was backed up with the Base Reconstruction Tool. This button is for a base that still **stands**, and it differs from the game's in
-one way that matters: the game's recycle returned about half of the building cost in the one case that was measured, and this one returns all of it. That is a decision of the
+The game has its own recycle, for a base that was backed up with the Base Reconstruction Tool (it cannot place or recycle a Deep Desert backup). This button works on a base that still
+**stands** and, since #1207, on a base that was **picked up**; it differs from the game's in one way that matters: the game's recycle returned about half of the building cost in the one case that was measured, and this one returns all of it. That is a decision of the
 project's operator, not a copy of the game.
 
 ## What it does, in short
@@ -19,7 +20,7 @@ project's operator, not a copy of the game.
 | Dropped | Water in cisterns and windtraps; a unit of fuel that is already burning |
 | Made first (only when you tick the box) | A Solido of the base, the game's own copy that can rebuild it: see [Make a Solido first](#make-a-solido-of-the-base-first-option) |
 | Not touched | Vehicles, every other base, every base backup, everything else in the save |
-| Not written | A base backup. The Deep Desert never has one in the game, and this edit writes none on any map |
+| Not written | A base backup. The Deep Desert never has one in the game, and this edit writes none on any map. (A base that was already picked up has its backup record deleted, see below) |
 
 ## Use it
 
@@ -171,18 +172,53 @@ standing again, not on a Solido that the game made of a Deep Desert base. The ga
 **Not checked in the game.** The box's explanation and the question both say so: "Not yet tried in the game: keep your save backup until you have placed it." That the game shows this Solido in the backpack and previews the base from it, and that it can be placed, has not been tried: only that the rows are
 those the game wrote for a base of its own.
 
+## A base that was picked up (#1207)
+
+A base the game's base tool picked up is a **base backup**: its building pieces, placeables and what is stored in them are still in the save, with the actors in state 5 and one record
+in `base_backups` that lists them. The Bases card marks it "Picked up" and now offers **Recycle base** on its row (its other buttons stay hidden). The game cannot place or recycle a Deep
+Desert base backup, so this is the way to empty one out of the save.
+
+It is the same recycle: the same plan, the same question, the same single write. What differs:
+
+| | A base that stands | A base that was picked up |
+|---|---|---|
+| Found by | its totem's owner rank | its shape: the totem and every actor of the base in state 5, the totem listed in **exactly one** base backup, **no permission record on the totem** (the claim is gone) |
+| Yours when | you hold the owner rank, alone | the base backup records **your character** as its player; no other player holds a rank on any actor of it |
+| Actors | the totem, what the totem's entity owns, the building actors that hold its pieces | the same, and the base backup must list **exactly those actors** (no more, no fewer) |
+| Extra rows deleted | | the backup's `base_backup_linked_actors` rows, then its `base_backups` row: what the game's own recycle of a backup deleted (probe8, a Hagga backup: rows went from both of these tables) |
+| Map marker | the base's own marker is looked for and removed | none is looked for: the pick-up already took it off the map, and the game's own recycle of a backup changed no marker |
+| Refund, items, Reserve rule, room, queues, vehicles, fingerprint, undo note, queueing while the game runs | as on this page | the same |
+
+The refund is 100% of the table cost, and 50% in the Deep Desert, as for a standing base. What was stored in the backup's containers moves to the Reserve unchanged. The Reserve must be
+empty first.
+
+**Refused, nothing changed (in addition to the rules below):** a base backup that records another player, or any actor of it held by a rank of another player; a backup that lists an
+actor the totem does not own or misses one it owns; an actor of the base that is also listed in a different base backup; a totem listed in two backups; a base in state 5 whose totem is
+not listed in a backup or still has a claim record; a standing base that is also listed in a backup (a base that was picked up and claimed again keeps its backup rows: it is not known
+which of the two it is, so it is not touched); an actor that is not in the picked-up state.
+
+**The Solido option works on a picked-up base.** Decided from the code: a Solido is made from the base's **building actor** (its place and turn), the pieces its totem's entity owns and the
+placeables, never from the claim totem or from the actors' state, and a picked-up base keeps all of those rows exactly as they were when it stood (the pick-up moves nothing; it only
+re-creates each building actor under a new number, with the same place). So the same conversion runs on the backup's rows, in the same edit, with the same refusals (more than one building
+actor, a tilted piece, a Pentashield without a scale, no room for the device). What is **not** known: the game's own Solido of a picked-up base was never measured, so the Solido of a
+backup rests on the Solido measured on a standing Hagga base (and, for the Deep Desert, on a stood-up copy: see [Make a Solido first](#make-a-solido-of-the-base-first-option)).
+Keep your save backup until the Solido has been placed.
+
+**Not checked in the game:** the editor ran this on made-up saves and on a dry run of a copy of a real save (a Deep Desert backup of 942 pieces and 119 placeables); the game has not loaded a
+save written this way.
+
 ## Every rule
 
 ### Which bases
 
-Only your own bases that stand. The totem must hold the owner rank (1) for your character and for nobody else, the same check as Back up and remove. Any map, the Deep Desert
+Your own bases that stand, and (#1207) a base of yours that was picked up (above). The totem must hold the owner rank (1) for your character and for nobody else, the same check as Back up and remove. Any map, the Deep Desert
 included. One base at a time (the layout roll can recycle several bases in a row, one recycle each, moving the Reserve into the boxes DD-1 and DD-2 between them: see [Recycling the Deep Desert bases](help/deep-desert-layout-roll.md#recycling-the-deep-desert-bases---recycle-bases-off-unless-you-give-it)). Refused, with nothing changed:
 
 - a base of another player, a base you are only a member of, a base nobody holds the owner rank over;
-- a base the game already picked up (a base backup), and a base or an actor of it that is not in the normal state;
+- a base or an actor of it that is not in the normal state (a picked-up base's actors are in the picked-up state: see above);
 - a base with a crafting queue that is running, or whose queue cannot be read;
 - a base that holds a building piece or placeable type whose cost is not in the cost table (the message names the type);
-- a base an actor of which is a vehicle, or is part of a base backup, or shares an entity with something outside the base;
+- a base an actor of which is a vehicle, or (for a standing base) is part of a base backup, or shares an entity with something outside the base;
 - a base a character is waiting to respawn at (the save names its respawn point as the pending one): respawn in the game first;
 - a base that a row of any other table of the save points at (for example a game event, a spawner's actor, a travelling actor): the message names the table and the number
   of rows. Every reference the save's own layout declares to an actor, an inventory or an entity is looked up, so nothing is left pointing at a row that is gone;
@@ -310,7 +346,9 @@ reference check and JSON check on it.
 **New rows:** the refund stacks in `items` (the Reserve, a free position each, marked new, with the item's usual durability record, as every give in the editor writes it), and the item id counter
 (`items_id_sequencer`) moved past them.
 
-**Never written:** `base_backups` and `base_backup_linked_actors` (no backup), `vehicles` and anything of a vehicle, any other base.
+**Deleted only for a base that was picked up:** its `base_backup_linked_actors` rows and its `base_backups` row.
+
+**Never written:** a new `base_backups` or `base_backup_linked_actors` row (no backup is made), `vehicles` and anything of a vehicle, any other base, any other base backup.
 
 **Read back.** Before the edit is accepted, the editor reads back what it wrote, inside the same edit: the number of rows deleted from every table, that no row of the base is
 left, that every stored stack is in the Reserve with its size, that every refund item has the planned amount in the planned number of stacks, and that no two stacks of the
@@ -398,6 +436,9 @@ The two hashes must be the same. The block uses the newest `before-recycle-*` fo
   `UniqueThumper_Placeable` types, `RespawnBeacon_Placeable`, `StakingUnit_Placeable`, `StakingUnitVertical_Placeable`) cost one of themselves, an item the catalog knows and the
   stack-size table does not list; it comes back as one stack of one for each. `Ladder_Placeable` has no cost in the game's tables at all and is refused too. None of these
   types was in a base of the saves checked.
+- **Whether the layout roll should recycle picked-up Deep Desert bases is open (#1207).** The weekly roll (`layout-roll --recycle-bases`) only sees standing bases; a picked-up base is
+  skipped by its checks and recycled by none of its steps. What the game does with a base backup's rows when the Deep Desert layout rolls is not known, so the roll does not touch them;
+  recycle a picked-up Deep Desert base here, by hand, before the roll if you want it gone.
 - **The cost table is of one game build** (26592269). A piece type added by a later build is refused until the table is made again.
 - **The item id counter.** The editor moves the save's item id counter past the new stacks, as every give in the editor does. The game's own recycle left the counter as it
   was in the measured pair.
