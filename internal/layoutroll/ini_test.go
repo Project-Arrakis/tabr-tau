@@ -11,8 +11,15 @@ const sec = "[" + Section + "]"
 
 // lineWith is a short stand-in for the layout line (the real one is 15 KB).
 func lineWith(n string) string {
-	return Key + `=(("/Game/Maps/DD",(WorldLayoutsSettingsList=((Content="/Game/L00"),(Content="/Game/L01")),WorldLayoutIndexInSingleplayer=` + n + `)))`
+	list := `(Content="/Game/L00")`
+	for i := 1; i < testLayouts; i++ {
+		list += fmt.Sprintf(`,(Content="/Game/L%02d")`, i)
+	}
+	return Key + `=(("/Game/Maps/DD",(WorldLayoutsSettingsList=(` + list + `),WorldLayoutIndexInSingleplayer=` + n + `)))`
 }
+
+// testLayouts is how many layouts the stand-in line lists (the game's own list, and the built-in line, hold 18).
+const testLayouts = 18
 
 func TestTheBuiltInLineIsUsable(t *testing.T) {
 	for i := MinIndex; i <= MaxIndex; i++ {
@@ -210,14 +217,15 @@ func TestCurrentIndexReadsLayoutsOutsideTheRollRange(t *testing.T) {
 	}
 }
 
-func TestPickIsInRangeAndNeverTheCurrentLayout(t *testing.T) {
+func TestPickIsVettedInRangeAndNeverTheCurrentLayout(t *testing.T) {
+	all := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}
 	for cur := -1; cur <= 17; cur++ {
 		seen := map[int]bool{}
 		for r := 0; r < 40; r++ {
 			r := r
-			got := Pick(cur, func(n int) int { return r % n })
-			if got < MinIndex || got > MaxIndex || got == cur {
-				t.Fatalf("current %d: picked %d", cur, got)
+			got, err := Pick(cur, all, func(n int) int { return r % n })
+			if err != nil || got < MinIndex || got > MaxIndex || got == cur {
+				t.Fatalf("current %d: picked %d %v", cur, got, err)
 			}
 			seen[got] = true
 		}
@@ -229,17 +237,61 @@ func TestPickIsInRangeAndNeverTheCurrentLayout(t *testing.T) {
 			t.Fatalf("current %d: %d different picks, want %d", cur, len(seen), want)
 		}
 	}
-	// a source that misbehaves still gives a legal number
+	// a source that misbehaves still gives a vetted number
 	for _, bad := range []int{-5, 99} {
 		bad := bad
-		if got := Pick(3, func(int) int { return bad }); got == 3 || got < MinIndex || got > MaxIndex {
-			t.Fatalf("bad source %d gave %d", bad, got)
+		if got, err := Pick(3, []int{9, 11}, func(int) int { return bad }); err != nil || (got != 9 && got != 11) {
+			t.Fatalf("bad source %d gave %d %v", bad, got, err)
 		}
 	}
 	// the real source
 	for i := 0; i < 200; i++ {
-		if got := Pick(5, Rand()); got == 5 || got < MinIndex || got > MaxIndex {
-			t.Fatalf("real source gave %d", got)
+		if got, err := Pick(5, []int{5, 9, 11}, Rand()); err != nil || (got != 9 && got != 11) {
+			t.Fatalf("real source gave %d %v", got, err)
+		}
+	}
+}
+
+func TestPickNeverChoosesAnUnvettedLayoutAndNeverTheCurrentOne(t *testing.T) {
+	vetted := []int{9, 11}
+	for _, cur := range []int{0, 5, 8, 9, 11} {
+		seen := map[int]bool{}
+		for i := 0; i < 2000; i++ {
+			got, err := Pick(cur, vetted, Rand())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != 9 && got != 11 {
+				t.Fatalf("current %d: picked %d, which is not vetted", cur, got)
+			}
+			if got == cur {
+				t.Fatalf("picked the current layout %d", cur)
+			}
+			seen[got] = true
+		}
+		want := 2
+		if cur == 9 || cur == 11 {
+			want = 1
+		}
+		if len(seen) != want {
+			t.Fatalf("current %d: %d different picks, want %d", cur, len(seen), want)
+		}
+	}
+}
+
+func TestPickWithNothingLeftIsAnErrorAndNeverCallsTheSource(t *testing.T) {
+	for name, tc := range map[string]struct {
+		cur int
+		l   []int
+	}{
+		"empty list":                         {3, nil},
+		"only the current layout":            {9, []int{9}},
+		"the current layout repeated":        {9, []int{9, 9}},
+		"only numbers the roll cannot write": {3, []int{12, 17, 99}},
+	} {
+		called := false
+		if got, err := Pick(tc.cur, tc.l, func(int) int { called = true; return 0 }); err == nil || called {
+			t.Errorf("%s: got %d, err %v, source called %v", name, got, err, called)
 		}
 	}
 }

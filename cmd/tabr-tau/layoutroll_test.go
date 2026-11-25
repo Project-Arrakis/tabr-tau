@@ -146,3 +146,33 @@ func TestLayoutRollKeepMarkersFlag(t *testing.T) {
 		t.Fatalf("%v\n%s", err, out.String())
 	}
 }
+
+func TestLayoutRollVettedFlag(t *testing.T) {
+	o, dir := layoutTestOptions(t, false)
+	var out bytes.Buffer
+	// the built-in list (9 and 11) is used without the flag; the current layout is 11 (the game's default), so a random pick can only be 9
+	if err := runLayoutRoll([]string{"--dry-run"}, dir, &out, o); err != nil {
+		t.Fatal(err)
+	}
+	if s := out.String(); !strings.Contains(s, "Vetted layouts: 9, 11.") || !strings.Contains(s, "may choose from: 9 ") || !strings.Contains(s, "to layout 9 (a random pick") {
+		t.Fatalf("%s", out.String())
+	}
+	// --vetted overrides it for the run
+	out.Reset()
+	if err := runLayoutRoll([]string{"--dry-run", "--vetted", "5,6"}, dir, &out, o); err != nil {
+		t.Fatal(err)
+	}
+	if s := out.String(); !strings.Contains(s, "Vetted layouts: 5, 6. Source: the --vetted flag.") || !strings.Contains(s, "may choose from: 5, 6 ") {
+		t.Fatalf("%s", out.String())
+	}
+	// an empty or bad list is refused, also when a scheduled task would pass it
+	for _, v := range []string{"", "x", "9,99"} {
+		out.Reset()
+		if err := runLayoutRoll([]string{"--vetted", v}, dir, &out, o); err == nil || !strings.Contains(err.Error(), "--vetted") {
+			t.Errorf("--vetted %q: %v", v, err)
+		}
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "Game.ini")); string(b) != "[A]\r\nx=1\r\n" {
+		t.Fatal("a refused or dry run wrote Game.ini")
+	}
+}

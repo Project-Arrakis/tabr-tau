@@ -16,8 +16,29 @@ The commands are for PowerShell and are written so that you can copy and paste e
 
 - It changes one number, `WorldLayoutIndexInSingleplayer`, in the line `m_WorldLayoutsPerWorld` of `Game.ini` in your game config folder (`%LOCALAPPDATA%\DuneSandbox\Saved\Config\Windows`). If `Game.ini` has no such line yet, the whole line is added under its section. Every other line of the file is left as it is.
 - It reads your save to check the Deep Desert (below). It writes to the save in three cases only: when vehicles of yours stand in the Deep Desert and have to be stored or moved out (see "What happens to your vehicles"), when the save holds Deep Desert markers (see "The Deep Desert markers"), and, only if you pass `--recycle-bases`, when bases of yours stand there and are recycled (see "Recycling the Deep Desert bases"). Nothing else in the save is ever changed.
-- A random roll picks one of the layouts 0 to 11 and never the one that is set now. Layouts 12 to 17 are never picked. You can name one yourself with `--set N` (0 to 11).
+- A random roll picks only from the **vetted layouts** (see "Which layouts a random roll may pick" below) and never the one that is set now. You can name any layout yourself with `--set N` (0 to 11); that choice does not use the vetted list. Layouts 12 to 17 are never written.
 - The **game must be restarted** for a new layout to apply. The command never starts, stops or restarts the game.
+
+## Which layouts a random roll may pick (the vetted list)
+
+Not every layout is good to play on. In the game, layout 8 gave a Sandworm Threat of 100% on rock and inside labs, where other layouts did not. Layouts are therefore checked in the game one at a time, and a random roll picks **only from the layouts you have checked**, never the one that is set now.
+
+- **The list is a plain text file**, `layout-roll-vetted.txt`, in the same folder as `layout-roll.json` (`%APPDATA%\tabr-tau`). Write the layout numbers separated by commas, spaces or new lines. A `#` starts a comment that runs to the end of the line. Example:
+
+  ```
+  # checked in the game: Sandworm Threat 0% on rock and in labs
+  9, 11
+  # 5   (not checked in a lab yet)
+  ```
+
+  The file is read at every run, so adding a layout needs no new build and no restart of anything.
+- **No file?** Then the built-in list is used: **9 and 11**.
+- **A file that cannot be used stops the roll.** If the file exists but is empty, holds only comments, cannot be read, or has anything in it that is not a whole number from 0 to 99, the roll **refuses**, prints a message that names the file and says what to do, and changes nothing (not `Game.ini`, not the save). Deleting the file brings back the built-in list.
+- **Only real layouts.** A number that `Game.ini` does not list (the game numbers its layouts by their order in the layout line of `Game.ini`; the built-in line lists 18) is refused, and so is a listed number above 11, because a roll never writes layouts 12 and up.
+- **Never the current layout.** If the vetted list holds nothing but the layout that is set now, the roll refuses and tells you to check another layout and add it.
+- **For one run only:** `--vetted 9,11` uses that list instead of the file (the file is not changed). It is checked in the same way.
+- **`--set N` is your own choice** and ignores the vetted list, so you can still go to a layout you want to check in the game. Do that, check it (set `Game.ini`, load the Deep Desert, shield on, read the Sandworm Threat on a rock island and inside a lab, and check that the trainer's rock matches the ground), and only then add its number to the file.
+- **`--dry-run` shows it:** it prints the vetted list, where it came from (the flag, the file with its full path, or the built-in default) and the layouts the random pick may choose from. A real run prints the same lines and keeps them in the run record in `layout-roll.json` (`lastRun`).
 
 ## The safeguards
 
@@ -26,7 +47,7 @@ The commands are for PowerShell and are written so that you can copy and paste e
 - **The file is replaced in one step** (a temporary file, then a rename) and read back to check it. If it is not what was written, the command says so and names the backup.
 - **Once per week.** A roll is skipped if one already happened since the last Tuesday at 05:00. `--force` rolls again. A layout chosen with `--set` is your own choice and is not held back by this.
 - **One layout roll at a time.** A real run takes the lock of the save (the same lock the editor holds while it has the save open) before it reads `layout-roll.json`, and keeps it until the run has ended and its record is saved. A second run that starts meanwhile, for example a manual one while the scheduled one is working, is **refused at once** with "another layout roll is running" and changes nothing: it does not wait, does not touch the other run's notes and does not overwrite its record. Run it again when the other one has ended. The same refusal appears when the editor window has the save open: close it first (before this, a roll with nothing in the Deep Desert went ahead with the editor open; now it needs the editor closed too, because the editor and the roll share the one lock). A `--dry-run` takes no lock (it writes nothing) and says so, so it keeps working while the editor is open or another run is going. A run that was given no save to check has nothing to lock: it is refused first of all, before any note of an earlier run is settled, and it reads `layout-roll.json` but never writes it. Because a refused run does not write `layout-roll.json`, it records itself in a separate append-only file beside it, `layout-roll.log` (`%APPDATA%\tabr-tau\layout-roll.log`): one dated line, "layout roll refused: the save is open in another TABR TAU window (or another layout roll is running): nothing changed", added before the run exits with an error (a log that cannot be written never changes the run; the log is renamed to `layout-roll.1.log` past 64 KB). Taking the lock also does what the editor does when it takes it: the lock file next to the save is made and removed, and stale temporary files next to the save and old working copies are swept; this now happens at the start of every real run, before the game-running check and the weekly rule.
-- The last roll (time, old layout, new layout) and the last run are recorded in `%APPDATA%\tabr-tau\layout-roll.json`.
+- The last roll (time, old layout, new layout) and the last run are recorded in `%APPDATA%\tabr-tau\layout-roll.json`. The record of a random roll also says which vetted list was used and where it came from.
 
 ## The Deep Desert check
 
@@ -154,7 +175,7 @@ Then, with the game closed, one of these:
 & "$env:USERPROFILE\Downloads\tabr-tau.exe" layout-roll
 ```
 
-A random layout, once per week.
+A random layout from the vetted list, once per week.
 
 ```
 & "$env:USERPROFILE\Downloads\tabr-tau.exe" layout-roll --set 4
