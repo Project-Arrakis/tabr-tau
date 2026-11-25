@@ -183,10 +183,10 @@ func (p *recyclePlan) fingerprint() string {
 	if p.Marker != nil {
 		fmt.Fprintf(h, "m%d/%d/%s/%d", p.Marker.Hash, p.Marker.Dim, p.Marker.Map, p.Marker.MapID)
 	}
-	if p.PickedUp { // only a picked-up base, so that the fingerprint of a standing base is what it was
+	if p.PickedUp { // only a picked-up base, so that a standing base adds nothing here
 		fmt.Fprintf(h, "|pickedup|%d", p.Backup)
 	}
-	if s := p.Solido; s != nil { // only when a Solido is made, so that the fingerprint of a recycle without one is what it was
+	if s := p.Solido; s != nil { // only when a Solido is made, so that a recycle without one adds nothing here
 		fmt.Fprintf(h, "|solido|%d|%d|%d|%d|%d|%d|%s", s.Item, s.ItemInv, len(s.Rows.Instances), len(s.Rows.Placeables), len(s.Rows.Pentas), s.Rows.SkippedPieces+s.Rows.SkippedDoors, s.Digest)
 	}
 	if p.Solido != nil {
