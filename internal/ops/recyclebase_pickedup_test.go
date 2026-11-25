@@ -156,14 +156,19 @@ func TestAPickedUpBaseIsPlannedAndRecycledLikeAStandingOne(t *testing.T) {
 	})
 }
 
-// The Deep Desert gives back half, as for a standing base; a picked-up Deep Desert base is the case this was made for.
-func TestAPickedUpDeepDesertBaseGivesBackHalf(t *testing.T) {
+// The Deep Desert gives back the full table cost, as for a standing base and as outside the Deep Desert (#1211); a picked-up Deep Desert base is the case this was made for.
+func TestAPickedUpDeepDesertBaseGivesBackTheFullTableCost(t *testing.T) {
+	const want = "DuraluminumRod 115/1, IronBar 10/1, ScrapMetal 150/1, Silicone 120/1, Stone 52/1, T4HarkSpiceSiloComponent1 20/1"
+	outside := recycle(t, pickedUpOps(t, ``), 601)
+	if got := refundOf(outside); got != want {
+		t.Fatalf("picked-up refund outside the Deep Desert: %s, want %s", got, want)
+	}
 	o := pickedUpOps(t, `update actors set map='DeepDesert' where id in (`+pickedUpIDs+`);`)
 	r := recycle(t, o, 601)
-	if got, want := refundOf(r), "DuraluminumRod 58/1, IronBar 10/1, ScrapMetal 76/1, Silicone 60/1, Stone 27/1, T4HarkSpiceSiloComponent1 10/1"; got != want {
-		t.Fatalf("Deep Desert refund: %s, want %s", got, want)
+	if got := refundOf(r); got != want || got != refundOf(outside) {
+		t.Fatalf("Deep Desert refund: %s, want %s (the same as outside)", got, want)
 	}
-	if r["costPercent"] != int64(50) || !strings.Contains(strings.Join(r["summary"].([]string), "\n"), "which is 50% of the table cost") {
+	if words := strings.Join(r["summary"].([]string), "\n"); r["costPercent"] != int64(100) || strings.Contains(words, "which is") || !strings.Contains(words, "Refund (100% of the building cost,") {
 		t.Fatalf("%v", r)
 	}
 	if rmCount(t, o, `base_backups where id=9`) != 0 {

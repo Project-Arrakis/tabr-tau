@@ -243,21 +243,44 @@ func TestRecycleDeletesTheBaseAndReturnsEverythingToTheReserve(t *testing.T) {
 	})
 }
 
-func TestRecycleInTheDeepDesertGivesBackHalfTheTableCost(t *testing.T) {
+func TestRecycleInTheDeepDesertGivesBackTheFullTableCost(t *testing.T) {
+	// the same base, on a map where the game's table lets a piece cost half (the Deep Desert) and on one where it costs the full table cost: the refund is the same (#1211). The
+	// odd costs (foundation 15, frame 7, silo 35) are the ones a half would have rounded.
+	const want = "DuraluminumRod 115/1, IronBar 10/1, ScrapMetal 150/1, Silicone 120/1, Stone 52/1, T4HarkSpiceSiloComponent1 20/1"
+	outside := recycle(t, recycleOps(t, ``), 601)
+	if got := refundOf(outside); got != want {
+		t.Fatalf("refund outside the Deep Desert: %s, want %s", got, want)
+	}
 	o := recycleOps(t, `update actors set map='DeepDesert' where id in (601,602,701,702,703,704,705,706);
 update markers set map_name='DeepDesert' where marker_hash_id=111; update player_markers set map_name='DeepDesert' where marker_hash_id=111;`)
 	r := recycle(t, o, 601)
-	// each unit costs half there, a half that is not whole rounded up per unit: foundation 15 -> 8, wall 10 -> 5 (two), frame 7 -> 4, door 10 -> 5; totem 40 -> 20, silo 35 -> 18,
-	// fabricator 75 -> 38; cistern 115 -> 58, 120 -> 60, 20 -> 10. The Developer storage container is 10 IronBar on any map.
-	if got, want := refundOf(r), "DuraluminumRod 58/1, IronBar 10/1, ScrapMetal 76/1, Silicone 60/1, Stone 27/1, T4HarkSpiceSiloComponent1 10/1"; got != want {
-		t.Fatalf("Deep Desert refund: %s, want %s", got, want)
+	if got := refundOf(r); got != want || got != refundOf(outside) {
+		t.Fatalf("Deep Desert refund: %s, want %s (the same as outside)", got, want)
 	}
-	if r["costPercent"] != int64(50) || !strings.Contains(strings.Join(r["summary"].([]string), "\n"), "which is 50% of the table cost") || r["markerRemoved"] != true {
+	words := strings.Join(r["summary"].([]string), "\n")
+	if r["costPercent"] != int64(100) || strings.Contains(words, "which is") || !strings.Contains(words, "Refund (100% of the building cost,") || r["markerRemoved"] != true {
 		t.Fatalf("%v", r)
 	}
 	// no base backup: the Deep Desert never has one
 	if rmCount(t, o, `base_backups`) != 1 {
 		t.Fatal("a base backup row was written")
+	}
+}
+
+// The question put before the write (the preview) gives the same refund in the Deep Desert as outside it, and it is what the write then gives (#1211).
+func TestThePreviewOfADeepDesertBaseShowsTheFullRefund(t *testing.T) {
+	refundOfPreview := func(o *Ops) string {
+		pv, err := o.PreviewBaseRecycle(601)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return refundOf(pv.(map[string]any))
+	}
+	outside := refundOfPreview(recycleOps(t, ``))
+	o := recycleOps(t, `update actors set map='DeepDesert' where id in (601,602,701,702,703,704,705,706);
+update markers set map_name='DeepDesert' where marker_hash_id=111; update player_markers set map_name='DeepDesert' where marker_hash_id=111;`)
+	if got := refundOfPreview(o); got != outside || got != refundOf(recycle(t, o, 601)) {
+		t.Fatalf("Deep Desert preview refund %s, outside %s", got, outside)
 	}
 }
 
