@@ -44,8 +44,10 @@ type Options struct {
 	Editor      string
 	// RecycleBases switches on the step that recycles the player's Deep Desert bases before the roll (#1167, recycle.go). Off, a standing base refuses the roll, as it always did.
 	RecycleBases bool
-	Now          func() time.Time
-	Intn         func(n int) int
+	// lockHeld is set by Roll on its own copy of the options once it holds the save's lock (#1201). Nothing reads or writes layout-roll.json's notes without it in a real run.
+	lockHeld bool
+	Now      func() time.Time
+	Intn     func(n int) int
 	// GameRunning says whether the game may be running and, if so, why (the process found, or that the check could not be made: a check that cannot run counts as running).
 	GameRunning func() (bool, string)
 }
@@ -83,6 +85,20 @@ func Roll(o Options) (Result, error) {
 	if err != nil {
 		return r, err
 	}
+	// The roll lock (#1201): a real run holds the save's own lock (the one the editor and every other write to the save take; no second lock exists) from BEFORE the state file is read until
+	// the run has ended, so two runs never interleave their notes and their writes of layout-roll.json: a second run is refused here, at once, and changes nothing. A dry run takes no lock:
+	// it writes nothing (no save, no state file, no Game.ini), so it cannot spoil another run, and it must keep working while the editor has the save open; it says so.
+	if !o.DryRun && o.SavePath != "" {
+		release, err := lockSave(lockedSavePath(o.SavePath))
+		if err != nil {
+			// The state file is NOT touched (that is the point of the lock), so the refusal is made visible in an append-only log beside it (layout-roll.log): a scheduled run has no
+			// window and no console, and the task shows only its exit code, which is non-zero (the error below).
+			noteRefusal(o, now, "layout roll refused: the save is open in another TABR TAU window (or another layout roll is running): nothing changed ("+err.Error()+")")
+			return r, fmt.Errorf("not changed: %s", lockRefusal(err))
+		}
+		defer release()
+		o.lockHeld = true
+	}
 	st, err := loadState(o.StatePath)
 	if err != nil {
 		if !o.Force {
@@ -103,6 +119,9 @@ func Roll(o Options) (Result, error) {
 		r.say("Last roll: %s, layout %d -> %d.", st.LastRoll.At.Local().Format("2006-01-02 15:04"), st.LastRoll.From, st.LastRoll.To)
 	} else {
 		r.say("No roll is recorded yet.")
+	}
+	if o.DryRun {
+		r.say("Dry run: the lock on the save, which a real run holds from before it reads this record until it has ended (a second layout roll is refused while it is held), is not taken: a dry run writes nothing.")
 	}
 
 	// guard 1: once per Tuesday-05:00 week (not for a chosen layout, and not with --force)
@@ -140,7 +159,11 @@ func Roll(o Options) (Result, error) {
 			r.say("Dry run: it would refuse now for that reason.")
 			return r, nil
 		}
-		saveRun(o.StatePath, st, now, "not changed: the game is running")
+		if o.lockHeld {
+			saveRun(o.StatePath, st, now, "not changed: the game is running")
+		} else {
+			noteRefusal(o, now, "layout roll refused: "+why+": nothing changed")
+		}
 		return r, fmt.Errorf("not changed: %s", why)
 	}
 
@@ -151,8 +174,8 @@ func Roll(o Options) (Result, error) {
 	}
 	// a failure after this point may come after bases were recycled and written (--recycle-bases): the message then says so and names the way back
 	late := func(err error) error {
-		if c := st.LastCheck; c != nil && c.written {
-			return fmt.Errorf("%v. %s", err, c.recycledNote())
+		if c := st.LastCheck; c != nil && c.savedChanged() {
+			return fmt.Errorf("%v. %s", err, c.writtenNote())
 		}
 		return err
 	}
@@ -208,9 +231,16 @@ func Roll(o Options) (Result, error) {
 	r.say("Changed Game.ini from layout %d to layout %d (%s) and read it back to check it.", cur, next, describe(present, existed))
 	r.say("Restart the game for it to apply. A base stands on different terrain on each layout.")
 	if err := saveRoll(o.StatePath, st, now, cur, next); err != nil {
-		if c := st.LastCheck; c != nil && c.written {
-			// bases were recycled and written in this run: the state file is where the way back is kept, so a failure to write it is said loudly
-			r.say("WARNING: the record of this roll and of the recycled bases could not be saved (%v); the roll itself is done. %s", err, c.recycledNote())
+		if c := st.LastCheck; c != nil && c.savedChanged() {
+			// bases were recycled or vehicles taken out and written in this run: the state file is where the way back is kept, so a failure to write it is said loudly
+			what := "the recycled bases"
+			if c.vehiclesWritten {
+				what = "the vehicles taken out of the Deep Desert"
+				if c.written {
+					what = "the recycled bases and the vehicles taken out of the Deep Desert"
+				}
+			}
+			r.say("WARNING: the record of this roll and of %s could not be saved (%v); the roll itself is done. %s", what, err, c.writtenNote())
 		} else {
 			r.say("Note: the record of this roll could not be saved (%v); the roll itself is done.", err)
 		}
@@ -361,6 +391,76 @@ type state struct {
 	// RecycleHistory is one entry per run that wrote recycled bases to the save, oldest first: LastCheck is replaced by the next run, so without this the checkpoint of an earlier run
 	// (the way back to before the first recycle) would be lost from the state file when a later run recycles the next base (#1167).
 	RecycleHistory []recycleHistoryEntry `json:"recycleHistory,omitempty"`
+
+	// VehicleNote is the note a run leaves BEFORE it writes the save to take the vehicles out of the Deep Desert (#1201): the checkpoint, the plan and how the save file looked. It is removed
+	// when the write is confirmed (or taken back when the save was not written); one that is still there means the run ended without recording how the write went, and the next run
+	// settles it first (reconcile.go). There is at most one: runs are serialized by the save's lock, and a run never goes on past a note it could not settle.
+	VehicleNote *vehicleNote `json:"vehicleNote,omitempty"`
+
+	// VehicleHistory keeps what a settled vehicle note leaves when it is recorded as written by a LATER run: the earlier run's checkpoint (its way back) and the vehicles, because the
+	// record of that run (lastCheck) was replaced and would otherwise be lost. Oldest first, capped at maxRecycleHistory.
+	VehicleHistory []vehicleHistoryEntry `json:"vehicleHistory,omitempty"`
+}
+
+// vehicleHistoryEntry is one vehicle step whose write was found, by a later run, to have taken effect without having been recorded.
+type vehicleHistoryEntry struct {
+	At             time.Time `json:"at"` // the run that wrote the save
+	Checkpoint     string    `json:"checkpoint"`
+	CheckpointPath string    `json:"checkpointPath,omitempty"`
+	SaveFile       string    `json:"saveFile,omitempty"`
+	Vehicles       []int64   `json:"vehicles"` // their actor numbers
+	SettledAt      time.Time `json:"settledAt"`
+}
+
+// recordSettledVehicleNote moves a vehicle note that was found to have taken effect into the vehicle history.
+func (s *state) recordSettledVehicleNote(n vehicleNote, at time.Time) {
+	e := vehicleHistoryEntry{At: n.At, Checkpoint: n.Checkpoint, CheckpointPath: n.CheckpointPath, SaveFile: n.SaveFile, SettledAt: at}
+	for _, v := range n.Vehicles {
+		e.Vehicles = append(e.Vehicles, v.ID)
+	}
+	s.VehicleHistory = append(s.VehicleHistory, e)
+	if len(s.VehicleHistory) > maxRecycleHistory {
+		s.VehicleHistory = s.VehicleHistory[len(s.VehicleHistory)-maxRecycleHistory:]
+	}
+}
+
+// plannedVehicle is what a note keeps of one vehicle of the plan: enough to tell, from the save file alone, whether the vehicle is still where it was or has been taken out.
+type plannedVehicle struct {
+	ID      int64  `json:"id"`
+	Action  string `json:"action"`          // "store" or "move"
+	State   int64  `json:"state"`           // the actor's state before the edit (a stored vehicle is at state 2 afterwards)
+	FromMap string `json:"fromMap"`         // the map the vehicle stood on (the Deep Desert)
+	ToMap   string `json:"toMap,omitempty"` // move: the map it was put on
+}
+
+// vehicleNote is the unconfirmed note of the vehicle step (#1201), the counterpart of an unconfirmed recycleHistoryEntry.
+type vehicleNote struct {
+	At             time.Time        `json:"at"`
+	Checkpoint     string           `json:"checkpoint"`
+	CheckpointPath string           `json:"checkpointPath,omitempty"`
+	SaveFile       string           `json:"saveFile,omitempty"`
+	BeforeSHA256   string           `json:"saveSha256Before,omitempty"`
+	Vehicles       []plannedVehicle `json:"vehicles"`
+	// ReadBackFailed: the run that wrote the note opened the file it had written and it did not read back as planned; the next run stops on the note and never accepts the file
+	ReadBackFailed bool `json:"readBackFailed,omitempty"`
+}
+
+// recordVehicleNote puts the note of the run that began at rec.At into the state while rec holds an intent for vehicles, and removes it when it does not (the write was confirmed, or the
+// save was not written).
+func (s *state) recordVehicleNote(rec *checkRecord) {
+	if rec.Intent == nil || len(rec.Intent.Vehicles) == 0 {
+		s.dropVehicleNote(rec.At)
+		return
+	}
+	s.VehicleNote = &vehicleNote{At: rec.At, Checkpoint: rec.Checkpoint, CheckpointPath: rec.CheckpointPath, SaveFile: rec.Intent.SaveFile, BeforeSHA256: rec.Intent.BeforeSHA256,
+		Vehicles: append([]plannedVehicle(nil), rec.Intent.Vehicles...), ReadBackFailed: rec.Intent.ReadBackFailed}
+}
+
+// dropVehicleNote removes the note of the run that began at the given time.
+func (s *state) dropVehicleNote(at time.Time) {
+	if s.VehicleNote != nil && s.VehicleNote.At.Equal(at) {
+		s.VehicleNote = nil
+	}
 }
 
 // maxRecycleHistory keeps the state file small; a weekly run adds at most one entry.
@@ -527,6 +627,35 @@ func saveRoll(path string, s state, now time.Time, from, to int) error {
 // saveRun records a run that changed nothing, so the person can see on the next look why. A failure to write it is ignored: it is a note, not a guard.
 func saveRun(path string, s state, now time.Time, outcome string) {
 	_ = saveRunErr(path, s, now, outcome)
+}
+
+// LogName is the append-only log beside the state file. A refusal that cannot be recorded in the state file (the run holds no lock, so it must not read-modify-write it) is written here, as
+// one dated line (#1201); the person finds it when a scheduled run, which has no window, did nothing.
+const LogName = "layout-roll.log"
+
+// maxLog keeps the log small: past it the log is renamed to layout-roll.1.log (one older copy is kept).
+const maxLog = 64 << 10
+
+// noteRefusal appends one dated line to the log beside the state file. A failure to write it is ignored: it is a note, never a reason to fail or change the run.
+func noteRefusal(o Options, now time.Time, line string) {
+	if o.StatePath == "" {
+		return
+	}
+	p := filepath.Join(filepath.Dir(o.StatePath), LogName)
+	if os.MkdirAll(filepath.Dir(p), 0o700) != nil {
+		return
+	}
+	if st, err := os.Stat(p); err == nil && st.Size() > maxLog {
+		old := strings.TrimSuffix(p, ".log") + ".1.log"
+		os.Remove(old)
+		_ = os.Rename(p, old)
+	}
+	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	if err != nil {
+		return
+	}
+	_, _ = f.WriteString(now.Format("2006-01-02 15:04:05") + " " + line + "\n")
+	_ = f.Close()
 }
 
 // writeStateFile is writeState as a variable only so that a test can make the write of the state file fail; nothing else changes it.
