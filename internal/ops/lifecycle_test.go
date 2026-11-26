@@ -79,8 +79,8 @@ func TestBringRefusesAStoredVehicleAndMovesTheOthers(t *testing.T) {
 		o := lifecycleOps(t)
 		before, _ := o.S.One(`select location_x x, location_y y from actors where id=?`, int64(id))
 		_, err := o.BringVehicle(Args{"id": id})
-		if err == nil || !strings.Contains(err.Error(), "stored") {
-			t.Errorf("vehicle %v: want a refusal that says it is stored, got %v", id, err)
+		if err == nil || !strings.Contains(err.Error(), "is stored") || !strings.HasSuffix(err.Error(), "so it cannot be brought to you.") {
+			t.Errorf("vehicle %v: want a refusal that says it is stored and ends there, got %v", id, err)
 		}
 		after, _ := o.S.One(`select location_x x, location_y y from actors where id=?`, int64(id))
 		if before["x"] != after["x"] || before["y"] != after["y"] {
@@ -101,8 +101,8 @@ func TestDuplicateRefusesAStoredVehicleAndChangesNothing(t *testing.T) {
 	before, _ := o.S.One(`select count(*) n from actors`)
 	for _, id := range []float64{202, 203, 204} {
 		_, err := o.DuplicateVehicle(Args{"id": id})
-		if err == nil || !strings.Contains(err.Error(), "stored") {
-			t.Errorf("vehicle %v: want a refusal that says it is stored, got %v", id, err)
+		if err == nil || !strings.Contains(err.Error(), "is stored") || !strings.HasSuffix(err.Error(), "so it cannot be duplicated.") {
+			t.Errorf("vehicle %v: want a refusal that says it is stored and ends there, got %v", id, err)
 		}
 		if err != nil && !errors.Is(err, apierr.ErrBadArgument) {
 			t.Errorf("a refusal of the request, not a fault: %v", err)

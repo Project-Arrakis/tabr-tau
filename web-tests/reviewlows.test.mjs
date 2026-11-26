@@ -104,8 +104,11 @@ test('CR-5: a stored vehicle says in text why Bring to me and Duplicate are off'
   const ui = await boot({ get: { '/api/vehicles': { vehicles: [veh(1), veh(2, { stored: 'backup', storedLabel: 'In the vehicle backup' })], hidden: 0, recovered: [], backups: [] }, '/api/vehicles/fuel': { total: 2, notFull: 0, unknown: 0, noFuelRecord: 0 } } });
   ui.click('[data-tab="player"]'); await ui.settle();
   ui.click('[data-sub="player:vehicles"]'); await ui.settle();
-  assert.ok(reason(ui, ui.doc.querySelector('[data-act="bring"][data-id="2"]')).includes('Take it out of storage in the game first'));
-  assert.ok(reason(ui, ui.doc.querySelector('[data-act="dupV"][data-id="2"]')).includes('Take it out of storage'));
+  for (const a of ['bring', 'dupV']) {
+    const b = ui.doc.querySelector(`[data-act="${a}"][data-id="2"]`);
+    assert.equal(b.title, 'This vehicle is stored.');
+    assert.ok(reason(ui, b).includes('In the vehicle backup.'));
+  }
   // a button that is on is described by its vehicle's name only (#1230)
   for (const a of ['bring', 'dupV']) assert.equal(ui.doc.querySelector(`[data-act="${a}"][data-id="1"]`).getAttribute('aria-describedby'), 'vname1');
   ui.dom.window.close();

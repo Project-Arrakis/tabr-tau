@@ -65,7 +65,7 @@ test('a vehicle waiting for recovery has its own section; the backed-up and the 
   assert.equal(card(ui, 'Recovered and stored vehicles'), undefined, 'the old card is gone');
   const list = card(ui, 'Your vehicles');
   assert.deepEqual([...list.querySelectorAll('[id^="vstored"]')].map((n) => n.textContent),
-    ['In the vehicle backup. Take it out of storage in the game first.', 'Stored for recovery. Take it out of storage in the game first.']);
+    ['In the vehicle backup.', 'Stored for recovery.']);
   const waiting = card(ui, 'Waiting for recovery');
   assert.equal(waiting.querySelector('h3').textContent, 'Waiting for recovery');
   assert.equal(list.nextElementSibling, waiting, 'directly under the list');
