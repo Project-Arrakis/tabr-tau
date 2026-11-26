@@ -485,8 +485,9 @@ func VetList(o Options) (Result, error) {
 }
 
 // VetSet sets layout n in Game.ini so that it can be checked in the game, with the checks and the write of the roll: the game must not be running (asked before and again right before the
-// write), the save must not be held by the editor or another roll (when a save is known), Game.ini is backed up first, must still be what was read when it is written, and is read back. It
-// never opens the save, never writes the state file and does not look for bases or vehicles in the Deep Desert (the roll does).
+// write), the save must not be held by the editor or another roll (when a save is known), no roll may be running on any save (the lock of the record, #1209), Game.ini is backed up first,
+// must still be what was read when it is written, and is read back. It never opens the save, never reads or writes the state file and does not look for bases or vehicles in the Deep Desert
+// (the roll does).
 func VetSet(o Options, n int) (Result, error) {
 	var r Result
 	if err := vetReady(o, true); err != nil {
@@ -498,6 +499,12 @@ func VetSet(o Options, n int) (Result, error) {
 	if err := plainFolder(o.ConfigDir); err != nil {
 		return r, fmt.Errorf("not changed: %v", err)
 	}
+	// the record lock, as the roll takes it (#1209): a roll holds it whatever save it was given, so this cannot change Game.ini under a running roll. Taken before Game.ini is read.
+	releaseState, _, err := lockRecord(o.StatePath)
+	if err != nil {
+		return r, err
+	}
+	defer releaseState()
 	path := filepath.Join(o.ConfigDir, FileName)
 	old, existed, mode, err := readIni(path)
 	if err != nil {

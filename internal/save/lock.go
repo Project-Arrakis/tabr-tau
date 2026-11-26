@@ -16,10 +16,28 @@ var ErrSaveInUse = errors.New("another tabr-tau already has this save open: clos
 // the editor still starts: it could not write its backups there either, and the changed-on-disk check still guards every save. It then holds no lock, so it removes nothing: the
 // sweeps above are for the editor that holds the lock, because another editor's write or session may be in flight.
 func LockSave(path string) (func(), error) {
+	release, _, err := lockAndSweep(path)
+	return release, err
+}
+
+// ErrNoLock means the lock file could not be made, so no lock is held. Only LockSaveStrict returns it.
+var ErrNoLock = errors.New("the lock file (the file's name plus .tabr-tau.lock) could not be made")
+
+// LockSaveStrict is LockSave for a run that must not go on without the lock (layout-roll): where LockSave goes on holding no lock, this refuses with ErrNoLock.
+func LockSaveStrict(path string) (func(), error) {
+	release, held, err := lockAndSweep(path)
+	if err == nil && !held {
+		return nil, ErrNoLock
+	}
+	return release, err
+}
+
+// lockAndSweep takes the lock and, only when it is held, sweeps. held false with no error means the lock file could not be made.
+func lockAndSweep(path string) (func(), bool, error) {
 	release, held, err := lockFile(filepath.Join(filepath.Dir(path), filepath.Base(path)+".tabr-tau.lock"))
 	if err == nil && held {
 		cleanStaleTemps(path) // only the editor that holds the lock may remove a temp file next to the save: another editor's write may be in flight
 		SweepWorkCopies()     // and the decoded copies of sessions that have ended (a crash or a kill leaves them), found by their process id
 	}
-	return release, err
+	return release, held, err
 }

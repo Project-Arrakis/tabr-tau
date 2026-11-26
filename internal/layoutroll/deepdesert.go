@@ -36,8 +36,8 @@ var (
 	planVehicles  = func(s *save.Save) ([]ops.VehicleMove, error) { return (&ops.Ops{S: s}).PlanDeepDesertVehicles() }
 	moveVehicles  = func(s *save.Save) ([]ops.VehicleMove, error) { return (&ops.Ops{S: s}).MoveDeepDesertVehicles() }
 	flushSave     = func(s *save.Save) save.Flush { return s.Flush() }
-	lockSave      = save.LockSave
-	lockState     = save.LockSave // the same lock on layout-roll.json, one record for every save
+	lockSave      = save.LockSaveStrict // a lock that cannot be made refuses too (#1209)
+	lockState     = save.LockSaveStrict // the same lock on layout-roll.json, one record for every save
 	verifyWritten = func(path string, plan []ops.VehicleMove) error {
 		fresh, err := openSave(path)
 		if err != nil {
@@ -176,9 +176,33 @@ func lockedSavePath(p string) string {
 	return p
 }
 
-// lockRefusal is the message of a run that could not take the lock (#1201): another layout roll holds it, or the editor has the save open.
+// lockRefusal is the message of a run that could not take the lock of the save (#1201): another layout roll holds it, or the editor has the save open, or (#1209) the lock file cannot be made.
 func lockRefusal(err error) string {
+	if errors.Is(err, save.ErrNoLock) {
+		return fmt.Sprintf("no lock could be taken on the save: %v. Nothing was changed. Check that --save names the save, that its folder can be written to and that no folder or read-only file has the name of the lock file, then run this again", err)
+	}
 	return fmt.Sprintf("the save is in use: another layout roll is running, or the save is open in another TABR TAU window or program (%v). Nothing was changed, and this run did not wait for it. Wait until the other layout roll has ended (or close that window) and run this again", err)
+}
+
+// noRecordPlace is why a run that would write Game.ini refuses when there is no settings folder (#1209).
+const noRecordPlace = "no place for the record (layout-roll.json) is known (the folder of the editor's settings could not be found), so the record cannot be locked"
+
+// lockRecord takes the lock of the record (layout-roll.json), which a run that writes Game.ini holds whatever save it was given (#1201, #1209); such a run never goes on without it.
+// When it fails, why is the short reason (for the log) and err the message for the person.
+func lockRecord(statePath string) (release func(), why string, err error) {
+	if statePath == "" {
+		return nil, noRecordPlace, fmt.Errorf("not changed: %s. Nothing was changed", noRecordPlace)
+	}
+	_ = os.MkdirAll(filepath.Dir(statePath), 0o700) // the lock file cannot be made in a folder that is not there yet (the first run)
+	release, err = lockState(statePath)
+	name := filepath.Base(statePath)
+	switch {
+	case errors.Is(err, save.ErrNoLock):
+		return nil, "no lock could be taken on the record " + name, fmt.Errorf("not changed: no lock could be taken on the record %s: %v. Nothing was changed. Check that its folder (%s) can be written to and that no folder or read-only file has the name of the lock file, then run this again", name, err, filepath.Dir(statePath))
+	case err != nil:
+		return nil, "another layout roll is running (it holds " + name + ")", fmt.Errorf("not changed: another layout roll is running (it holds the record %s). Nothing was changed, and this run did not wait for it. Wait until the other layout roll has ended and run this again", name)
+	}
+	return release, "", nil
 }
 
 // fileSHA is the SHA-256 of the file as it is now (a variable only so that a test can make the read fail).

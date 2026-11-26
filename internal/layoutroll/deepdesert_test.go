@@ -309,8 +309,14 @@ func TestNoSaveToCheckIsARefusalNotAGuess(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "2 saves were found") || e.ini() != iniWith("11") {
 		t.Fatalf("%v", err)
 	}
-	o.SavePath, o.SaveProblem = filepath.Join(t.TempDir(), "missing", "game.db"), ""
+	// a file that is not there: the lock can be made beside it, and the read refuses
+	o.SavePath, o.SaveProblem = filepath.Join(t.TempDir(), "game.db"), ""
 	if _, err := Roll(o); err == nil || !strings.Contains(err.Error(), "could not be read") || e.ini() != iniWith("11") {
+		t.Fatalf("%v", err)
+	}
+	// a folder that is not there: no lock file can be made, so the run is refused before it reads anything (#1209)
+	o.SavePath = filepath.Join(t.TempDir(), "missing", "game.db")
+	if _, err := Roll(o); err == nil || !strings.Contains(err.Error(), "no lock could be taken on the save") || e.ini() != iniWith("11") {
 		t.Fatalf("%v", err)
 	}
 }
