@@ -124,7 +124,7 @@ func TestRecycleWithASolidoOnARealSave(t *testing.T) {
 	devs, _ := s.Query(`select i.id id, i.stats stats from items i join inventories v on v.id=i.inventory_id where i.template_id=? and v.actor_id=? order by i.id`, solidoDevice, pl.Pawn)
 	t.Logf("the character holds %d Solido devices before: %v", len(devs), devs)
 
-	opt := RecycleOptions{Solido: true}
+	opt := RecycleOptions{Solido: true, AllowNonEmptyReserve: true} // a real save may hold stacks in the Reserve, and the second base is asked about with the first one's in it
 	pv, err := o.PreviewBaseRecycleWith(totem, opt)
 	if err != nil {
 		t.Fatalf("preview: %v", err)

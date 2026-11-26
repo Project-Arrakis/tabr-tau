@@ -27,10 +27,11 @@ project's operator, not a copy of the game.
 1. **Close the game.** That is the recommended way. While a game process exists the edit is only queued, and it is written when the game has closed. A queued recycle is put
    back onto the save the game wrote last, and it is **dropped, not written**, when the game has saved a change to anything the recycle read: the base, its contents, the
    Reserve. A base in use changes all the time (water, fuel, a chest you open), so a recycle queued while you play is likely to be dropped. The editor says so when it happens
-   and nothing is recycled; ask again with the game closed.
+   and nothing is recycled; ask again with the game closed. A change that was queued by an earlier version of the editor may be set aside, not written, when a new version starts:
+   the editor says which changes it held, to be made again.
 2. Let every crafting queue in the base finish, or cancel it in the game. A base with a running queue is refused.
-   **The Reserve must be empty.** The game allows one Reserve, so no base is recycled while it holds any stack. If an earlier recycle left stacks in it, press [Move the Reserve into storage](#move-the-reserve-into-storage-boxes) first: it empties the Reserve into your storage boxes (DD-1, DD-2 ...). Pressing Recycle base with a Reserve that is not empty is refused with "the Reserve is not empty (it holds N stack(s)) and no recycle can happen until it is empty", and nothing is changed.
-3. Press **Recycle base** on the base. The editor works out the whole edit and asks first: it does the edit, reads it back, runs the save's reference check and its check of stored JSON on it and undoes
+3. **Empty the Reserve.** The game allows one Reserve, so no base is recycled while it holds any stack. If an earlier recycle left stacks in it, press [Move the Reserve into storage](#move-the-reserve-into-storage-boxes) first: it empties the Reserve into your storage boxes (DD-1, DD-2 ...). Pressing Recycle base with a Reserve that is not empty is refused with "The Reserve is not empty (it holds N stack(s)) and no recycle can happen until it is empty", and nothing is changed.
+4. Press **Recycle base** on the base. The editor works out the whole edit and asks first: it does the edit, reads it back, runs the save's reference check and its check of stored JSON on it and undoes
    it, so a base that cannot be recycled is refused here, before any question. Nothing has been written at this point. The question lists:
    - how many building pieces and placeables are deleted;
    - how many item stacks (and items) move to the Reserve;
@@ -40,9 +41,9 @@ project's operator, not a copy of the game.
    - when the box **Make a Solido of the base first when I recycle it** on the Bases card is ticked, the first line says how many pieces and placeables the Solido holds and in which
      device it goes (see below);
    - that everything goes to the Reserve, and that it cannot be undone except by restoring a backup of the save.
-4. Press **Recycle base** in the question. It is one edit. The editor takes a backup copy of the save first and then writes (or queues the edit while the game runs; the backup
+5. Press **Recycle base** in the question. It is one edit. The editor takes a backup copy of the save first and then writes (or queues the edit while the game runs; the backup
    is then taken when the edit is written, and the question says that a queued recycle is dropped when the game saves a change to the base in between). The write is sent the fingerprint of what the question showed, and is refused when the base changed in between.
-5. Start the game, load the save and open the Reserve. To put things into storage boxes, use [Move the Reserve into storage](#move-the-reserve-into-storage-boxes) (below), or
+6. Start the game, load the save and open the Reserve. To put things into storage boxes, use [Move the Reserve into storage](#move-the-reserve-into-storage-boxes) (below), or
    move them in the game.
 
 ## Move the Reserve into storage boxes

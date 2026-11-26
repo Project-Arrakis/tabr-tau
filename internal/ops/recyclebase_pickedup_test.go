@@ -324,7 +324,7 @@ func TestAPickedUpRecycleIsRefusedWhenTheBaseChangedSinceTheQuestion(t *testing.
 func TestASolidoCanBeMadeOfAPickedUpBaseInTheSameEdit(t *testing.T) {
 	o := recycleOps(t, solidoWorld(blankDevice)+`
 update actors set state=5 where id=707;`+pickedUpSQL+`insert into base_backup_linked_actors(id,actor_id) values (9,707);`)
-	opt := RecycleOptions{Solido: true, RequireEmptyReserve: true}
+	opt := RecycleOptions{Solido: true}
 	pv, err := o.PreviewBaseRecycleWith(601, opt)
 	if err != nil {
 		t.Fatal(err)
