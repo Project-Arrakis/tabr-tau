@@ -9,16 +9,28 @@ import (
 // otherVersionJournal settles a journal that another version of the editor kept (RestoreJournal, the caller holds s.mu). An older journal whose write already landed (it is of this save, its Writing is the
 // file on disk now, and it holds no edit made after that write) has nothing left to put back: it is removed without a notice, so the person is not told that changes "could not be put
 // back" that are in the file. Any other journal is set aside and reported, as before; the reason lists what it held, as the reason of an incomplete journal does, so the person knows
-// what to make again. A journal of a newer version is never judged here: its edits are not known to this build.
+// what to make again. A journal of a newer version is never judged here: its edits are not known to this build. An older journal of a version with notes (notesSince) hands over the notes
+// of the edits that are in the file, and a reason for setting it aside then lists only the edits that are not: one that is in the file must not be made a second time.
 func (s *Save) otherVersionJournal(j journalFile) *Restored {
-	if j.Version < journalVersion && j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) && len(j.Ops) > 0 && (j.WritingOps == 0 || j.WritingOps >= len(j.Ops)) && samePath(j.Path, s.Path) {
-		s.writing = j.Writing // if the file cannot be removed now (in use), the mark says the edits were written as this file, so the next start drops it quietly too (dropJournal)
-		s.dropJournal()
-		return nil
+	held := j.Ops
+	if j.Version < journalVersion && j.Writing != "" && j.Writing == hex.EncodeToString(s.diskHash[:]) && len(j.Ops) > 0 && samePath(j.Path, s.Path) {
+		written := j.Ops
+		if n := j.WritingOps; n > 0 && n < len(written) {
+			written = written[:n]
+		}
+		if j.Version >= notesSince {
+			s.deliverRecNotes(written) // these edits are in the file: their notes are handed over, whether the journal is dropped or set aside
+			held = j.Ops[len(written):]
+		}
+		if len(written) == len(j.Ops) {
+			s.writing = j.Writing // if the file cannot be removed now (in use), the mark says the edits were written as this file, so the next start drops it quietly too (dropJournal)
+			s.dropJournal()
+			return nil
+		}
 	}
 	why := "it was kept by a different version of the editor, so its changes were not put back"
-	if held := descsOf(j.Ops); held != "" {
-		why += "; it held: " + held + ". Make them again"
+	if list := descsOf(held); list != "" {
+		why += "; it held: " + list + ". Make them again"
 	}
 	return s.skipJournal(why)
 }

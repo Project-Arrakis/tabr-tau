@@ -2,6 +2,7 @@ package ops
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -622,7 +623,7 @@ func TestARecycleIsRefusedWhileTheReserveHoldsAStack(t *testing.T) {
 		"several stacks": {reserveStacks, 3},
 	} {
 		t.Run(name, func(t *testing.T) {
-			for _, opt := range []RecycleOptions{{RequireEmptyReserve: true}, {Solido: true, RequireEmptyReserve: true}} {
+			for _, opt := range []RecycleOptions{{}, {Solido: true}} {
 				o := recycleOps(t, c.extra)
 				before := everything(t, o)
 				want := fmt.Sprintf("The Reserve is not empty (it holds %d stack(s)) and no recycle can happen until it is empty", c.n)
@@ -674,10 +675,79 @@ func TestARecycleIsRefusedAtWriteTimeWhenTheQuestionSawAnEmptyReserve(t *testing
 	}
 }
 
-// The layout roll does not set the option: it asks about its bases before it moves the Reserve into the boxes and keeps its own rule (internal/layoutroll), so its question is not refused here.
-func TestTheLayoutRollsQuestionWithoutTheOptionIsNotRefusedForAReserveThatHoldsStacks(t *testing.T) {
+// The plain calls, which take no options, have the rule too.
+func TestThePlainRecycleCallsRefuseAReserveThatHoldsStacks(t *testing.T) {
 	o := recycleOps(t, reserveStacks)
-	if _, err := o.PreviewBaseRecycleWith(601, RecycleOptions{Solido: true}); err != nil {
+	before := everything(t, o)
+	const want = "The Reserve is not empty (it holds 3 stack(s)) and no recycle can happen until it is empty"
+	_, err := o.PreviewBaseRecycle(601)
+	refusedWith(t, err, apierr.ErrConflict, want)
+	_, err = o.RecycleBase(601, "any")
+	refusedWith(t, err, apierr.ErrConflict, want)
+	if everything(t, o) != before || len(o.S.Ops()) != 0 || len(o.S.Pending()) != 0 {
+		t.Fatal("a refusal must change nothing")
+	}
+}
+
+// With the opt-out (only the layout roll sets it, internal/layoutroll) a Reserve that holds stacks is recycled into: its own stacks stay as they are, and what moves and the refund take
+// the free positions around them.
+func TestARecycleThatAllowsANonEmptyReserveFillsTheFreePositionsAroundItsStacks(t *testing.T) {
+	opt := RecycleOptions{AllowNonEmptyReserve: true}
+	o := recycleOps(t, reserveStacks) // the Reserve's own stacks are at the positions 1, 2 and 3
+	pv, err := o.PreviewBaseRecycleWith(601, opt)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := o.RecycleBaseWith(601, pv.(map[string]any)["fingerprint"].(string), opt); err != nil {
+		t.Fatal(err)
+	}
+	got, err := o.S.Query(`select id, position_index pos, stack_size n from items where inventory_id=12 and id<=9050 order by id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[map[id:8000 n:7 pos:1] map[id:8001 n:3 pos:2] map[id:8002 n:1 pos:3] map[id:9001 n:300 pos:0] map[id:9002 n:2 pos:4] map[id:9003 n:40 pos:5] map[id:9005 n:10 pos:6]]"
+	if fmt.Sprint(got) != want {
+		t.Fatalf("the Reserve:\n%v\nwant\n%s", got, want)
+	}
+	ref, err := o.S.Query(`select position_index pos from items where inventory_id=12 and id>9050 order by 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(ref) != "[map[pos:7] map[pos:8] map[pos:9] map[pos:10] map[pos:11] map[pos:12]]" {
+		t.Fatalf("the refund's positions: %v", ref)
+	}
+}
+
+// With the opt-out the slot limit counts the stacks the Reserve already holds.
+func TestTheSlotLimitCountsTheStacksTheReserveAlreadyHolds(t *testing.T) {
+	opt := RecycleOptions{AllowNonEmptyReserve: true}
+	// 3 stacks held; 4 stored stacks and 6 refund stacks come back
+	o := recycleOps(t, reserveStacks+`update inventories set max_item_count=12 where id=12;`)
+	before := everything(t, o)
+	_, err := o.PreviewBaseRecycleWith(601, opt)
+	refusedWith(t, err, apierr.ErrConflict, "The Reserve of this save has room for 9 stacks and the base returns 10")
+	if everything(t, o) != before || len(o.S.Ops()) != 0 {
+		t.Fatal("a refusal must change nothing")
+	}
+	o2 := recycleOps(t, reserveStacks+`update inventories set max_item_count=13 where id=12;`)
+	pv, err := o2.PreviewBaseRecycleWith(601, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o2.RecycleBaseWith(601, pv.(map[string]any)["fingerprint"].(string), opt); err != nil {
+		t.Fatal(err)
+	}
+	if n := rmCount(t, o2, `items where inventory_id=12`); n != 13 {
+		t.Fatalf("%d stacks in the Reserve", n)
+	}
+}
+
+// The plan's read of the Reserve is kept with a queued recycle: asked while the Reserve was empty, it is not written onto a file in which the game has since put a stack there.
+func TestAQueuedRecycleIsHeldWhenTheGameFilledTheReserve(t *testing.T) {
+	defer save.NoGameRunningForTests()()
+	o := recycleOps(t, "")
+	o.S.EnableJournal(filepath.Join(t.TempDir(), "pending.json"))
+	recycle(t, o, 601)
+	gameChanges(t, o.S.Path, reserveStacks)
+	mustBeHeld(t, o.S)
 }

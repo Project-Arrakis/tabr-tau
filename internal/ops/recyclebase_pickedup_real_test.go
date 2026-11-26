@@ -35,9 +35,9 @@ func TestPreviewOfAPickedUpBaseOnARealSave(t *testing.T) {
 		name string
 		opt  RecycleOptions
 	}{
-		{"as the page asks (the Reserve must be empty)", RecycleOptions{RequireEmptyReserve: true}},
-		{"with the Reserve rule off (what the plan holds)", RecycleOptions{}},
-		{"with a Solido, Reserve rule off", RecycleOptions{Solido: true}},
+		{"as the page asks (the Reserve must be empty)", RecycleOptions{}},
+		{"with the Reserve rule off (what the plan holds)", RecycleOptions{AllowNonEmptyReserve: true}},
+		{"with a Solido, Reserve rule off", RecycleOptions{Solido: true, AllowNonEmptyReserve: true}},
 	} {
 		pv, err := o.PreviewBaseRecycleWith(totem, c.opt)
 		fmt.Printf("== %s\n", c.name)

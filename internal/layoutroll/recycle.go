@@ -43,6 +43,10 @@ const spaceMargin = 2
 // on its own, with several bases in one run; nothing else changes it.
 var enforceEmptyReserve = true
 
+// rollRecycle is how this step asks for and writes a recycle: with its Solido, and without the refusal of a Reserve that holds stacks that Recycle base has (#1202). The step has its own
+// rule for the Reserve (enforceEmptyReserve) and asks about every base before it moves what an earlier run left there. No other caller may allow a Reserve that is not empty.
+var rollRecycle = ops.RecycleOptions{Solido: true, AllowNonEmptyReserve: true}
+
 // The reads and writes of this step, as variables only so that a test can make one fail. Nothing else changes them.
 var (
 	// emptyReserveInto moves the Reserve of the working copy into the storage boxes DD-1 ... (#1191, recyclemove.go). exclude are the totems of every base of this run (a box in one of them
@@ -55,11 +59,11 @@ var (
 	baseActorMaps  = func(s *save.Save, id int64) ([]string, error) { return (&ops.Ops{S: s}).BaseActorsOffDeepDesert(id) }
 	roomOf         = func(s *save.Save) (ops.RecycleRoom, error) { return (&ops.Ops{S: s}).RecycleRoom() }
 	previewRecycle = func(s *save.Save, id int64) (map[string]any, error) {
-		v, err := (&ops.Ops{S: s}).PreviewBaseRecycleWith(id, ops.RecycleOptions{Solido: true})
+		v, err := (&ops.Ops{S: s}).PreviewBaseRecycleWith(id, rollRecycle)
 		return asMap(v, err)
 	}
 	recycleOne = func(s *save.Save, id int64, fingerprint string) (map[string]any, error) {
-		v, err := (&ops.Ops{S: s}).RecycleBaseWith(id, fingerprint, ops.RecycleOptions{Solido: true})
+		v, err := (&ops.Ops{S: s}).RecycleBaseWith(id, fingerprint, rollRecycle)
 		return asMap(v, err)
 	}
 	verifyBaseHere = func(s *save.Save, totem, item, blueprint int64) error {

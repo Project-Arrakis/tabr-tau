@@ -164,7 +164,7 @@ A recycle sends everything to the **Reserve**: the items the base stored, unchan
 
 `--dry-run` asks for the move after each base too: the output holds the plan for each base (what would move into which box) as well as the recycle plan, and nothing is written.
 
-The rule ("empty before each base") is the operator's and is not read from the game: the editor's own recycle only refuses when the Reserve has a slot limit that the base would pass (the saves seen record none), and the Reserve's volume is not checked at all. The move into the boxes has not been checked in the game by this program.
+The rule ("empty before each base") is the operator's and is not read from the game. Player > Bases > Recycle base has the same rule (#1202): it refuses while the Reserve holds any stack. The roll applies the rule itself, because it asks about every base before it moves what an earlier run left in the Reserve. A recycle also refuses when the Reserve has a slot limit that the base would pass (the saves seen record none), and the Reserve's volume is not checked at all. The move into the boxes has not been checked in the game by this program.
 
 The Solido devices need room too. A new device goes in the backpack (the loadout when the backpack has no room), one slot each, and the run keeps **two** slots free there after them. When the volume limit of the backpack or loadout leaves no room for a device, or the slots are short, that base does not fit: the run recycles the bases before it, stops before the roll, and names the destination and what is short ("backpack: 1 slot(s) needed for Solido devices plus a margin of 2, 2 free (short by 1)").
 

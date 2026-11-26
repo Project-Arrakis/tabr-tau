@@ -44,7 +44,7 @@ import (
 // Refused: a base that is not the character's own (the owner rank, as Back up and remove checks it), a base the game already picked up or that is not in the normal state, a base
 // with a crafting queue that is running, a base an actor of which is a vehicle or part of a base backup, a base a character is waiting to respawn at, a base that a row of any
 // other table of the save points at (every reference the save's layout declares to an actor, an inventory or an entity is looked up, see recycleHandledRefs), and a save in
-// which the character has no Reserve. Vehicles are never touched. The same code is the preview (rolled back) and the write; the write must be sent the preview's fingerprint, and it fails whole, changing nothing, when what it reads
+// which the character has no Reserve, and a Reserve that holds any stack (#1202; see RecycleOptions). Vehicles are never touched. The same code is the preview (rolled back) and the write; the write must be sent the preview's fingerprint, and it fails whole, changing nothing, when what it reads
 // back after writing is not what was planned.
 
 // sqlNameRe is a table or column name that can be written into a statement between double quotes.
@@ -469,7 +469,7 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 	if err != nil {
 		return nil, err
 	}
-	if n, _ := toInt(held["n"]); n > 0 && opt.RequireEmptyReserve {
+	if n, _ := toInt(held["n"]); n > 0 && !opt.AllowNonEmptyReserve {
 		return nil, ReserveNotEmptyRefusal(n)
 	}
 
@@ -601,15 +601,15 @@ func (o *Ops) planBaseRecycle(q baseQ, msql markerSQL, totem int64, pl player, o
 // refuses, a base whose read back differs and a base whose edit would leave a dangling reference or a JSON cell the game may not read are all refused here, and nothing in the
 // save changes. What a preview cannot see is anything that changes in the save between the question and the answer; that is what the fingerprint is for.
 func (o *Ops) PreviewBaseRecycle(totem int64) (any, error) {
-	return o.recycleBase(totem, "", true, RecycleOptions{RequireEmptyReserve: true})
+	return o.recycleBase(totem, "", true, RecycleOptions{})
 }
 
-// RecycleOptions are the choices of a recycle. Solido makes the game's own Solido of the base first (#1187), in the same edit.
+// RecycleOptions are the choices of a recycle. The zero value refuses a Reserve that holds stacks. Solido makes the game's own Solido of the base first (#1187), in the same edit.
 type RecycleOptions struct {
 	Solido bool
-	// RequireEmptyReserve makes the question and the write refuse while the Reserve holds any stack (#1202: the game allows one Reserve). The manual Recycle base sets it. The layout roll does not: it has its own rule
-	// (it moves the Reserve into the boxes before and between its bases, #1191) and asks about its bases before that move, so it keeps its own check for now.
-	RequireEmptyReserve bool
+	// AllowNonEmptyReserve lets the question and the write go on while the Reserve holds stacks. Without it both refuse (#1202: the game allows one Reserve), so a caller that sets nothing
+	// has the rule. Only the layout roll sets it: it has its own rule (it moves the Reserve into the boxes before and between its bases, #1191) and asks about its bases before that move.
+	AllowNonEmptyReserve bool
 }
 
 // PreviewBaseRecycleWith is PreviewBaseRecycle with options.
@@ -620,7 +620,7 @@ func (o *Ops) PreviewBaseRecycleWith(totem int64, opt RecycleOptions) (any, erro
 // RecycleBase recycles the standing base with this totem: the base is deleted, what it stored and what it cost go to the character's Reserve. fingerprint is the one the
 // preview gave.
 func (o *Ops) RecycleBase(totem int64, fingerprint string) (any, error) {
-	return o.RecycleBaseWith(totem, fingerprint, RecycleOptions{RequireEmptyReserve: true})
+	return o.RecycleBaseWith(totem, fingerprint, RecycleOptions{})
 }
 
 // RecycleBaseWith is RecycleBase with options; a fingerprint that was made with an option is only good with the same option.

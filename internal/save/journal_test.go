@@ -299,7 +299,7 @@ func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 	dir := t.TempDir()
 	jp := filepath.Join(dir, "pending.json")
 	for name, content := range map[string]string{
-		"another save": `{"version":2,"path":"C:\\other\\game.db","baseHash":"","ops":[{"desc":"x","rows":1,"stmts":[{"q":"update jt set name='bad' where a=1"}]}]}`,
+		"another save": `{"version":3,"path":"C:\\other\\game.db","baseHash":"","ops":[{"desc":"x","rows":1,"stmts":[{"q":"update jt set name='bad' where a=1"}]}]}`,
 		"not json":     `{oops`,
 		"new version":  `{"version":9,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","ops":[{"desc":"x","rows":1,"stmts":[{"q":"update jt set name='bad' where a=1"}]}]}`,
 	} {
@@ -326,7 +326,7 @@ func TestAJournalOfAnotherSaveOrTamperedWithIsNotUsed(t *testing.T) {
 		}
 	}
 	// a statement that is not an INSERT, UPDATE, DELETE or REPLACE in a journal of this save is refused when it is replayed
-	tamper := `{"version":2,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","baseHash":"","ops":[{"desc":"drop","rows":0,"stmts":[{"q":"drop table jt"}]}]}`
+	tamper := `{"version":3,"path":"` + strings.ReplaceAll(p, `\`, `\\`) + `","baseHash":"","ops":[{"desc":"drop","rows":0,"stmts":[{"q":"drop table jt"}]}]}`
 	if err := os.WriteFile(jp, []byte(tamper), 0o600); err != nil {
 		t.Fatal(err)
 	}

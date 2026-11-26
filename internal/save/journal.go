@@ -33,8 +33,11 @@ import (
 
 // journalVersion 2: a queued Landsraad raise of version 1 held the statements that wrote a progress event, its player link and the cursor (#655). A journal of version 1 is set
 // aside with the notice and is never replayed, so a queued edit of an earlier build cannot write them after the editor stopped doing so.
+// journalVersion 3: a queued Recycle base of an earlier build of version 2 may hold no read of the Reserve, so putting it back would write it into a Reserve that holds stacks (#1202,
+// #1208). A journal of version 2 is set aside in the same way. Version 2 journals can hold notes, which are still handed over when their edits are in the file (notesSince).
 const (
-	journalVersion  = 2
+	journalVersion  = 3
+	notesSince      = 2 // the oldest journal version whose notes this build reads
 	journalMaxStmts = 200000
 	journalMaxBytes = 64 << 20
 )
@@ -771,7 +774,7 @@ func (s *Save) restoreIncomplete(m incompleteMark) *Restored {
 		// ones written first; WritingOps, when it says how many that write held, bounds them)
 		if b, err := os.ReadFile(s.journalPath); err == nil {
 			var j journalFile
-			if json.Unmarshal(b, &j) == nil && j.Version == journalVersion {
+			if json.Unmarshal(b, &j) == nil && j.Version >= notesSince && j.Version <= journalVersion {
 				written := j.Ops
 				if n := j.WritingOps; n > 0 && n < len(written) {
 					written = written[:n]
