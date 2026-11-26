@@ -106,5 +106,5 @@ func refuseStored(one func(string, ...any) (save.Row, error), id int64, what str
 	if kind == "" {
 		return nil
 	}
-	return apierr.New(apierr.ErrBadArgument, fmt.Sprintf("vehicle %d is stored (%s) and keeps only the place it was last in the world, so it cannot be %s. Take it out of storage in the game first.", id, strings.ToLower(storedLabel(kind)), what))
+	return apierr.New(apierr.ErrBadArgument, fmt.Sprintf("vehicle %d is stored (%s) and keeps only the place it was last in the world, so it cannot be %s.", id, strings.ToLower(storedLabel(kind)), what))
 }
