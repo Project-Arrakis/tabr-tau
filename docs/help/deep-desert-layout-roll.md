@@ -8,6 +8,10 @@ A base, a vehicle or anything else you placed in the Deep Desert keeps its posit
 
 **Before you log out for the roll, face open ground with room in front of you.** If vehicles have to be moved, they are put down in front of where your character stands and faces when the game saved. The save has no terrain: rock, mountains and slopes are not in it, so a vehicle can be put inside a rock if you were facing one. Facing open sand or flat ground, with about 100 m (a long line of big vehicles needs that much) in front of you, avoids it. This is the same rule that works for Bring vehicle.
 
+## Known limitation: worm sign at labs, caves and wrecks
+
+In single-player, layouts other than 11 can show worm sign at labs, caves and wrecks (issue #1242). The built-in vetted list still includes layout 9, which is predicted to be affected (not tested in the game). See "Which layouts a random roll may pick" below for how the list is used and changed.
+
 ## How to run the commands
 
 The commands are for PowerShell and are written so that you can copy and paste each one as it stands. They assume `tabr-tau.exe` is in your Downloads folder. If you keep it somewhere else, replace `Downloads\tabr-tau.exe` in the command with where it is (the part after `$env:USERPROFILE\`). `$env:USERPROFILE` is your own user folder, so no name has to be typed. You can paste them from any folder.
