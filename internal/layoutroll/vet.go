@@ -499,7 +499,22 @@ func VetSet(o Options, n int) (Result, error) {
 	if err := plainFolder(o.ConfigDir); err != nil {
 		return r, fmt.Errorf("not changed: %v", err)
 	}
-	// the record lock, as the roll takes it (#1209): a roll holds it whatever save it was given, so this cannot change Game.ini under a running roll. Taken before Game.ini is read.
+	// the two locks, in the roll's order and both before Game.ini is read (#1209). The save lock: the editor or another roll holding the save refuses the run; only the lock is taken, the
+	// save is not opened.
+	if o.SavePath != "" {
+		release, err := lockSave(lockedSavePath(o.SavePath))
+		if err != nil {
+			return r, fmt.Errorf("not changed: %s", lockRefusal(err))
+		}
+		defer release()
+	} else {
+		why := o.SaveProblem
+		if why == "" {
+			why = "no save was named"
+		}
+		r.say("Note: %s, so it was not checked whether the editor has a save open. Game.ini does not depend on the save.", why)
+	}
+	// the record lock: a roll holds it whatever save it was given, so this cannot change Game.ini under a running roll
 	releaseState, _, err := lockRecord(o.StatePath)
 	if err != nil {
 		return r, err
@@ -523,20 +538,6 @@ func VetSet(o Options, n int) (Result, error) {
 	}
 	if got, _, err := CurrentIndex(text); err != nil || got != n {
 		return r, fmt.Errorf("the edited text does not read back as layout %d (a bug); nothing is changed", n)
-	}
-	// the save lock, as the roll takes it: the editor or another roll holding the save refuses the run. Only the lock is taken; the save is not opened.
-	if o.SavePath != "" {
-		release, err := lockSave(lockedSavePath(o.SavePath))
-		if err != nil {
-			return r, fmt.Errorf("not changed: %s", lockRefusal(err))
-		}
-		defer release()
-	} else {
-		why := o.SaveProblem
-		if why == "" {
-			why = "no save was named"
-		}
-		r.say("Note: %s, so it was not checked whether the editor has a save open. Game.ini does not depend on the save.", why)
 	}
 	notRun := func(again bool) error {
 		running, why := o.GameRunning()

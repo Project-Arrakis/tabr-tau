@@ -27,7 +27,7 @@
   per week, so an extra run does no harm. It also takes a verified checkpoint copy of the save, reads the save and refuses while a base or the character of yours is in the Deep Desert, after exporting each
   such base to a base backup file in a dated folder beside layout-roll.json. Vehicles of yours in the Deep Desert are stored (a Scout, a Sandbike) or moved in front of the character by this run itself, in one edit of the save that is read back. The save it checks is the one named with -SavePath
   (written into the task action as --save <path>, before the word layout-roll), else the only one found on the computer; with none or several found the run refuses, so give -SavePath when you
-  have more than one save. A run that changed nothing says why in %APPDATA%\tabr-tau\layout-roll.json ("lastRun"), with ONE exception: the editor holds the save for as long as its window is open,
+  have more than one save. A run that changed nothing says why in %APPDATA%\tabr-tau\layout-roll.json ("lastRun"), except for the refusals named next, which are not written there. The editor holds the save for as long as its window is open,
   so close the editor before 05:00. A run that meets the open editor (or another layout roll) is refused before it reads layout-roll.json and changes nothing; it exits with an error (the task's
   Last Run Result is not 0), is not retried, and is recorded only as one dated line in %APPDATA%\tabr-tau\layout-roll.log. A run that is given no save to check is refused the same way, and
   so is one that cannot make a lock file (beside the save, or beside layout-roll.json) or cannot read layout-roll.json.

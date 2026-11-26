@@ -81,15 +81,6 @@ func Roll(o Options) (Result, error) {
 	if err := plainFolder(o.ConfigDir); err != nil {
 		return r, err
 	}
-	path := filepath.Join(o.ConfigDir, FileName)
-	old, existed, mode, err := readIni(path)
-	if err != nil {
-		return r, err
-	}
-	cur, present, err := CurrentIndex(old)
-	if err != nil {
-		return r, err
-	}
 	// The roll lock (#1201): a real run holds the save's own lock (the one the editor and every other write to the save take; no second lock exists) from BEFORE the state file is read until
 	// the run has ended, so two runs never interleave their notes and their writes of layout-roll.json: a second run is refused here, at once, and changes nothing. A dry run takes no lock:
 	// it writes nothing (no save, no state file, no Game.ini), so it cannot spoil another run, and it must keep working while the editor has the save open; it says so.
@@ -115,6 +106,16 @@ func Roll(o Options) (Result, error) {
 		}
 		defer releaseState()
 		o.lockHeld = true
+	}
+	// Game.ini is read only now (#1209): taking a lock can wait a moment, and a run or a vet that held it may have changed the file meanwhile. Nothing is decided on an older text.
+	path := filepath.Join(o.ConfigDir, FileName)
+	old, existed, mode, err := readIni(path)
+	if err != nil {
+		return r, err
+	}
+	cur, present, err := CurrentIndex(old)
+	if err != nil {
+		return r, err
 	}
 	st, err := loadState(o.StatePath)
 	if err != nil {
@@ -758,7 +759,7 @@ func noteRefusal(o Options, now time.Time, line string) {
 	}
 	// the size is looked at and the log renamed under a lock of the log (#1209): of two refused runs, the second could otherwise act on the size it saw before the first one renamed, and
 	// remove the older copy just made. Without the lock the line is added and the log is left to a later run. The rename replaces the older copy.
-	if release, err := lockState(p); err == nil {
+	if release, err := save.LockPlain(p); err == nil {
 		if st, err := os.Stat(p); err == nil && st.Size() > maxLog {
 			_ = os.Rename(p, strings.TrimSuffix(p, ".log")+".1.log")
 		}

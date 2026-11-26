@@ -20,7 +20,7 @@ func LockSave(path string) (func(), error) {
 	return release, err
 }
 
-// ErrNoLock means the lock file could not be made, so no lock is held. Only LockSaveStrict returns it.
+// ErrNoLock means the lock file could not be made, so no lock is held. LockSaveStrict and LockPlain return it; LockSave never does.
 var ErrNoLock = errors.New("the lock file (the file's name plus .tabr-tau.lock) could not be made")
 
 // LockSaveStrict is LockSave for a run that must not go on without the lock (layout-roll): where LockSave goes on holding no lock, this refuses with ErrNoLock.
@@ -32,9 +32,23 @@ func LockSaveStrict(path string) (func(), error) {
 	return release, err
 }
 
-// lockAndSweep takes the lock and, only when it is held, sweeps. held false with no error means the lock file could not be made.
+// LockPlain is the same lock for a small file that is no save (the log of the layout roll): it sweeps nothing, and refuses with ErrNoLock as LockSaveStrict does.
+func LockPlain(path string) (func(), error) {
+	release, held, err := lockOnly(path)
+	if err == nil && !held {
+		return nil, ErrNoLock
+	}
+	return release, err
+}
+
+// lockOnly takes the lock on the small file next to path. held false with no error means the lock file could not be made.
+func lockOnly(path string) (func(), bool, error) {
+	return lockFile(filepath.Join(filepath.Dir(path), filepath.Base(path)+".tabr-tau.lock"))
+}
+
+// lockAndSweep takes the lock and, only when it is held, sweeps.
 func lockAndSweep(path string) (func(), bool, error) {
-	release, held, err := lockFile(filepath.Join(filepath.Dir(path), filepath.Base(path)+".tabr-tau.lock"))
+	release, held, err := lockOnly(path)
 	if err == nil && held {
 		cleanStaleTemps(path) // only the editor that holds the lock may remove a temp file next to the save: another editor's write may be in flight
 		SweepWorkCopies()     // and the decoded copies of sessions that have ended (a crash or a kill leaves them), found by their process id
