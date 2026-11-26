@@ -43,6 +43,7 @@ Usage:
                                         unless --force; backs the file up first, refuses while the game runs; takes a checkpoint of the save and refuses while a base or the character of yours is in the Deep Desert
                                         (exporting those bases first); stores or moves your vehicles out of the Deep Desert (writes the save); removes the Deep Desert markers from the save (the game adds them again as you discover places; --keep-markers leaves them); the game must be restarted; --config names the config folder, --save the save;
                                         --recycle-bases recycles your Deep Desert bases first, one at a time with a Solido each, instead of refusing while one stands: see docs/help/deep-desert-layout-roll.md)
+                                        known limitation (issue #1242): layouts other than 11 can show worm sign at labs, caves and wrecks; the built-in vetted list still includes 9, predicted to be affected (not tested in the game)
   tabr-tau layout-roll vet <N> | vet <N> pass|fail [note] | vet list
                                         check one layout in the game: vet N sets layout N in Game.ini (game closed; backs the file up; never opens the save) and says how to read the Sandworm Threat; vet N pass or fail records
                                         the result in layout-roll-vetting.txt and adds N to or takes N out of the vetted list; vet list shows layouts 0 to 11 with their last result and whether a roll may pick them (see docs/help/deep-desert-layout-roll.md)
