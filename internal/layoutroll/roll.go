@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Project-Arrakis/tabr-tau/internal/save"
 	"github.com/Project-Arrakis/tabr-tau/kit/durable"
 )
 
@@ -80,6 +81,33 @@ func Roll(o Options) (Result, error) {
 	if err := plainFolder(o.ConfigDir); err != nil {
 		return r, err
 	}
+	// The roll lock (#1201): a real run holds the save's own lock (the one the editor and every other write to the save take; no second lock exists) from BEFORE the state file is read until
+	// the run has ended, so two runs never interleave their notes and their writes of layout-roll.json: a second run is refused here, at once, and changes nothing. A dry run takes no lock:
+	// it writes nothing (no save, no state file, no Game.ini), so it cannot spoil another run, and it must keep working while the editor has the save open; it says so.
+	if !o.DryRun && o.SavePath != "" {
+		release, err := lockSave(lockedSavePath(o.SavePath))
+		if err != nil {
+			// The state file is NOT touched (that is the point of the lock), so the refusal is made visible in an append-only log beside it (layout-roll.log): a scheduled run has no
+			// window and no console, and the task shows only its exit code, which is non-zero (the error below).
+			why := "the save is open in another TABR TAU window (or another layout roll is running)"
+			if errors.Is(err, save.ErrNoLock) {
+				why = "no lock could be taken on the save"
+			}
+			noteRefusal(o, now, "layout roll refused: "+why+": nothing changed ("+err.Error()+")")
+			return r, fmt.Errorf("not changed: %s", lockRefusal(err))
+		}
+		defer release()
+		// The save's lock keeps runs on ONE save apart; layout-roll.json is one file for every save. A run given another save (--save) would take that save's free lock, find the first
+		// save unchanged, drop its note and write over its record, so the record is locked too, before it is read.
+		releaseState, why, err := lockRecord(o.StatePath)
+		if err != nil {
+			noteRefusal(o, now, "layout roll refused: "+why+": nothing changed")
+			return r, err
+		}
+		defer releaseState()
+		o.lockHeld = true
+	}
+	// Game.ini is read only now (#1209): taking a lock can wait a moment, and a run or a vet that held it may have changed the file meanwhile. Nothing is decided on an older text.
 	path := filepath.Join(o.ConfigDir, FileName)
 	old, existed, mode, err := readIni(path)
 	if err != nil {
@@ -89,34 +117,12 @@ func Roll(o Options) (Result, error) {
 	if err != nil {
 		return r, err
 	}
-	// The roll lock (#1201): a real run holds the save's own lock (the one the editor and every other write to the save take; no second lock exists) from BEFORE the state file is read until
-	// the run has ended, so two runs never interleave their notes and their writes of layout-roll.json: a second run is refused here, at once, and changes nothing. A dry run takes no lock:
-	// it writes nothing (no save, no state file, no Game.ini), so it cannot spoil another run, and it must keep working while the editor has the save open; it says so.
-	if !o.DryRun && o.SavePath != "" {
-		release, err := lockSave(lockedSavePath(o.SavePath))
-		if err != nil {
-			// The state file is NOT touched (that is the point of the lock), so the refusal is made visible in an append-only log beside it (layout-roll.log): a scheduled run has no
-			// window and no console, and the task shows only its exit code, which is non-zero (the error below).
-			noteRefusal(o, now, "layout roll refused: the save is open in another TABR TAU window (or another layout roll is running): nothing changed ("+err.Error()+")")
-			return r, fmt.Errorf("not changed: %s", lockRefusal(err))
-		}
-		defer release()
-		// The save's lock keeps runs on ONE save apart; layout-roll.json is one file for every save. A run given another save (--save) would take that save's free lock, find the first
-		// save unchanged, drop its note and write over its record, so the record is locked too, before it is read.
-		if o.StatePath != "" {
-			_ = os.MkdirAll(filepath.Dir(o.StatePath), 0o700) // the lock file cannot be made in a folder that is not there yet (the first run)
-			releaseState, err := lockState(o.StatePath)
-			if err != nil {
-				noteRefusal(o, now, "layout roll refused: another layout roll is running (it holds "+filepath.Base(o.StatePath)+"): nothing changed")
-				return r, fmt.Errorf("not changed: another layout roll is running (it holds the record %s). Nothing was changed, and this run did not wait for it. Wait until the other layout roll has ended and run this again", filepath.Base(o.StatePath))
-			}
-			defer releaseState()
-		}
-		o.lockHeld = true
-	}
 	st, err := loadState(o.StatePath)
 	if err != nil {
 		if !o.Force {
+			if !o.DryRun {
+				noteRefusal(o, now, "layout roll refused: "+err.Error()+": nothing changed")
+			}
 			return r, fmt.Errorf("%v; fix or delete that file, or run with --force", err)
 		}
 		r.say("note: %v (ignored because of --force)", err)
@@ -751,10 +757,13 @@ func noteRefusal(o Options, now time.Time, line string) {
 	if os.MkdirAll(filepath.Dir(p), 0o700) != nil {
 		return
 	}
-	if st, err := os.Stat(p); err == nil && st.Size() > maxLog {
-		old := strings.TrimSuffix(p, ".log") + ".1.log"
-		os.Remove(old)
-		_ = os.Rename(p, old)
+	// the size is looked at and the log renamed under a lock of the log (#1209): of two refused runs, the second could otherwise act on the size it saw before the first one renamed, and
+	// remove the older copy just made. Without the lock the line is added and the log is left to a later run. The rename replaces the older copy.
+	if release, err := save.LockPlain(p); err == nil {
+		if st, err := os.Stat(p); err == nil && st.Size() > maxLog {
+			_ = os.Rename(p, strings.TrimSuffix(p, ".log")+".1.log")
+		}
+		release()
 	}
 	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
