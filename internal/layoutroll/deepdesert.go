@@ -37,6 +37,7 @@ var (
 	moveVehicles  = func(s *save.Save) ([]ops.VehicleMove, error) { return (&ops.Ops{S: s}).MoveDeepDesertVehicles() }
 	flushSave     = func(s *save.Save) save.Flush { return s.Flush() }
 	lockSave      = save.LockSave
+	lockState     = save.LockSave // the same lock on layout-roll.json, one record for every save
 	verifyWritten = func(path string, plan []ops.VehicleMove) error {
 		fresh, err := openSave(path)
 		if err != nil {
