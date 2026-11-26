@@ -83,7 +83,10 @@ they cost their slot and no volume, and the answer says how many units had no kn
 refused. What is already in the box counts. If it does not fit, **nothing is changed**, and the message says what was needed, what each box has free (slots and volume), and the shortfall.
 The fit is worked out stack by stack in the order above, so a Reserve that would fit only with a different order is refused too: make room in the boxes or name boxes with more.
 A box whose free volume is exactly the volume of the stack (to the digit) takes it: the volume sums are floating-point numbers, so the move allows a slack of 1 part in 100 billion of
-the box's volume limit (far below the smallest volume in the game's item table, 0.001), and a stack that is short by one such smallest unit is still refused. The slack is in the move only; Give item is unchanged.
+the box's volume limit (at the 50,000 of the boxes seen, far below the smallest volume in the game's item table, 0.001), and a stack that is short by one such smallest unit is still refused.
+The check before the write and the read-back inside it use this one rule, so a stack that would leave a box over its limit by more than the slack goes to the next box (or the move is refused as no room),
+also where Give item's own rounding would still let it in (that takes a volume of its own finer than 0.001). The other way round, a box that is full, or over by no more than the slack, still takes a stack whose whole
+volume is within the slack, where a give would give nothing; no item in the game's table is that small. The slack is in the move only; Give item is unchanged.
 Two more differences from Give item are on purpose and are safe (they refuse, they never overfill):
 
 - **A stack of the same item that is not full.** A give tops up a stack of the same item and grade that is in the box and not full, and needs no slot for those units. The move never tops

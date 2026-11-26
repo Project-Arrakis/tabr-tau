@@ -3,6 +3,7 @@ package ops
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -902,28 +903,130 @@ func TestStackFitsByVolumeExactFillWithRealMagnitudes(t *testing.T) {
 	t.Logf("the give's count alone refused %d of %d exact fills", oldRefusals, trials)
 }
 
-// The tolerance is relative, safe at the magnitudes of the item table, and does not touch the give's count where that already says yes.
+// The tolerance is relative to the limit and safe at the magnitudes of the item table. The move's answer is the read back's rule (volumeWithinLimit) and nothing else; the last column
+// of a row says what the give's own count answers for the same numbers, so that a row about the difference between the two cannot pass without showing it.
 func TestStackFitsByVolumeTolerance(t *testing.T) {
 	for _, c := range []struct {
 		name           string
 		limit, used, u float64
 		n              int64
-		want           bool
+		want, give     bool
 	}{
-		{"one smallest unit over, small box", 100, 99.5, 0.001, 501, false},
-		{"exactly full, small box", 100, 99.5, 0.001, 500, true},
-		{"float sum a hair over", 0.3, 0.1 + 0.2, 0.001, 0, true},
-		{"one smallest unit over, 5,000,000 volume", 5e6, 5e6 - 0.5, 0.001, 501, false},
-		{"exactly full, 5,000,000 volume", 5e6, 5e6 - 0.5, 0.001, 500, true},
-		{"the largest unit over by a unit", 12500, 0, 125, 101, false},
-		{"the largest unit exactly", 12500, 0, 125, 100, true},
-		{"a box that is already over takes nothing with volume", 10, 40, 0.001, 1, false},
-		{"no limit recorded", 0, 1e9, 125, 1000, true},
-		{"no volume", 10, 1e9, 0, 1000, true},
+		{"one smallest unit over, small box", 100, 99.5, 0.001, 501, false, false},
+		{"exactly full, small box", 100, 99.5, 0.001, 500, true, true},
+		{"a float sum one step over the limit still fits", 50000, math.Nextafter(49999.5, math.Inf(1)), 0.001, 500, true, false},
+		{"over the limit by less than the slack", 50000, 49999.5 + 2e-7, 0.001, 500, true, false},
+		{"over the limit by more than the slack", 50000, 49999.5 + 2e-6, 0.001, 500, false, false},
+		{"past the slack although the give's 1e-9 of a unit lets it in", 1000, 0, 125.00000001, 8, false, true},
+		{"contents off the grid: past the slack although the give lets it in", 1000, 7 * 125.00000001, 125, 1, false, true},
+		{"a full box takes a stack smaller than the slack, where the give gives nothing", 50000, 50000, 1e-8, 1, true, false},
+		{"one smallest unit over, 5,000,000 volume", 5e6, 5e6 - 0.5, 0.001, 501, false, false},
+		{"exactly full, 5,000,000 volume", 5e6, 5e6 - 0.5, 0.001, 500, true, true},
+		{"the largest unit over by a unit", 12500, 0, 125, 101, false, false},
+		{"the largest unit exactly", 12500, 0, 125, 100, true, true},
+		{"a box that is already over takes nothing with volume", 10, 40, 0.001, 1, false, false},
+		{"a stack of no units adds nothing, in a box that is over too", 10, 40, 0.001, 0, true, true},
+		{"no limit recorded", 0, 1e9, 125, 1000, true, false},
+		{"no volume", 10, 1e9, 0, 1000, true, false},
 	} {
 		if got := stackFitsByVolume(c.limit, c.used, c.u, c.n); got != c.want {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
+		// the give's count is only asked where it is defined: with a limit and a unit volume above 0
+		if c.limit > 0 && c.u > 0 {
+			if got := unitsLeftByVolume(c.limit, c.used, c.u) >= c.n; got != c.give {
+				t.Errorf("%s: the give's count says %v, the row expects %v", c.name, got, c.give)
+			}
+		}
+	}
+}
+
+// The plan and the read back use one rule (#1199): a stack that the give's own count would let in (1e-9 of a unit over) but that leaves the box over its limit by more than the read
+// back's slack is not planned into that box. It goes into the next box, or the move is refused as no room, which a layout roll reads as "the boxes are full"; before, the plan took it
+// and the read back then refused the whole edit as a conflict. It takes a volume of its own that is finer than the item table's 0.001.
+func TestMoveReserveThePlanRefusesWhatTheReadBackWouldRefuse(t *testing.T) {
+	for name, extra := range map[string]string{
+		"the Reserve's stack has a volume of its own off the grid": `delete from items where id=9001 or inventory_id=12;
+			insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (8401,12,8,0,'Stone',0,1,'{}',0,125.00000001);`,
+		"the box's contents have a volume of their own off the grid": `update items set stack_size=7, volume_override=125.00000001 where id=9001; delete from items where inventory_id=12;
+			insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values (8401,12,1,0,'Stone',0,1,'{}',0,125);`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			// only Box A named: refused as no room, nothing changed
+			o := &Ops{S: testsave.PlayerWithSQL(t, moveWorld(10, 10, 1000, bigVol)+extra)}
+			before := itemsSnapshot(t, o)
+			_, err := o.PreviewMoveReserve([]string{"Box A"}, MoveReserveOptions{})
+			refusedWith(t, err, apierr.ErrNoRoom, "Short by 1 stacks")
+			if !IsMoveNoRoom(err) || itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
+				t.Fatalf("no room: refused, nothing changed: %v", err)
+			}
+			// with a second box named, the stack goes there
+			moveApply(t, o, boxAB, MoveReserveOptions{})
+			if i, _ := where(t, o, 8401); i != 7004 {
+				t.Fatalf("the stack goes into Box B, not into inventory %d", i)
+			}
+		})
+	}
+}
+
+// An exact fill of a round limit (1,000 and 10,000,000), through the whole move (#1199): the Reserve's stacks add up to the limit to the digit in thousandths, and the float sum, in the
+// plan's order, comes out a hair over it, far enough that the give's own count refuses the last stack. The move takes every stack and the read back accepts the box; this fails when the
+// plan loses its slack. A limit one smallest unit (0.001) lower is refused with nothing changed.
+func TestMoveReserveExactFillOfARoundLimitThroughTheWholeMove(t *testing.T) {
+	// per sets the size of the stacks, so that the Reserve has a few hundred: enough sums for the float noise to show, within the box's 1,000 slots
+	for _, c := range []struct {
+		limit float64
+		per   int64
+	}{{1000, 200}, {1e7, 50}} {
+		limit := c.limit
+		t.Run(fmt.Sprintf("limit %.0f", limit), func(t *testing.T) {
+			rng := rand.New(rand.NewSource(1199))
+			var rows []string
+			for attempt := 0; attempt < 5000 && rows == nil; attempt++ {
+				var r []string
+				used := 0.0
+				add := func(milli, n int64) { // a stack of n units of milli thousandths each, as a volume of its own
+					r = append(r, fmt.Sprintf("(%d,12,%d,%d,'Stone',0,1,'{}',0,%d.%03d)", 8400+len(r), n, len(r), milli/1000, milli%1000))
+					used += float64(milli) / 1000 * float64(n)
+				}
+				rest := int64(limit) * 1000 // what is left to fill, in thousandths
+				for {
+					n := stackSizes[rng.Intn(len(stackSizes))]
+					milli := 1 + rng.Int63n(min(125000, int64(limit)*1000/c.per/n))
+					if milli*n > rest-1000 {
+						break
+					}
+					add(milli, n)
+					rest -= milli * n
+				}
+				add(rest-1, 1)
+				// the premise: the give's count refuses the last stack (one smallest unit), and with it the float sum is over the limit
+				refused := unitsLeftByVolume(limit, used, 0.001) < 1
+				add(1, 1)
+				if refused && used > limit && len(r) <= 1000 {
+					rows = r
+				}
+			}
+			if rows == nil {
+				t.Fatal("no Reserve was found that shows the float noise: the test would prove nothing")
+			}
+			reserve := `delete from items where id=9001 or inventory_id=12; insert into items(id,inventory_id,stack_size,position_index,template_id,is_new,acquisition_time,stats,quality_level,volume_override) values ` + strings.Join(rows, ",") + `;`
+			mk := func(aVol float64) *Ops {
+				return &Ops{S: testsave.PlayerWithSQL(t, moveWorld(1000, 1000, aVol, 0.0004)+reserve)}
+			}
+			o := mk(limit)
+			r := moveApply(t, o, boxAB, MoveReserveOptions{})
+			if bx := r["boxes"].([]map[string]any); bx[0]["stacks"] != int64(len(rows)) || rmCount(t, o, `items where inventory_id=12`) != 0 {
+				t.Fatalf("every stack must go into Box A: %v", bx)
+			}
+			o = mk(limit - 0.001)
+			before := itemsSnapshot(t, o)
+			_, err := o.PreviewMoveReserve(boxAB, MoveReserveOptions{})
+			refusedWith(t, err, apierr.ErrNoRoom, "Short by 1 stacks")
+			if !IsMoveNoRoom(err) || itemsSnapshot(t, o) != before || len(o.S.Ops()) != 0 {
+				t.Fatalf("a box short by 0.001 must refuse and change nothing: %v", err)
+			}
+		})
 	}
 }
 
