@@ -54,8 +54,8 @@ type Server struct {
 	startupNote  string // what the open-time refill did, shown once by the UI
 	startupWarn  bool   // the note is a problem or a skip, so the UI keeps it on screen
 	lastAuto     string // the last automatic save, kept for the Automatic refill card
-	autoWaiting  bool   // the automatic pass is waiting because a game process exists or may still hold the save's rows (#419, #499, #612); RunAutosave runs it once that clears
-	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.UnattendedStateFor); empty when it is not waiting
+	autoWaiting  bool   // the automatic pass is waiting because the game may still hold the save's rows (#419, #499); RunAutosave runs it once that clears
+	autoWaitWhy  string // what it is waiting for, in the words of an edit made by hand (the reason of save.GameStateFor); empty when it is not waiting
 	autoWaitHand bool   // the wait began as "Run the automatic pass now" (#1135): the person asked for it, so it runs with the master switch off too; it has the rules of the pass at launch all the same
 	cancelGen    uint64 // bumped by Cancel in the queue view: a retry that started before it must not run the pass, or arm the wait again (#1124)
 	afterReload  func() // test hook: called by retryWaitingPass between the re-read of the save and the pass; nil in production
@@ -957,7 +957,7 @@ func (s *Server) routes() {
 	})
 	// Check again / Write now: the game check is made at once and the answer is a sentence (running, not running, or why the check failed). It reads the process list in
 	// memory and starts no program. Like every POST it then tries to write what waits.
-	s.post("/api/game/check", func(ops.Args) (any, error) { return save.CheckGameNowFor(s.Save), nil })
+	s.post("/api/game/check", func(ops.Args) (any, error) { return save.CheckGameNow(s.Save.Path), nil })
 	// ifClean is what the automatic refresh sends: it was decided from a status read that can be seconds old on a large save, so an edit made since must not be
 	// thrown away with it (the page then leaves the file as it is and the next status shows the banner).
 	s.post("/api/save/discard", func(a ops.Args) (any, error) {
@@ -1104,7 +1104,7 @@ func (s *Server) RunAutosave(stop <-chan struct{}) {
 	}
 }
 
-// retryWaitingPass runs the automatic pass that was held back, once no game process exists and the gate for edits made by hand lets a write through (#499, #612; save.UnattendedStateFor) and nothing is queued: the file is read
+// retryWaitingPass runs the automatic pass that was held back, once the gate for edits made by hand lets a write through (#499; save.GameStateFor) and nothing is queued: the file is read
 // again first (the game saved while it ran), so the pass works from what the game left. It does nothing while the game, or the check, is in the way, and keeps the reason
 // the card shows up to date.
 func (s *Server) retryWaitingPass() {
@@ -1121,7 +1121,7 @@ func (s *Server) retryWaitingPass() {
 		s.stopWaitingPass()
 		return
 	}
-	g := save.UnattendedStateFor(s.Save.Path, true) // nobody is watching this write: a game process holds it back whatever the log says (#612)
+	g := save.GameStateFor(s.Save.Path, true)
 	if g.Blocked {
 		s.startupMu.Lock()
 		if s.autoWaiting {
@@ -1240,10 +1240,10 @@ func (s *Server) RunStartupTasks() { s.runPass(false) }
 
 // runPass runs the automatic pass. Today that is the only start-up task: with the master switch on, every
 // job that is switched on (base water and power, repairs, fills; see ops.AutoJobs) runs as ONE edit, which is written straight away like every
-// other edit, so it takes effect the next time the game loads. At launch it waits while any game process exists, and while save.GameStateFor says the game may still hold the save's
-// rows (the gate of an edit made by hand, #499): nobody watches an unattended write, so it does not rest on the game's log alone (#612; #419 had it wait for every game process, #499
-// dropped that, #612 restored it for the pass at launch only). A pass asked for by hand has the gate of an edit made by hand when it runs at once; when that gate blocks it, it is queued like the pass at launch and has the unattended rules from then on (#1135). A pass that finds nothing
-// to do writes nothing; a job that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
+// other edit, so it takes effect the next time the game loads. It waits while save.GameStateFor says the game may still hold the save's rows, the same gate as an edit made by
+// hand (#499; #419 had it wait for every game process, #449 kept that for the pass), and runs with the game still open once that clears: at the game's main menu, with no world
+// loaded, the save is writable. A pass asked for by hand that the gate blocks is queued like the pass at launch (#1135). A pass that finds nothing to do writes nothing; a job
+// that fails rolls the whole pass back. If the write is refused, the edit stays queued and is written as soon as the file can be.
 func (s *Server) runPass(manual bool) { s.runPassGuarded(manual, false, 0) }
 
 // runPassGuarded is runPass for a retry that captured the cancel generation when it started (guarded, gen): if Cancel has been pressed since, the pass neither runs nor
@@ -1289,27 +1289,19 @@ func (s *Server) runPassGuarded(manual, guarded bool, gen uint64) {
 		s.stopWaitingPass()
 		return
 	}
-	// The pass at launch and its retries have nobody watching: they wait for every game process (#612). The edit the pass then makes is held to the same rule wherever it is written
-	// from (save.AutoPassDesc, Save.gate): if Flush below is refused it stays queued, and the autosave tick or a restart writes it only once no game process exists.
-	state := save.UnattendedStateFor
-	if manual {
-		state = save.GameStateFor // asked for by hand: the person is looking, the gate of an edit made by hand
-	}
-	if g := state(s.Save.Path, true); g.Blocked {
+	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
 		why := waitWhy(g)
-		if manual { // asked for by hand (#1135): queued like the pass at launch, not refused. Nobody watches when it runs later, so it runs under the unattended rules of the pass at launch
-			// (retryWaitingPass: every game process gone, the gate clear; the edit is named "automatic pass", save.AutoPassDesc): the person is looking now, but not then. A pass the gate lets
-			// through is not queued and keeps the gate of an edit made by hand (below).
+		if manual { // asked for by hand (#1135): queued like the pass at launch, not refused. retryWaitingPass runs it once the gate is clear, and its edit is then named as the
+			// pass at launch's is (save.AutoPassDesc).
 			s.startupMu.Lock()
 			s.autoWaiting, s.autoWaitWhy, s.autoWaitHand = true, why, true
 			s.startupMu.Unlock()
 			set(passQueuedByHand, false)
 			return
 		}
-		// The pass at launch has the gate of an edit made by hand (#499) and, on top of it, waits for every game process (#612): it writes nothing while the game is open, nor while
-		// the game may still hold the save's rows (a session is active, the game wrote moments ago, the session ended moments ago, the file is open elsewhere, the process list or
-		// the log cannot be read), and not while the check cannot say. It is not prepared against a file the game is about to rewrite either: it waits, and RunAutosave runs it on
-		// the fresh file as soon as the game is closed and the gate lets a write through.
+		// The pass at launch has the gate of an edit made by hand (#499): it writes nothing while the game may still hold the save's rows (a session is active, the game wrote
+		// moments ago, the session ended moments ago, the file is open elsewhere, the process list or the log cannot be read), and not while the check cannot say. It is not prepared
+		// against a file the game is about to rewrite either: it waits, and RunAutosave runs it on the fresh file as soon as the gate lets a write through, the game open or not.
 		s.startupMu.Lock()
 		if guarded && s.cancelGen != gen { // cancelled while the retry was under way: the wait does not come back
 			s.startupMu.Unlock()

@@ -81,8 +81,8 @@ func TestSwitchedOffJobWritesNothing(t *testing.T) {
 	}
 }
 
-// The pass that waited for the game to close reads the switches when it runs: a job switched off while it waited does not run, the others do, and the
-// gate is not weakened on the way (nothing is written or queued while the game exists, however many jobs are on or off).
+// The pass that waited for the game reads the switches when it runs: a job switched off while it waited does not run, the others do, and the
+// gate is not weakened on the way (nothing is written or queued while the gate blocks, however many jobs are on or off).
 func TestQueuedPassHonoursTheSwitchesAsTheyAreWhenItRuns(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	before, _ := os.ReadFile(s.Save.Path)
@@ -98,7 +98,7 @@ func TestQueuedPassHonoursTheSwitchesAsTheyAreWhenItRuns(t *testing.T) {
 	s.retryWaitingPass()
 	after, _ := os.ReadFile(s.Save.Path)
 	if !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 {
-		t.Fatal("the gate: something was written while the game still existed")
+		t.Fatal("the gate: something was written inside the grace")
 	}
 	restore() // the game closes
 	s.retryWaitingPass()

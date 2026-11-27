@@ -10,7 +10,7 @@ import (
 	"github.com/Project-Arrakis/tabr-tau/internal/testsave"
 )
 
-// #441: an automatic pass that waits for the game to close (#419) must stop waiting when its switches are turned off meanwhile. Before, retryWaitingPass decoded the whole
+// #441: an automatic pass that waits for the game (#419) must stop waiting when its switches are turned off meanwhile. Before, retryWaitingPass decoded the whole
 // save and built a new working copy at every 3-second tick (under the save's lock) because RunStartupTasks returned at the switch check without clearing autoWaiting.
 
 func isWaiting(s *Server) bool {
@@ -100,7 +100,7 @@ func TestRunStartupTasksClearsTheWaitWhenItFindsNothingSwitchedOn(t *testing.T) 
 	}
 }
 
-// The control: a switch changed while the pass waits, with a job still on, keeps the wait, and the pass runs once on the fresh file when the game has closed (the jobs that are off
+// The control: a switch changed while the pass waits, with a job still on, keeps the wait, and the pass runs once on the fresh file when the gate clears (the jobs that are off
 // do not run).
 func TestAJobStillOnKeepsTheWaitingPass(t *testing.T) {
 	off := false

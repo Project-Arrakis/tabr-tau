@@ -175,8 +175,8 @@ var watchTicks = func(every time.Duration) (<-chan time.Time, func()) {
 // of the file, the integrity check, the encode and its round trip, the backup and the temp file, and on a large save any one of these can by itself take longer than observeGap;
 // a gate asked once after them would be the first evaluation after a gap, start the watch again and refuse every time, so the edits would never be written while a game process
 // exists (#821). The answers are not used: each evaluation is only the observation that keeps the watch unbroken, and the gates that decide (before the backup, before the
-// rename) are asked as before. passOnly is the rule the queue is written under, taken by the caller under the save's lock.
-func (s *Save) keepWatching(passOnly bool) (stop func()) {
+// rename) are asked as before.
+func (s *Save) keepWatching() (stop func()) {
 	quit, done := make(chan struct{}), make(chan struct{})
 	every := watchEvery
 	go func() {
@@ -188,7 +188,7 @@ func (s *Save) keepWatching(passOnly bool) (stop func()) {
 			case <-quit:
 				return
 			case <-ticks:
-				s.gateFor(passOnly)
+				s.gate()
 			}
 		}
 	}()

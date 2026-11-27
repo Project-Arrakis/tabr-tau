@@ -204,7 +204,7 @@ func TestZeroDelayRunsAtOnce(t *testing.T) {
 	}
 }
 
-// The countdown does not loosen the gate: right after leaving the world the pass that the countdown starts still waits and writes nothing; at the menu, long after, it still waits for the game to close (#499, #612).
+// The countdown does not loosen the gate: right after leaving the world the pass that the countdown starts still waits and writes nothing; at the menu, long after, it runs (#499).
 func TestTheCountdownKeepsTheGameRule(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	restore := save.GameJustLeftWorldForTests()
@@ -216,20 +216,15 @@ func TestTheCountdownKeepsTheGameRule(t *testing.T) {
 	nothingWritten(t, s, dir, before)
 }
 
-// #612: at the menu, with the game open, the pass the countdown starts waits for the game to close (nobody watches it); it writes nothing, and it runs when the game closes.
-func TestTheCountdownWaitsAtTheMenuWithTheGameOpen(t *testing.T) {
+func TestTheCountdownRunsThePassAtTheMenuWithTheGameOpen(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-	restore := save.GameAtMenuForTests()
+	defer save.GameAtMenuForTests()()
 	before := fileBytes(t, s)
 	s.ScheduleLaunchPass(shortDelay, false)
 	launchState(t, s)
-	waitUntil(t, "the pass to be held back", func() bool { return isWaiting(s) })
-	nothingWritten(t, s, dir, before)
-	restore() // the game closes
-	s.retryWaitingPass()
 	waitUntil(t, "the pass to write", func() bool { return len(logLines(t, dir)) == 1 })
 	if bytes.Equal(before, fileBytes(t, s)) || isWaiting(s) {
-		t.Fatal("the pass did not run once the game closed")
+		t.Fatal("the pass did not run at the menu")
 	}
 }
 

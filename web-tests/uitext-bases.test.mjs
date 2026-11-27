@@ -76,16 +76,22 @@ test('Automatic refill card: the waiting line is drawn only while the master swi
   ui.dom.window.close();
 });
 
-test('Automatic refill card: the button title and the About text say that a blocked pass waits for the game to be closed (#1135)', async () => {
+test('Automatic refill card: the button title, the About text and the turn-on question say that a blocked pass waits for the save, not for the game to be closed (#1135, #499)', async () => {
   const ui = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs() } });
   await bases(ui);
   const now = ui.doc.querySelector('[data-act="autoNow"]').getAttribute('title');
-  assert.ok(now.includes('queued') && now.includes('once the game is closed'), now);
-  assert.ok(!now.includes('waits for the same thing'), 'the old sentence is gone');
+  assert.ok(now.includes('queued') && now.includes('runs by itself once the save is free'), now);
+  assert.ok(!now.includes('game is closed'), 'the pass does not wait for the game to close');
   const about = ui.doc.querySelector('details[data-about="bases.autorefill"]').textContent;
-  assert.ok(about.includes('runs by itself once the game is closed and the save is free'), 'the About text');
-  assert.ok(!about.includes('with the game still open'), 'a queued pass no longer runs with the game open');
+  assert.ok(about.includes('runs by itself once the save is free') && about.includes('it runs with the game still open'), 'the About text');
+  assert.ok(!about.includes('game is closed'), 'the pass does not wait for the game to close');
   ui.dom.window.close();
+  const off = await boot({ get: { '/api/bases/list': BASE7, '/api/settings': prefs({ autoRefillOnOpen: false }) } });
+  await bases(off);
+  off.click('[data-act="autoref"]'); await off.settle();
+  const ask = off.doc.querySelector('#ask').textContent;
+  assert.ok(ask.includes('with no world loaded, it runs with the game still open') && !ask.includes('game has closed'), ask);
+  off.dom.window.close();
 });
 
 test('Land claim editor: the how-to and the orientation are in About this; the bypass warning is drawn only while cells are chosen; the legend and the pending state stay', async () => {

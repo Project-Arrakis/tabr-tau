@@ -7,42 +7,22 @@ import (
 	"time"
 )
 
-// #612, the edit of the automatic pass: nobody watches it, so it is held to the unattended rule wherever it is written from. If the pass's own Flush is refused (the game started
-// meanwhile) the edit stays queued, and neither the next tick of the autosave nor a restart that restores it from the journal may write it while a game process exists.
-func TestAQueuedPassEditIsNeverWrittenWhileAGameProcessExists(t *testing.T) {
+// #499, the operator's rule (docs/decisions/2026-11-27-menu-is-writable-for-every-write.md): the edit of the automatic pass has the gate of an edit made by hand, no stricter and
+// no weaker. A queue that holds nothing else, put back from the journal after a restart, is not written during a single-player session, inside any of the waits after one, or while a
+// check cannot be made; at the menu it is written with the game process still there. A finding that asks for the pass to wait until the game process is gone is to be rejected.
+func TestARestoredPassOnlyQueueHasTheGateOfAnEditMadeByHand(t *testing.T) {
 	p := makeSave(t, `create table t(a integer);`)
 	setAge(t, p, time.Hour)
 	dir := t.TempDir()
 	s := openJournaled(t, p, dir)
 	orig, _ := os.ReadFile(p)
 	gateStubs(t)
-	statusFor = func(string) (spStatus, error) {
-		return spStatus{EndedAt: time.Now().Add(-time.Hour), LastSaveAt: time.Now().Add(-time.Hour + 5*time.Second)}, nil
-	}
-	fileTimeFor = func(string) (time.Time, bool, error) { return time.Now().Add(-time.Hour), false, nil }
-	t.Cleanup(func() { forgetOwnWrite(p) })
-
-	// the same state of the game lets a hand edit through: this is the gate of an edit made by hand
-	if g := GameStateFor(p, true); g.Blocked {
-		t.Fatalf("the game at its menu must let a hand edit through here: %+v", g)
-	}
+	oldObs := observeQuietFor
+	t.Cleanup(func() { observeQuietFor = oldObs; forgetOwnWrite(p); forgetObserved(p) })
 	if _, err := s.Mutate(AutoPassDesc+": 1 Water Cistern", func(m *Mut) error { _, err := m.Exec(`insert into t values (1)`); return err }); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 3; i++ { // the ticks of the autosave
-		if f := s.Flush(); f.Saved || !strings.Contains(f.Why, "until the game is closed") {
-			t.Fatalf("tick %d: the pass's edit was not held back: %+v", i, f)
-		}
-	}
-	if _, err := s.CommitForTests(); err == nil || !strings.Contains(err.Error(), "until the game is closed") {
-		t.Fatalf("a commit of the pass's edit with the game open: %v", err)
-	}
-	if now, _ := os.ReadFile(p); string(now) != string(orig) {
-		t.Fatal("the pass's edit was written with the game open")
-	}
-
-	// a restart restores the edit from the journal; it is still the pass's edit
-	s.Close()
+	s.Close() // a restart restores the edit from the journal
 	s2 := openJournaled(t, p, dir)
 	if r, err := s2.RestoreJournal(); err != nil || r == nil || r.Applied != 1 {
 		t.Fatalf("restore: %+v %v", r, err)
@@ -50,31 +30,62 @@ func TestAQueuedPassEditIsNeverWrittenWhileAGameProcessExists(t *testing.T) {
 	if got := s2.Pending(); len(got) != 1 || !strings.HasPrefix(got[0], AutoPassDesc) {
 		t.Fatalf("pending after the restart: %v", got)
 	}
-	if f := s2.Flush(); f.Saved || !strings.Contains(f.Why, "until the game is closed") {
-		t.Fatalf("a restored pass edit was written under the gate of a hand edit: %+v", f)
+
+	// the game open at its menu: it left the world an hour ago, wrote once just after, and nothing holds the file
+	log := func(ended, wrote time.Duration) {
+		st := spStatus{EndedAt: time.Now().Add(-ended), LastSaveAt: time.Now().Add(-wrote)}
+		statusFor = func(string) (spStatus, error) { return st, nil }
 	}
-	if now, _ := os.ReadFile(p); string(now) != string(orig) {
-		t.Fatal("the restored pass edit was written with the game open")
+	fileAge := func(age time.Duration) {
+		fileTimeFor = func(string) (time.Time, bool, error) { return time.Now().Add(-age), false, nil }
+	}
+	atMenu := func() {
+		listProcs = func(bool) ([]string, string) { return duneProc, "" }
+		log(time.Hour, time.Hour-5*time.Second)
+		fileAge(time.Hour)
+		fileHeld = func(string) (bool, error) { return false, nil }
+		observeQuietFor = 0
+	}
+	for _, w := range []struct {
+		name, why string
+		set       func()
+	}{
+		{"a single-player session", "a single-player session is active", func() { statusFor = func(string) (spStatus, error) { return spStatus{Active: true}, nil } }},
+		{"left the world 23 s ago (#419)", "the game saved ", func() { log(23*time.Second, 20*time.Second) }},
+		{"inside the 60 s after the last write", "the game saved ", func() { log(45*time.Second, 40*time.Second) }},
+		{"no end seen, a write 2 minutes ago", "the game saved ", func() {
+			wrote := time.Now().Add(-2 * time.Minute)
+			statusFor = func(string) (spStatus, error) { return spStatus{LastSaveAt: wrote}, nil }
+		}},
+		{"no write after the end, 5 minutes ago", "you left the world", func() { log(5*time.Minute, 5*time.Minute+10*time.Second) }},
+		{"the file changed 20 s ago", "the save file changed", func() { fileAge(20 * time.Second) }},
+		{"the watch has only just started", "only just started watching", func() { observeQuietFor = menuQuietAfterWrite; forgetObserved(p) }},
+		{"another program holds the file", "has the save file open", func() { fileHeld = func(string) (bool, error) { return true, nil } }},
+		{"the log cannot be read", "its log cannot be read", func() { statusFor = func(string) (spStatus, error) { return spStatus{}, os.ErrPermission } }},
+		{"the process list cannot be read", "could not check whether the game is running", func() { listProcs = func(bool) ([]string, string) { return nil, "boom" } }},
+	} {
+		atMenu()
+		w.set()
+		if f := s2.Flush(); f.Saved || !strings.Contains(f.Why, w.why) {
+			t.Fatalf("%s: the restored pass edit was not held back: %+v", w.name, f)
+		}
+		if _, err := s2.CommitForTests(); err == nil || !strings.Contains(err.Error(), w.why) {
+			t.Fatalf("%s: a commit of the restored pass edit: %v", w.name, err)
+		}
+		if now, _ := os.ReadFile(p); string(now) != string(orig) || !s2.Dirty() {
+			t.Fatalf("%s: the pass's edit was written", w.name)
+		}
 	}
 
-	// a person at the page makes an edit of their own: the queue is a hand queue, and the pass's edit goes with it
-	if _, err := s2.Mutate("hand edit", func(m *Mut) error { _, err := m.Exec(`insert into t values (2)`); return err }); err != nil {
-		t.Fatal(err)
+	atMenu()
+	if g := GameStateFor(p, true); g.Blocked || g.Mode != "menu" || len(g.Processes) != 1 {
+		t.Fatalf("the game at its menu: %+v", g)
 	}
 	if f := s2.Flush(); !f.Saved {
-		t.Fatalf("a queue with a hand edit has the gate of a hand edit: %+v", f)
+		t.Fatalf("with the game open at its menu the restored pass edit must be written: %+v", f)
 	}
-
-	// and with the game closed the pass's edit alone is written
-	if _, err := s2.Mutate(AutoPassDesc+": again", func(m *Mut) error { _, err := m.Exec(`insert into t values (3)`); return err }); err != nil {
-		t.Fatal(err)
-	}
-	if f := s2.Flush(); f.Saved {
-		t.Fatalf("still open: %+v", f)
-	}
-	listProcs = func(bool) ([]string, string) { return nil, "" }
-	if f := s2.Flush(); !f.Saved {
-		t.Fatalf("with the game closed the pass's edit must be written: %+v", f)
+	if now, _ := os.ReadFile(p); string(now) == string(orig) || s2.Dirty() {
+		t.Fatal("the file does not hold the pass's edit")
 	}
 }
 

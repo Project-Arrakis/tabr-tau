@@ -112,7 +112,7 @@ Limits: ten exits from one computer in three days; one of them had two writes, s
 
 ## Not changed
 
-A world in play is never written. The automatic pass at launch used the stricter rule (no Dune process at all) until #499, had this one from #499 to #612, and has the stricter one again since #612 (unattended: it also waits for every game process to be gone); a pass a person starts with **Run the automatic pass now** has this one when it runs at once; if this rule blocks it, it is queued and runs later under the stricter unattended rule (#1135). The 3-minute and 6-minute waits remain for the cases above. The
+A world in play is never written. Every write has this rule, the automatic pass included: at launch, on its retries, as a queued edit and when started with **Run the automatic pass now** (queued and run later when this rule blocks it, #1135). The stricter rule for the pass (no Dune process at all), which it had until #499 and again from #612, is gone (`docs/decisions/2026-11-27-menu-is-writable-for-every-write.md`). The 3-minute and 6-minute waits remain for the cases above. The
 #419 case (a write 23 seconds after leaving the world, 20 seconds after the game's last write) is still refused: 23 s after the end is before the 30 s grace.
 
 ## In-game check for the operator

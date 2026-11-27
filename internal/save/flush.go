@@ -72,7 +72,6 @@ func (s *Save) Flush() Flush {
 	unverified := s.writing != ""
 	held := s.held
 	dirty, n, blocked := s.dirty, len(s.ops), s.blocked
-	passOnly := s.onlyPassEditsLocked() // the gate below is asked without the lock: the answer to this is taken here (installBlob asks again under it)
 	if held != nil {
 		dirty, n = true, len(held.ops)
 	}
@@ -96,7 +95,7 @@ func (s *Save) Flush() Flush {
 		f.Why = errReadOnly(blocked).Error()
 		return s.setLastFlush(f)
 	}
-	if blocked, why := s.gateFor(passOnly); blocked {
+	if blocked, why := s.gate(); blocked {
 		f.Why = why
 		return s.setLastFlush(f)
 	}

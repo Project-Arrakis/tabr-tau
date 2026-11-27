@@ -51,7 +51,7 @@ func TestCancelDuringARetryIsNotUndoneByTheGameRelaunching(t *testing.T) {
 	var restoreGame func()
 	s.afterReload = func() {
 		s.cancelWaitingPass()
-		restoreGame = save.GameAtMenuForTests() // the game starts again before the pass looks
+		restoreGame = save.ActiveSessionForTests() // the game loads a world again before the pass looks
 	}
 	s.retryWaitingPass()
 	if restoreGame != nil {

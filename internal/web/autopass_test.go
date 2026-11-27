@@ -200,48 +200,17 @@ func TestAutoPassWritesNothingDuringASinglePlayerSession(t *testing.T) {
 	}
 }
 
-// #612 (G-007): the pass has the gate of an edit made by hand AND waits for every game process, because nobody watches it and the log is the one thing that says a world is
-// loaded. With the game open at its menu, long after the player left the world (the gate of an edit made by hand lets a write through), the pass waits and writes nothing;
-// when the game closes it runs.
-func TestAutoPassWaitsWhileTheGameIsOpenAtTheMenuAndRunsWhenItCloses(t *testing.T) {
-	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-	before, _ := os.ReadFile(s.Save.Path)
-	restore := save.GameAtMenuForTests()
-	if g := save.GameStateFor(s.Save.Path, true); g.Blocked {
-		t.Fatalf("the gate of an edit made by hand must let a write through here: %+v", g)
-	}
-	s.RunStartupTasks()
-	note, warn := s.takeStartup()
-	if warn || !strings.Contains(note, "Automatic refill queued: the game is open") || !strings.Contains(note, "until the game is closed") || !strings.Contains(note, "It runs by itself") {
-		t.Fatalf("note %q warn %v", note, warn)
-	}
-	if !isWaiting(s) {
-		t.Fatal("the pass should be waiting")
-	}
-	if w := postEditGet(t, s, "/api/settings"); !strings.Contains(w, `"waiting":true`) || !strings.Contains(w, `"waitingWhy":"the game is open`) {
-		t.Fatalf("the card must carry the reason: %s", w)
-	}
-	s.retryWaitingPass() // the game is still open: nothing happens, however often it is retried
-	s.retryWaitingPass()
-	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 || !isWaiting(s) {
-		t.Fatal("the pass wrote while the game was open")
-	}
-	restore() // the game closes
-	s.retryWaitingPass()
-	if note, _ := s.takeStartup(); !strings.Contains(note, "Automatic refill saved ") {
-		t.Fatalf("after the game closed the pass should run: %q", note)
-	}
-	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) || got["gear"] != 100.0 {
-		t.Fatalf("the written file: %v", got)
-	}
-}
-
-// #612: a pass asked for by hand ("Run the automatic pass now") has a person looking, so it keeps the gate of an edit made by hand: with the game open at its menu it runs.
-func TestAutoPassAskedForByHandRunsAtTheMenuWithTheGameOpen(t *testing.T) {
+// #499, the operator's rule (docs/decisions/2026-11-27-menu-is-writable-for-every-write.md): the pass has the gate of an edit made by hand. With the game open at its menu, long
+// after the player left the world (the game wrote once more just after the exit and has been silent since), the pass at launch runs at once and the game stays open. A finding
+// that asks for the pass to wait until the game process is gone is to be rejected.
+func TestAutoPassRunsAtTheMenuWithTheGameOpen(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	before, _ := os.ReadFile(s.Save.Path)
 	defer save.GameAtMenuForTests()()
-	s.RunPassNow()
+	if g := save.GameStateFor(s.Save.Path, true); g.Blocked || len(g.Processes) == 0 {
+		t.Fatalf("the fixture is a game process at its menu, which the gate lets through: %+v", g)
+	}
+	s.RunStartupTasks()
 	note, warn := s.takeStartup()
 	if warn || !strings.Contains(note, "Automatic refill saved ") || strings.Contains(note, "queued") {
 		t.Fatalf("note %q warn %v", note, warn)
@@ -252,11 +221,14 @@ func TestAutoPassAskedForByHandRunsAtTheMenuWithTheGameOpen(t *testing.T) {
 	if after, _ := os.ReadFile(s.Save.Path); bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 1 || len(logLines(t, dir)) != 1 {
 		t.Fatal("the pass did not write once at the menu")
 	}
+	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) || got["gear"] != 100.0 {
+		t.Fatalf("the written file: %v", got)
+	}
 }
 
 // #419, #499: the pass ran at the character-selection screen 23 seconds after the player left the world and wrote the save. In that grace (the game wrote its database 20
 // seconds ago, the session ended 23 seconds ago) the pass writes nothing and queues nothing, and the banner and the card say what is waited for in the words of an edit made
-// by hand, not "the game is open". It runs on the freshly read file once the game is closed (#612: the pass at launch waits for every game process).
+// by hand, not "the game is open". It runs on the freshly read file as soon as the gate lets a write through, with the game still open.
 func TestAutoPassWaitsInTheGraceAfterLeavingTheWorldAndRunsWhenItEnds(t *testing.T) {
 	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
 	before, _ := os.ReadFile(s.Save.Path)
@@ -282,15 +254,10 @@ func TestAutoPassWaitsInTheGraceAfterLeavingTheWorldAndRunsWhenItEnds(t *testing
 		t.Fatal("the retry wrote inside the grace")
 	}
 	restore()
-	restoreMenu := save.GameAtMenuForTests() // the grace is over: the game is still open, at its menu, and the pass still waits for it to close (#612)
-	s.retryWaitingPass()
-	if note, _ := s.takeStartup(); note != "" || !isWaiting(s) {
-		t.Fatalf("after the grace the pass must go on waiting while the game is open: %q", note)
-	}
-	restoreMenu() // the game closes
+	defer save.GameAtMenuForTests()() // the grace is over: the game is still open, at its menu
 	s.retryWaitingPass()
 	if note, _ := s.takeStartup(); !strings.Contains(note, "Automatic refill saved ") {
-		t.Fatalf("after the game closed the pass should run: %q", note)
+		t.Fatalf("after the grace the retry should run the pass with the game still open: %q", note)
 	}
 	if isWaiting(s) {
 		t.Fatal("the pass ran, so it is no longer waiting")
@@ -373,33 +340,102 @@ func TestAutoPassFillsNumericHydrationAsANumber(t *testing.T) {
 	}
 }
 
-// #612: the pass's own Flush can be refused after the pass has queued its edit (the game was started meanwhile, the rename was held, there was no room). The edit then stays
-// queued, and the next ticks of the autosave must not write it while a game process exists, however the game looks in its log. It is written once the game is closed.
-func TestAQueuedPassEditIsNotWrittenByTheAutosaveWhileTheGameIsOpen(t *testing.T) {
-	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
-	before, _ := os.ReadFile(s.Save.Path)
-	pass, err := s.Ops.RunAutoPass(func(ops.AutoJob) bool { return true }) // the edit is made and queued; the pass's own Flush is not called: it was refused
+// The two states of a running game that hold every write back: a world is loaded, and the grace after leaving it.
+var gameHoldsTheSave = []struct {
+	name, why string
+	set       func() func()
+}{
+	{"a single-player session", "a single-player session is active", save.ActiveSessionForTests},
+	{"the grace after leaving the world", "the game saved 20 seconds ago", save.GameJustLeftWorldForTests},
+}
+
+// queuePassEdit makes the edit of the automatic pass and leaves it queued, as when the pass's own Flush is refused (a session began meanwhile, the rename was held, no room).
+func queuePassEdit(t *testing.T, s *Server) {
+	t.Helper()
+	pass, err := s.Ops.RunAutoPass(func(ops.AutoJob) bool { return true })
 	if err != nil || !pass.Changed {
 		t.Fatalf("the pass: %+v %v", pass, err)
 	}
 	if got := s.Save.Pending(); len(got) != 1 || !strings.HasPrefix(got[0], save.AutoPassDesc) {
 		t.Fatalf("pending: %v", got)
 	}
-	restore := save.GameAtMenuForTests() // the game is open, at its menu: the gate of an edit made by hand would let a write through
-	for i := 0; i < 3; i++ {             // the ticks of RunAutosave
-		if res := s.Save.Flush(); res.Saved || !strings.Contains(res.Why, "until the game is closed") {
-			t.Fatalf("tick %d wrote or did not say why not: %+v", i, res)
+}
+
+// autosaveTicksHoldThenWrite runs the ticks of RunAutosave on a queue that holds only the pass's edit: nothing is written during a session or inside the grace, and the next tick
+// with the game open at its menu writes it (#499).
+func autosaveTicksHoldThenWrite(t *testing.T, s *Server, dir string) {
+	t.Helper()
+	before, _ := os.ReadFile(s.Save.Path)
+	for _, g := range gameHoldsTheSave {
+		restore := g.set()
+		for i := 0; i < 3; i++ {
+			if res := s.Save.Flush(); res.Saved || !strings.Contains(res.Why, g.why) {
+				t.Fatalf("%s, tick %d wrote or did not say why not: %+v", g.name, i, res)
+			}
+			s.retryWaitingPass()
 		}
-		s.retryWaitingPass()
+		restore()
+		if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || !s.Save.Dirty() || len(logLines(t, dir)) != 0 {
+			t.Fatalf("%s: the queued pass edit was written", g.name)
+		}
 	}
-	if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || !s.Save.Dirty() || len(logLines(t, dir)) != 0 {
-		t.Fatal("the queued pass edit was written while the game was open")
-	}
-	restore() // the game closes
+	defer save.GameAtMenuForTests()()
 	if res := s.Save.Flush(); !res.Saved {
-		t.Fatalf("with the game closed the queued pass edit must be written: %+v", res)
+		t.Fatalf("with the game open at its menu the queued pass edit must be written: %+v", res)
 	}
-	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) {
+	if got := autoPassFile(t, s.Save.Path); got["water"] != int64(5000) || len(logLines(t, dir)) != 1 {
 		t.Fatalf("the written file: %v", got)
+	}
+}
+
+// #499: a pass edit left in the queue is written by the autosave under the gate of an edit made by hand.
+func TestAQueuedPassEditIsWrittenByTheAutosaveAtTheMenu(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	queuePassEdit(t, s)
+	autosaveTicksHoldThenWrite(t, s, dir)
+}
+
+// #499: the same for a queue of only the pass's edit that a restart restores from the journal.
+func TestAPassOnlyQueueRestoredFromTheJournalIsWrittenAtTheMenu(t *testing.T) {
+	s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+	queuePassEdit(t, s)
+	path := s.Save.Path
+	s.Save.Close() // the editor closes with the edit queued
+	reopened, err := save.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(reopened.Close)
+	s2 := New(reopened, config.Dir{Path: t.TempDir()})
+	s2.SettingsPath = s.SettingsPath
+	restore := save.ActiveSessionForTests()
+	s2.KeepPendingEdits(dir)
+	restore()
+	if got := s2.Save.Pending(); len(got) != 1 || !strings.HasPrefix(got[0], save.AutoPassDesc) {
+		t.Fatalf("pending after the restart: %v", got)
+	}
+	autosaveTicksHoldThenWrite(t, s2, dir)
+}
+
+// #499: neither the pass at launch nor its retries write during a session or inside the grace; the first retry with the game open at its menu does.
+func TestThePassAtLaunchAndItsRetriesWriteNothingWhileTheGameHoldsTheSave(t *testing.T) {
+	for _, g := range gameHoldsTheSave {
+		s, dir := autoServer(t, autoPassSQL, settings.Settings{AutoRefillOnOpen: true})
+		before, _ := os.ReadFile(s.Save.Path)
+		restore := g.set()
+		s.RunStartupTasks()
+		for i := 0; i < 3; i++ {
+			s.retryWaitingPass()
+		}
+		restore()
+		if after, _ := os.ReadFile(s.Save.Path); !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 || !isWaiting(s) {
+			t.Fatalf("%s: the pass wrote, queued an edit or stopped waiting", g.name)
+		}
+		restoreMenu := save.GameAtMenuForTests()
+		s.retryWaitingPass()
+		restoreMenu()
+		if isWaiting(s) || len(logLines(t, dir)) != 1 {
+			t.Fatalf("%s: the retry at the menu did not run the pass", g.name)
+		}
 	}
 }

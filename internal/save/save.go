@@ -739,7 +739,7 @@ func (s *Save) commit(quick bool) (map[string]any, error) {
 	}
 	// The gate is evaluated every watchEvery from here until the write returns, so that the watch of the save file stays unbroken however long any one of the steps below takes
 	// (#821): a watch that has not been asked again in more than observeGap starts over, and the gate before the rename would refuse after the work was done.
-	defer s.keepWatching(s.onlyPassEditsLocked())()
+	defer s.keepWatching()()
 	if !quick { // the automatic write made this check in Flush and makes it again below, after the encode; installBlob makes it again right before the rename
 		if blocked, why := s.gate(); blocked {
 			return nil, apierr.New(apierr.ErrGameBlocked, why)

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/Project-Arrakis/tabr-tau/internal/apierr"
@@ -300,61 +299,17 @@ func inspect(raw []byte) (map[string]bool, error) {
 	return out, stopped(ctx, inspectTimeout, rs.Err())
 }
 
-// AutoPassDesc is the name of the edit the automatic pass makes (the description of its entry in the queue). The gate reads it: a queue made only of such edits is held to the
-// rule of an unattended write (#612).
+// AutoPassDesc is the name of the edit the automatic pass makes (the description of its entry in the queue and of its line in the write log). The gate does not read it: every
+// edit is held to the same rule (#499).
 const AutoPassDesc = "automatic pass"
 
-// PassByHandDesc is the name of the edit of a pass a person asked for. It does not begin with AutoPassDesc: a person is looking, so it has the gate of an edit made by hand.
+// PassByHandDesc is the name of the edit of a pass a person asked for that ran at once, so the queue and the write log tell it from a pass that was not.
 const PassByHandDesc = "run by hand: automatic pass"
 
-// onlyPassEditsLocked says whether every queued edit (the held queue, when one is held) is the automatic pass's. The caller holds s.mu. An empty queue is not.
-func (s *Save) onlyPassEditsLocked() bool {
-	var descs []string
-	if s.held != nil {
-		for _, o := range s.held.ops {
-			descs = append(descs, o.Desc)
-		}
-	} else {
-		for _, o := range s.ops {
-			descs = append(descs, o.Desc)
-		}
-	}
-	if len(descs) == 0 {
-		return false
-	}
-	for _, d := range descs {
-		if !strings.HasPrefix(d, AutoPassDesc) {
-			return false
-		}
-	}
-	return true
-}
-
-// gate is the one question every route to the save file asks right before it writes: may the game's file be replaced now? It is GameStateFor for an edit made by hand, and
-// UnattendedStateFor (which also waits for every game process) when the queue holds nothing but the automatic pass's own edit: nobody watches that write, wherever it is made
-// from (the pass itself, the next tick of the autosave, a queue restored from the journal after a restart) (#612, #499). The caller holds s.mu (installBlob and commit do); Flush,
-// which does not, takes the answer of onlyPassEditsLocked under the lock and calls gateFor. A mistaken name only gets the stricter rule, the safe direction; a hand edit queued
-// with the pass's edit makes the queue a hand queue, because a person is then at the page.
-func (s *Save) gate() (bool, string) { return s.gateFor(s.onlyPassEditsLocked()) }
-
-// GateState is the answer the page shows (the status it polls, the overview, Check again): the rule the queue will actually be written under. A queue made only of the automatic
-// pass's edit waits for every game process (UnattendedStateFor); any other queue, or none, has the rule of an edit made by hand (GameStateFor). Asked this way the page and the
-// write agree: with the game open at its menu a pass-only queue is shown as blocked, with the reason the write will give, instead of "edits are written at once" (#819).
-// fresh bypasses the process cache, as in GameStateFor.
-func (s *Save) GateState(fresh bool) GameState {
-	s.mu.Lock()
-	passOnly := s.onlyPassEditsLocked()
-	s.mu.Unlock()
-	if passOnly {
-		return UnattendedStateFor(s.Path, fresh)
-	}
-	return GameStateFor(s.Path, fresh)
-}
-
-func (s *Save) gateFor(passOnly bool) (bool, string) {
+// gate is the one question every route to the save file asks right before it writes: may the game's file be replaced now? It is GameStateFor, whatever is queued and wherever the
+// write comes from (an edit made by hand, the automatic pass, the next tick of the autosave, a queue restored from the journal after a restart) (#499). The status the page
+// shows and Check again ask GameStateFor too, so what the page says and what the write does agree (#819).
+func (s *Save) gate() (bool, string) {
 	g := GameStateFor(s.Path, true)
-	if passOnly {
-		g = UnattendedStateFor(s.Path, true)
-	}
 	return g.Blocked, g.Reason
 }

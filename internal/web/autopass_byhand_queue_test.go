@@ -12,8 +12,8 @@ import (
 
 // #1135: "Run the automatic pass now" while the gate of an edit made by hand blocks a write used to answer in red "was not run ... Run it again once that clears", although the page
 // says that changes made now are queued and every other edit by hand queues. It now queues the same way the pass at launch does (autoWaiting), says one short line, and runs by
-// itself on the file as the game left it once the check clears. A pass that is queued has nobody watching when it runs, so it has the rules of the pass at launch (it waits for
-// every game process, and it is written as "automatic pass", not as "run by hand"). A by-hand pass the gate lets through is unchanged.
+// itself on the file as the game left it once the check clears, with the game still open at its menu (#499). A pass that was queued is written as "automatic pass", not as "run by
+// hand". A by-hand pass the gate lets through is unchanged.
 
 const queuedByHandLine = "Queued: runs by itself when the save is free."
 
@@ -52,15 +52,10 @@ func TestQueuedByHandPassRunsOnceTheGateClearsAndNotBefore(t *testing.T) {
 		t.Fatal("the retry wrote inside the grace")
 	}
 	restore()
-	restoreMenu := save.GameAtMenuForTests() // the game is still open, at its menu: the gate of a by-hand edit would let a write through, but nobody is watching this one
-	s.retryWaitingPass()
-	if after := fileBytes(t, s); !bytes.Equal(before, after) || s.Save.Dirty() || len(s.Save.Backups()) != 0 || len(logLines(t, dir)) != 0 || !isWaiting(s) {
-		t.Fatal("the queued pass wrote while a game process existed: it must have the rules of the pass at launch")
-	}
-	restoreMenu() // the game closes
+	defer save.GameAtMenuForTests()() // the game is still open, at its menu: the gate lets a write through (#499)
 	s.retryWaitingPass()
 	if note, _ := s.takeStartup(); !strings.Contains(note, "Automatic refill saved ") {
-		t.Fatalf("after the game closed the pass should run: %q", note)
+		t.Fatalf("at the menu the queued pass should run with the game still open: %q", note)
 	}
 	if isWaiting(s) {
 		t.Fatal("the pass ran, so it no longer waits")
@@ -70,7 +65,7 @@ func TestQueuedByHandPassRunsOnceTheGateClearsAndNotBefore(t *testing.T) {
 	}
 	lines := logLines(t, dir)
 	if len(lines) != 1 || !strings.Contains(lines[0], "automatic pass") || strings.Contains(lines[0], "run by hand") {
-		t.Fatalf("the queued pass is written as the unattended pass: %v", lines)
+		t.Fatalf("the queued pass is written under the name of the pass at launch: %v", lines)
 	}
 	s.retryWaitingPass() // nothing waits any more: it must not run twice
 	if len(logLines(t, dir)) != 1 {
