@@ -170,8 +170,8 @@ func (o *Ops) RunAutoPass(on func(AutoJob) bool) (AutoPass, error) {
 	return o.runAutoJobs(save.AutoPassDesc, AutoJobs(), on)
 }
 
-// RunAutoPassByHand is RunAutoPass for a pass a person asked for ("Run the automatic pass now"): the edit is named so that the write gate treats it as an edit made by hand,
-// not as the unattended pass (save.AutoPassDesc), because a person is looking at the page.
+// RunAutoPassByHand is RunAutoPass for a pass a person asked for ("Run the automatic pass now") that runs at once: only the name of the edit differs (save.PassByHandDesc
+// instead of save.AutoPassDesc), so the queue and the write log tell the two apart. The write rules are the same for both (#499).
 func (o *Ops) RunAutoPassByHand(on func(AutoJob) bool) (AutoPass, error) {
 	return o.runAutoJobs(save.PassByHandDesc, AutoJobs(), on)
 }

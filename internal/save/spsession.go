@@ -296,6 +296,9 @@ var (
 
 // GameStateFor decides for the save at savePath. fresh bypasses the process cache (writes use it).
 // Anything it cannot establish blocks the write: a guess must not decide.
+//
+// It is the one gate of every write, whoever or whatever asked for it: an edit made by hand, the automatic refill and repair pass, its retries and a queue restored from the
+// journal (#499; docs/decisions/2026-11-27-menu-is-writable-for-every-write.md). A running game process alone is never a reason to wait.
 func GameStateFor(savePath string, fresh bool) GameState {
 	// A file the game could not have loaded is not protected by the game's state (#498): no process list, no log, no wait. The location rule below still applies to it.
 	if !IsGamesOwnSave(savePath) {
@@ -311,20 +314,6 @@ func GameStateFor(savePath string, fresh bool) GameState {
 			Reason: why + ", so this computer cannot tell whether the game is using it (here or on another computer); confirm that the game is closed everywhere that can open this save to allow saving"}
 	}
 	return g
-}
-
-// UnattendedStateFor is GameStateFor for a write that nobody is watching: the automatic pass at launch and its retries (#612, G-007). An edit made by hand has a person who
-// sees the banner and can stop; the pass has not, and the one input that decides "a world is loaded" is text in the game's log. So the pass does not rely on the log alone:
-// while any game process exists it waits, whatever the log and the file say, and runs once the game is closed (as before #499). With no process the answer is GameStateFor's.
-// A save that is not the game's own has no game process to ask and is answered as GameStateFor does.
-func UnattendedStateFor(savePath string, fresh bool) GameState {
-	g := GameStateFor(savePath, fresh)
-	if g.Blocked || len(g.Processes) == 0 {
-		return g
-	}
-	return GameState{Blocked: true, Mode: "game_running", Processes: g.Processes,
-		Reason: "the game is open, so the automatic pass waits until the game is closed" + QueuedUntilClears,
-		Detail: "the game is open, and the automatic pass runs without anyone watching, so it waits until the game is closed (it does not rely on the game's log alone to tell that no world is loaded)" + QueuedUntilClears}
 }
 
 // copyState is GameStateFor for a save that is not the game's own (#498): the game's processes, log and handle are not asked, because the game does not open this file, so

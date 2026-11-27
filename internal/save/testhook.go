@@ -60,8 +60,8 @@ func ActiveSessionForTests() (restore func()) {
 }
 
 // GameAtMenuForTests makes the editor believe a Dune process is running while the game sits at its menu: the log shows a session that ended an hour ago and the game's last write
-// of the database just after it, and no program has the save file open. An edit made by hand is written then; the automatic pass at launch is not, it waits for the game to close (#449, #499, #612). The save file counts as last written an hour ago. Test code calls it;
-// production code never does (the guard test fails if it does). It returns a function that puts the real check back.
+// of the database just after it, and no program has the save file open. Every write goes through then, an edit made by hand and the automatic pass alike (#449, #499). The save file
+// counts as last written an hour ago. Test code calls it; production code never does (the guard test fails if it does). It returns a function that puts the real check back.
 func GameAtMenuForTests() (restore func()) {
 	oldL, oldS, oldH, oldT, oldO := listProcs, statusFor, fileHeld, fileTimeFor, observeQuietFor
 	listProcs = func(bool) ([]string, string) { return []string{"DuneSandbox-Win64-Shipping.exe"}, "" }
